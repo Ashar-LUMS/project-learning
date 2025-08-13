@@ -8,7 +8,7 @@ const ServicesPage = () => (
           Our Services
         </h1>
         <p className="text-lg text-gray-600 mt-4 max-w-xl mx-auto">
-          We offer a variety of services.
+          We offer a cancer systems modeling services.
         </p>
       </CardContent>
     </Card>

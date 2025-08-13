@@ -1,12 +1,7 @@
 import { useState, useEffect } from 'react';
-import {
-    createBrowserRouter,
-    RouterProvider,
-    Link,
-    Outlet
-} from "react-router-dom";
+import {Link,Outlet} from "react-router-dom";
 import { Button } from '../components/ui/button';
-import { Home, Menu, Rocket } from 'lucide-react';
+import { Home, Menu, Rocket} from 'lucide-react';
 import { supabase } from '../supabaseClient.ts';
 
 const AppLayout = () => {
@@ -37,8 +32,8 @@ const AppLayout = () => {
             <header className="sticky top-0 z-50 bg-white shadow-md">
                 <div className="container mx-auto px-4 py-4 flex justify-between items-center">
                     <div className="flex items-center space-x-2">
-                        <Rocket className="w-8 h-8 text-blue-500" />
-                        <span className="text-2xl font-bold text-gray-900">ShadCN App</span>
+                        {/* <Rocket className="w-8 h-8 text-blue-500" /> */}
+                        <span className="text-2xl font-bold text-gray-900">TISON</span>
                     </div>
 
                     <nav className="hidden md:flex space-x-6 items-center">
@@ -130,7 +125,7 @@ const AppLayout = () => {
 
             <footer className="bg-gray-800 text-gray-300 py-6">
                 <div className="container mx-auto px-4 text-center">
-                    <p>&copy; 2025 ShadCN App. All rights reserved.</p>
+                    <p>&copy; 2025 TISON App. All rights reserved.</p>
                 </div>
             </footer>
         </div>

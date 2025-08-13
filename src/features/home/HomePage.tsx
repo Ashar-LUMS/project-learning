@@ -7,7 +7,7 @@ const HomePage = () => (
         <h1 className="text-4xl sm:text-5xl font-extrabold text-gray-900 leading-tight tracking-tight">
           Welcome to
           <span className="text-4xl sm:text-5xl font-extrabold text-blue-900 leading-tight tracking-tight">
-            {" "}BIRL's
+            {" "}BIRL's TISON
           </span>
         </h1>
         <h1 className="text-4xl sm:text-5xl font-extrabold text-gray-900 leading-tight tracking-tight">
