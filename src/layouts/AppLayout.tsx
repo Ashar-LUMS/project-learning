@@ -1,13 +1,19 @@
 import { useState, useEffect } from 'react';
-import {Link,Outlet} from "react-router-dom";
+import {Link,Outlet, useNavigate} from "react-router-dom";
 import { Button } from '../components/ui/button';
 import { Home, Menu} from 'lucide-react';
-// import { supabase } from '../supabaseClient.ts';
+import { supabase } from '../supabaseClient';
 import { useRole } from "../getRole";
 
 const AppLayout = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const navigate = useNavigate();
     const { role: userRole } = useRole();
+
+    const handleLogout = async () => {
+        await supabase.auth.signOut();
+        navigate('/');
+    };
 
     return (
         <div className="flex flex-col min-h-screen bg-gray-50 text-gray-800 font-sans antialiased">
@@ -54,9 +60,9 @@ const AppLayout = () => {
                             Admin Panel
                         </Link>
 
-                        <Link to="/" className="text-gray-600 hover:text-blue-500 transition-colors duration-200">
-                            <Button variant="outline" className="rounded-full">Logout</Button>
-                        </Link>
+                        <Button onClick={handleLogout} variant="outline" className="rounded-full text-gray-600 hover:text-blue-500">
+                            Logout
+                        </Button>
                     </nav>
 
                     <div className="md:hidden">
@@ -99,9 +105,7 @@ const AppLayout = () => {
                             >
                                 Admin Panel
                             </Link>
-                            <Link to="/">
-                                <Button className="w-full rounded-md mt-2" onClick={() => setIsMenuOpen(false)}>Logout</Button>
-                            </Link>
+                            <Button className="w-full rounded-md mt-2" onClick={() => { setIsMenuOpen(false); handleLogout(); }}>Logout</Button>
                         </div>
 
 

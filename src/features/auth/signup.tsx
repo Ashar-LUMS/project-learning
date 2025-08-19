@@ -142,7 +142,7 @@ const Signup = ({
                 type="text"
                 placeholder="Name"
                 className="text-md"
-                required
+                //required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
@@ -153,7 +153,7 @@ const Signup = ({
                 type="email"
                 placeholder="Email"
                 className="text-md"
-                required
+                //required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -164,7 +164,7 @@ const Signup = ({
                 type="password"
                 placeholder="Password"
                 className="text-md"
-                required
+                //required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
@@ -175,7 +175,7 @@ const Signup = ({
                 type="text"
                 placeholder="Role"
                 className="text-md"
-                required
+                //required
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
               />

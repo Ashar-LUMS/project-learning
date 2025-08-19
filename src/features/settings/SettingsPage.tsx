@@ -11,14 +11,17 @@ const SettingsPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   
-  // Password change state
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPasswords, setShowPasswords] = useState(false);
   
-  // Role change state
   const [newRole, setNewRole] = useState(role || '');
+
+  // Keep newRole in sync if context role changes
+  React.useEffect(() => {
+    setNewRole(role || '');
+  }, [role]);
   const [roleOptions] = useState(['User', 'Admin', 'Moderator']);
 
   const handlePasswordChange = async (e: React.FormEvent) => {

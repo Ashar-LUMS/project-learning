@@ -63,7 +63,7 @@ const handleSubmit = async (e: React.FormEvent) => {
   const result = loginSchema.safeParse({ email, password });
 
   if (result.success) {
-    setErrors({ email: 'field input accepted', password: 'field input accepted' });
+    setErrors({ email: '', password: '' });
 
     // Use Supabase to sign in
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -106,7 +106,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                 type="email"
                 placeholder="Email"
                 className="text-md"
-                required
+                //required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -116,7 +116,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                 type="password"
                 placeholder="Password"
                 className="text-md"
-                required
+                //required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
