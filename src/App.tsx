@@ -1,11 +1,15 @@
 import {RouterProvider} from "react-router-dom";
+import { RoleProvider } from "./getRole";
 import router from "./routes";
 
-
-
-
-export default function App() {
-  return <RouterProvider router={router} />;
+function App() {
+  return (
+      <RoleProvider>
+        <RouterProvider router={router} />
+      </RoleProvider>
+  );
 }
+
+export default App;
 
 

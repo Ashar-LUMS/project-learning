@@ -9,6 +9,7 @@ import AccessDenied from './components/access-denied';
 import HomePage from './features/home/HomePage';
 import AboutPage from './features/about/AboutPage';
 import ServicesPage from './features/services/ServicesPage';
+import SettingsPage from './features/settings/SettingsPage';
 
 const router = createBrowserRouter([
   {
@@ -50,6 +51,10 @@ const router = createBrowserRouter([
             <AdminPanel />
           </RequireAdmin>
         ),
+      },
+      {
+        path: "settings",
+        element: <SettingsPage />,
       },
     ],
   }

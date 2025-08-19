@@ -1,31 +1,13 @@
 import { useState, useEffect } from 'react';
 import {Link,Outlet} from "react-router-dom";
 import { Button } from '../components/ui/button';
-import { Home, Menu, Rocket} from 'lucide-react';
-import { supabase } from '../supabaseClient.ts';
+import { Home, Menu} from 'lucide-react';
+// import { supabase } from '../supabaseClient.ts';
+import { useRole } from "../getRole";
 
 const AppLayout = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [userRole, setUserRole] = useState<string | null>(null);
-
-    useEffect(() => {
-        const fetchUserRole = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const { data, error } = await supabase
-                    .from("profiles")
-                    .select("role")
-                    .eq("id", user.id)
-                    .single();
-                if (error || !data) {
-                    setUserRole(null);
-                } else {
-                    setUserRole(data.role);
-                }
-            }
-        };
-        fetchUserRole();
-    }, []);
+    const { role: userRole } = useRole();
 
     return (
         <div className="flex flex-col min-h-screen bg-gray-50 text-gray-800 font-sans antialiased">
@@ -47,6 +29,9 @@ const AppLayout = () => {
                         </Link>
                         <Link to="/app/services" className="text-gray-600 hover:text-blue-500 transition-colors duration-200">
                             Services
+                        </Link>
+                        <Link to="/app/settings" className="text-gray-600 hover:text-blue-500 transition-colors duration-200">
+                            Settings
                         </Link>
                         {/* Only show Dashboard link if user is admin 
             {userRole === "Admin" && (
@@ -97,6 +82,9 @@ const AppLayout = () => {
                             </Link>
                             <Link to="/app/services" className="block text-gray-600 hover:bg-gray-100 p-2 rounded-md transition-colors" onClick={() => setIsMenuOpen(false)}>
                                 Services
+                            </Link>
+                            <Link to="/app/settings" className="block text-gray-600 hover:bg-gray-100 p-2 rounded-md transition-colors" onClick={() => setIsMenuOpen(false)}>
+                                Settings
                             </Link>
 
                             {/* Admin Panel link always visible, but only active for Admin */}
