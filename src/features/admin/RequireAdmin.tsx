@@ -12,12 +12,8 @@ export default function RequireAdmin({ children }: { children: React.ReactNode }
         navigate("/");
         return;
       }
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-      if (error || !data || data.role !== "Admin") {
+      const role = user.user_metadata?.role as string | undefined;
+      if (role !== "Admin") {
         navigate("/app/access-denied");
       } else {
         setIsAdmin(true);
