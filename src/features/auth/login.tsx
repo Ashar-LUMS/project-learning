@@ -50,7 +50,7 @@ const Login = ({
   const [password, setPassword] = useState('');
   
   // 3. Use state to manage validation errors
-  const [errors, setErrors] = useState({ email: '', password: '' });
+  const [errors, setErrors] = useState({ email: '', password: '', general: '' });
 
   // Initialize the navigate function from React Router
   const navigate = useNavigate();
@@ -63,7 +63,7 @@ const handleSubmit = async (e: React.FormEvent) => {
   const result = loginSchema.safeParse({ email, password });
 
   if (result.success) {
-    setErrors({ email: '', password: '' });
+    setErrors({ email: '', password: '', general: '' });
 
     // Use Supabase to sign in
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -74,12 +74,20 @@ const handleSubmit = async (e: React.FormEvent) => {
     if (error) {
       // Handle Supabase errors, e.g., display a message to the user
       console.error(error.message);
-      // You could set an error state here to show a message
-      // setErrors({ ...errors, general: error.message });
+      setErrors({ email: '', password: '', general: error.message });
+      return;
     } else if (data.user) {
-      console.log("Login successful!", data.user);
+      console.log("Login successful!", data);
       navigate('/app');
     }
+  }
+  else if (result.error) {
+    const fieldErrors: { email?: string; password?: string } = {};
+    result.error.issues.forEach((issue) => {
+      if (issue.path[0] === "email") fieldErrors.email = issue.message;
+      if (issue.path[0] === "password") fieldErrors.password = issue.message;
+    });
+    setErrors({ email: fieldErrors.email || '', password: fieldErrors.password || '', general: '' });
   }
 };
 
@@ -126,6 +134,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               <Button type="submit" className="w-full">
                 {buttonText}
               </Button>
+              {errors.general && <p className="text-red-500 text-sm text-left">{errors.general}</p>}
             </form>
           </div>
           <div className="text-muted-foreground flex justify-center gap-1 text-sm">

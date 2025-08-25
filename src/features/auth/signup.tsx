@@ -80,6 +80,7 @@ const Signup = ({
         roles: fieldErrors.roles?.[0] || '',
         general: '', 
       });
+      console.log(errors);
       return; // Stop the function if validation fails
     }
 
@@ -92,20 +93,22 @@ const Signup = ({
         data: { name, roles }
       }
     });
-
+console.log(signUpData);
+console.log(signUpError);
     if (signUpError) {
       console.error("Supabase sign-up error:", signUpError.message);
       // Specific handling for "already registered" error
-  if (signUpError.message.includes("already registered")) {
+  if (signUpError.message.toLowerCase().includes("already registered")) {
     setErrors({ ...errors, general: "This email is already in use. Please log in instead." });
     return;
   }
       setErrors({ ...errors, general: signUpError.message });
+      console.log(errors);
       return;
     }
 
     // Check if the user and session are available
-    if (signUpData.user && signUpData.session) {
+    if (signUpData?.user && signUpData.session) {
       console.log("Signup successful. User ID:", signUpData.user.id);
       /*
       // Now, insert into the profile table
@@ -128,12 +131,14 @@ const Signup = ({
       navigate('/check-email');
     } else {
       // Fallback (shouldn't normally happen)
-      setErrors({ ...errors, general: "Unexpected signup state. Please try again." });
+      setErrors({ ...errors, general: "This email is already registered. Please log in instead." });
+      console.log(errors);
     }
 
   } catch (error) {
     console.error("An unexpected error occurred:", error);
     setErrors({ ...errors, general: "An unexpected error occurred. Please try again." });
+    console.log(errors);
     }
 };
   };

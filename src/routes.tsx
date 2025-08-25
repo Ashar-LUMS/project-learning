@@ -10,8 +10,11 @@ import HomePage from './features/home/HomePage';
 import AboutPage from './features/about/AboutPage';
 import ServicesPage from './features/services/ServicesPage';
 import SettingsPage from './features/settings/SettingsPage';
+import TestPage from "./features/test.tsx";
 
 const router = createBrowserRouter([
+
+  {path: "/test", element: <TestPage />},
   {
     path: "/",
     element: <Login />,
