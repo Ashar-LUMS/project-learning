@@ -1,9 +1,16 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { supabase } from "./supabaseClient";
+import { supabase } from "././supabaseClient"; // Adjusted import path
 
+// Define the type for custom claims to ensure type safety
+interface AppMetadataClaims {
+  roles?: string[]; // Roles are now expected to be string[] directly from app_metadata
+  [key: string]: any; // Allow other properties
+}
+
+// Updated RoleContextType to handle roles as an array of strings or null
 type RoleContextType = {
   roles: string[] | null;
-  setRoles: (role: string[] | null) => void;
+  setRoles: (roles: string[] | null) => void;
   isLoading: boolean;
 };
 
@@ -17,6 +24,47 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [roles, setRoles] = useState<string[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  /**
+   * Helper function to process raw role data (either from user_metadata or app_metadata.claims)
+   * and consistently return an array of roles or null.
+   * This handles direct arrays, stringified arrays (from old user_metadata), and single string roles.
+   */
+  const parseAndSetRoles = (
+    userMetadataRolesData: any, // Could be array, stringified array, or string
+    appMetadataClaimsData: AppMetadataClaims | null | undefined // Expected to be native array
+  ): string[] | null => {
+    let rolesArray: string[] | null = null;
+
+    // 1. Prioritize roles from app_metadata.claims (where the new trigger sets them as a native JSON array)
+    if (appMetadataClaimsData && Array.isArray(appMetadataClaimsData.roles)) {
+      rolesArray = appMetadataClaimsData.roles;
+    }
+
+    // 2. Fallback to user_metadata roles if app_metadata roles not found or not an array
+    // This part retains the robust parsing for backward compatibility for user_metadata
+    if (!rolesArray && userMetadataRolesData) {
+      if (Array.isArray(userMetadataRolesData)) {
+        rolesArray = userMetadataRolesData; // Already an array
+      } else if (typeof userMetadataRolesData === 'string') {
+        try {
+          // Attempt to parse stringified array from user_metadata (for old data)
+          const parsed = JSON.parse(userMetadataRolesData);
+          if (Array.isArray(parsed)) {
+            rolesArray = parsed;
+          } else {
+            console.warn("User metadata 'roles' was a string but not a JSON array string. Treating as single role.");
+            rolesArray = [userMetadataRolesData]; // Treat as single role string
+          }
+        } catch (e) {
+          console.error("Error parsing user_metadata.roles as JSON, treating as single string:", e);
+          rolesArray = [userMetadataRolesData]; // Fallback if parsing fails
+        }
+      }
+    }
+
+    return rolesArray;
+  };
+
   useEffect(() => {
     const fetchRoles = async () => {
       setIsLoading(true);
@@ -26,96 +74,34 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsLoading(false);
         return;
       }
-      const user_roles = user.user_metadata?.roles;
-      const customClaims = user.user_metadata?.custom_claims;
-      let rolesArray: string[] | null = null;
 
-      if (customClaims && customClaims.roles)
-        try {
-            const parsed = JSON.parse(customClaims.roles);
-            if (Array.isArray(parsed)) {
-              rolesArray = parsed;
-            }
-        } catch (error) {
-          console.error('Error parsing custom claims roles:', error);
-        }
+      const userMetadataRoles = user.user_metadata?.roles;
+      const appMetadataClaims = user.app_metadata?.claims as AppMetadataClaims | undefined; // Cast for type safety
 
-      // Fallback to user_metadata if custom claims aren't available or failed to parse
-      // This also handles backward compatibility for old users with string roles in user_metadata
-      if (!rolesArray && user_roles) {
-        if (Array.isArray(user_roles)) {
-          rolesArray = user_roles;
-        } else if (typeof user_roles === 'string') {
-          try {
-            const parsed = JSON.parse(user_roles);
-            if (Array.isArray(parsed)) {
-              rolesArray = parsed;
-            } else {
-              // If it's a string but not a JSON array string, treat as a single role
-              rolesArray = [user_roles];
-            }
-          } catch (e) {
-            // Not a JSON string, treat as a single role
-            rolesArray = [user_roles];
-          }
-        }
-      }
-
-      setRoles(rolesArray);
+      setRoles(parseAndSetRoles(userMetadataRoles, appMetadataClaims));
       setIsLoading(false);
     };
     fetchRoles();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      // On auth state change, fetch the latest user data (including claims)
-      // and re-evaluate roles, similar to the initial fetch.
-      // The session.user object here should contain the latest user_metadata and app_metadata
-
       const sessionUser = session?.user;
-      const newRolesFromMetadata = sessionUser?.user_metadata?.roles;
-      const newCustomClaims = sessionUser?.app_metadata?.claims;
-
-      let newRolesArray: string[] | null = null;
-
-      // Prioritize custom claims from the session if available and parsed
-      if (newCustomClaims && newCustomClaims.roles) {
-        try {
-          const parsed = JSON.parse(newCustomClaims.roles);
-          if (Array.isArray(parsed)) {
-            newRolesArray = parsed;
-          }
-        } catch (e) {
-          console.error("Failed to parse roles from custom claims in session:", e);
-        }
+      if (!sessionUser) {
+        setRoles(null);
+        setIsLoading(false);
+        return;
       }
 
-      // Fallback to user_metadata from the session
-      if (!newRolesArray && newRolesFromMetadata) {
-        if (Array.isArray(newRolesFromMetadata)) {
-          newRolesArray = newRolesFromMetadata;
-        } else if (typeof newRolesFromMetadata === 'string') {
-          try {
-            const parsed = JSON.parse(newRolesFromMetadata);
-            if (Array.isArray(parsed)) {
-              newRolesArray = parsed;
-            } else {
-              newRolesArray = [newRolesFromMetadata];
-            }
-          } catch (e) {
-            newRolesArray = [newRolesFromMetadata];
-          }
-        }
-      }
-      setRoles(newRolesArray);
+      const newRolesFromMetadata = sessionUser.user_metadata?.roles;
+      const newAppMetadataClaims = sessionUser.app_metadata?.claims as AppMetadataClaims | undefined; // Cast for type safety
+      
+      setRoles(parseAndSetRoles(newRolesFromMetadata, newAppMetadataClaims));
       setIsLoading(false);
     });
-
 
     return () => {
       subscription.unsubscribe();
     };
   }, []);
-      
 
   return (
     <RoleContext.Provider value={{ roles, setRoles, isLoading }}>

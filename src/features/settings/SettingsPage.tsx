@@ -1,34 +1,44 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { useRole } from '../../getRole';
-import { supabase } from '../../supabaseClient';
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'; // Adjusted path
+import { Button } from '../../components/ui/button'; // Adjusted path
+import { Input } from '../../components/ui/input'; // Adjusted path
+import { useRole } from '../../getRole'; // Adjusted path
+import { supabase } from '../../supabaseClient'; // Adjusted path
 import { Eye, EyeOff, Save, User, Lock } from 'lucide-react';
 
+// Define available roles, consistent with signup.tsx
+const AVAILABLE_ROLES = ["Admin", "Role1", "Role2", "Role3"];
+
 const SettingsPage = () => {
-  const { roles, setRoles } = useRoles();
-  const [isLoading, setIsLoading] = useState(false);
+  // Destructure 'roles' (array) and 'setRoles' from the useRole hook
+  const { roles, setRoles, isLoading: isRolesLoading } = useRole();
+
+  const [isLoading, setIsLoading] = useState(false); // General loading state for form submissions
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  
+
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPasswords, setShowPasswords] = useState(false);
 
-  //const [newRoles, setNewRoles] = useState(roles || []);
+  // State to manage the roles actively selected for update in the UI, always an array
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
-  // Keep newRole in sync if context role changes
-  React.useEffect(() => {
+
+  // Effect to synchronize the internal selectedRoles state with the roles from the context
+  // This runs when the 'roles' from useRoles changes (e.g., on initial load or after an update)
+  useEffect(() => {
     if (roles) {
-      // If `role` is an array, use it directly. If it's a string, wrap it in an array.
-      setSelectedRoles(Array.isArray(roles) ? roles : [roles]);
+      // 'roles' from useRoles is already an array (due to parsing in getRole.tsx)
+      setSelectedRoles(roles);
     } else {
       setSelectedRoles([]);
     }
-  }, [roles]);
-  const [roleOptions] = useState(['Admin', 'Role1', 'Role2', 'Role3']);
-    // Toggle role handler for multi-select buttons
+  }, [roles]); // Depend on the 'roles' array from the context
+
+  // Role options, consistent with your original setup
+  const [roleOptions] = useState(AVAILABLE_ROLES);
+
+  // Function to add or remove a role from the selectedRoles array
   const toggleRole = (roleOption: string) => {
     setSelectedRoles(prev =>
       prev.includes(roleOption) ? prev.filter(r => r !== roleOption) : [...prev, roleOption]
@@ -37,12 +47,12 @@ const SettingsPage = () => {
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (newPassword !== confirmPassword) {
       setMessage({ type: 'error', text: 'New passwords do not match' });
       return;
     }
-    
+
     if (newPassword.length < 6) {
       setMessage({ type: 'error', text: 'New password must be at least 6 characters' });
       return;
@@ -65,6 +75,7 @@ const SettingsPage = () => {
         setConfirmPassword('');
       }
     } catch (error) {
+      console.error("Password change error:", error);
       setMessage({ type: 'error', text: 'An unexpected error occurred' });
     } finally {
       setIsLoading(false);
@@ -73,22 +84,22 @@ const SettingsPage = () => {
 
   const handleRoleChange = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Ensure at least one role is selected
     if (selectedRoles.length === 0) {
       setMessage({ type: 'error', text: 'At least one role must be selected.' });
       return;
     }
 
-    // Get current roles from the context, ensuring it's an array for comparison
-    //const currentRolesArray = Array.isArray(roles) ? roles : (roles ? [roles] : []);
-    const currentRolesArray = Array.isArray(roles) ? roles : (roles ? [roles] : []);
-    // Perform a deep comparison to check if the roles have actually changed
-    const rolesAreSame =
-      currentRolesArray.length === selectedRoles.length &&
-      currentRolesArray.every(currentR => selectedRoles.includes(currentR));
+    // 'roles' from context is already an array (string[] | null), so use it directly for comparison
+    const currentRolesArray = roles || []; // Ensure it's an array for safe comparison
 
-    if (rolesAreSame) {
+    // Perform a deep comparison to check if the roles have actually changed
+    // Convert to sorted strings for consistent comparison, especially for arrays
+    const sortedCurrentRoles = [...currentRolesArray].sort().join(',');
+    const sortedSelectedRoles = [...selectedRoles].sort().join(',');
+
+    if (sortedCurrentRoles === sortedSelectedRoles) {
       setMessage({ type: 'error', text: 'Please select different roles to update.' });
       return;
     }
@@ -97,18 +108,20 @@ const SettingsPage = () => {
     setMessage(null);
 
     try {
-      // Update user metadata with new role
+      // Update user metadata with the new array of roles using the 'roles' key (plural)
       const { error } = await supabase.auth.updateUser({
-        data: { roles: selectedRoles }
+        data: { roles: selectedRoles } // Send the array of selected roles
       });
 
       if (error) {
         setMessage({ type: 'error', text: error.message });
       } else {
+        // Update the roles context with the new array of roles
         setRoles(selectedRoles);
         setMessage({ type: 'success', text: 'Roles updated successfully!' });
       }
     } catch (error) {
+      console.error("Role change error:", error);
       setMessage({ type: 'error', text: 'An unexpected error occurred' });
     } finally {
       setIsLoading(false);
@@ -116,15 +129,13 @@ const SettingsPage = () => {
   };
 
   const clearMessage = () => setMessage(null);
-    // Helper function to display roles gracefully, whether it's a string or an array
-  const displayRoles = (currentRoles: string | string[] | null) => {
-    if (!currentRoles || (Array.isArray(currentRoles) && currentRoles.length === 0)) {
+
+  // Helper function to display roles, now always expecting string[] | null
+  const displayRoles = (currentRoles: string[] | null) => {
+    if (!currentRoles || currentRoles.length === 0) {
       return 'No roles assigned';
     }
-    if (Array.isArray(currentRoles)) {
-      return currentRoles.join(', ');
-    }
-    return currentRoles; // It's a single string
+    return currentRoles.join(', ');
   };
 
   return (
@@ -236,7 +247,7 @@ const SettingsPage = () => {
                   </label>
                   <Input
                     id="currentRoles"
-                    value={displayRoles(roles)} // Use helper function
+                    value={displayRoles(roles)} // Use helper function with roles (array)
                     disabled
                     className="bg-gray-50"
                   />
@@ -274,7 +285,7 @@ const SettingsPage = () => {
 
                 <Button
                   type="submit"
-                  disabled={isLoading} // Disable only during loading
+                  disabled={isLoading || isRolesLoading} // Disable if either form or roles are loading
                   className="w-full"
                 >
                   {isLoading ? 'Updating...' : 'Update Roles'}
