@@ -56,8 +56,8 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
             rolesArray = [userMetadataRolesData]; // Treat as single role string
           }
         } catch (e) {
-          console.error("Error parsing user_metadata.roles as JSON, treating as single string:", e);
-          rolesArray = [userMetadataRolesData]; // Fallback if parsing fails
+          //console.error("Error parsing user_metadata.roles as JSON, treating as single string:", e);
+          //rolesArray = [userMetadataRolesData]; // Fallback if parsing fails
         }
       }
     }
