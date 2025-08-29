@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Outlet, useNavigate, useOutletContext } from "react-router-dom";
+import { useNavigate, useOutletContext } from "react-router-dom";
 //import { supabase } from "../../supabaseClient.ts";
 import {useRole} from "../../getRole"
 

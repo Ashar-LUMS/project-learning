@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient'; // Make sure this path is correct
-import { data } from 'react-router-dom';
+//import { data } from 'react-router-dom';
 
 // Use a type that matches the user object returned by Supabase
 interface User {

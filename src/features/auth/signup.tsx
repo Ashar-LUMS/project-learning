@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { z } from 'zod';
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox"
+// import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input";
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient.ts';
