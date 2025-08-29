@@ -51,9 +51,7 @@ const AppLayout = () => {
                             <Home className="inline-block mr-1" size={18} />
                             Home
                         </Link>
-                        <Link to="/app/about" className="text-gray-600 hover:text-blue-500 transition-colors duration-200">
-                            About
-                        </Link>
+                        
                         <Link to="/app/services" className="text-gray-600 hover:text-blue-500 transition-colors duration-200">
                             Services
                         </Link>
@@ -63,7 +61,7 @@ const AppLayout = () => {
 
                         {/* Admin Panel link - now checks activeRole */}
                         {/* Only show if the user has an 'Admin' role available and it is the currently active role */}
-                        {userRolesArray && userRolesArray.includes("Admin") && (
+                        {/*userRolesArray && userRolesArray.includes("Admin") && (
                             <Link
                                 to={activeRole === "Admin" ? "/app/admin" : "/app/access-denied"}
                                 className={`text-gray-600 transition-colors duration-200 ${activeRole === "Admin"
@@ -75,7 +73,16 @@ const AppLayout = () => {
                             >
                                 Admin Panel
                             </Link>
-                        )}
+                        )*/}
+
+                        {activeRole === "Admin" && userRolesArray && userRolesArray.includes("Admin") && (
+  <Link
+    to="/app/admin"
+    className="text-gray-600 transition-colors duration-200 hover:text-blue-500"
+  >
+    Admin Panel
+  </Link>
+)}
 
                         {/* Role Selector Dropdown */}
                         {!areRolesLoading && userRolesArray && userRolesArray.length > 0 && (
@@ -129,9 +136,7 @@ const AppLayout = () => {
                             <Link to="/app" className="block text-gray-600 hover:bg-gray-100 p-2 rounded-md transition-colors" onClick={() => setIsMenuOpen(false)}>
                                 Home
                             </Link>
-                            <Link to="/app/about" className="block text-gray-600 hover:bg-gray-100 p-2 rounded-md transition-colors" onClick={() => setIsMenuOpen(false)}>
-                                About
-                            </Link>
+                            
                             <Link to="/app/services" className="block text-gray-600 hover:bg-gray-100 p-2 rounded-md transition-colors" onClick={() => setIsMenuOpen(false)}>
                                 Services
                             </Link>
@@ -139,21 +144,18 @@ const AppLayout = () => {
                                 Settings
                             </Link>
 
-                            {/* Admin Panel link for mobile - checks activeRole */}
-                            {userRolesArray && userRolesArray.includes("Admin") && (
-                                <Link
-                                    to={activeRole === "Admin" ? "/app/admin" : "/app/access-denied"}
-                                    className={`block p-2 rounded-md transition-colors ${activeRole === "Admin"
-                                        ? "text-gray-600 hover:bg-gray-100"
-                                        : "text-gray-400 cursor-not-allowed"
-                                    }`}
-                                    onClick={() => { if (activeRole === "Admin") setIsMenuOpen(false); }}
+                            
+                            {activeRole === "Admin" && userRolesArray && userRolesArray.includes("Admin") && (
+  <Link
+    to="/app/admin"
+    className="text-gray-600 transition-colors duration-200 hover:text-blue-500"
+    onClick={() => { if (activeRole === "Admin") setIsMenuOpen(false); }}
                                     tabIndex={activeRole === "Admin" ? 0 : -1}
                                     aria-disabled={activeRole !== "Admin"}
-                                >
-                                    Admin Panel
-                                </Link>
-                            )}
+  >
+    Admin Panel
+  </Link>
+)}
 
                             {/* Mobile Role Selector Dropdown */}
                             {!areRolesLoading && userRolesArray && userRolesArray.length > 0 && (
@@ -181,7 +183,7 @@ const AppLayout = () => {
                 )}
             </header>
 
-            <Outlet context={{ activeRole }} /> {/* Pass activeRole down to children */}
+            <Outlet context={{ activeRole }} /> {/* Passing activeRole down to children */}
 
             <footer className="bg-gray-800 text-gray-300 py-6">
                 <div className="container mx-auto px-4 text-center">

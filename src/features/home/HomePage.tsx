@@ -7,12 +7,13 @@ const HomePage = () => (
         <h1 className="text-4xl sm:text-5xl font-extrabold text-gray-900 leading-tight tracking-tight">
           Welcome to
           <span className="text-4xl sm:text-5xl font-extrabold text-blue-900 leading-tight tracking-tight">
-            {" "}BIRL's TISON
+            {" "}TISON at BIRL
           </span>
         </h1>
         <h1 className="text-4xl sm:text-5xl font-extrabold text-gray-900 leading-tight tracking-tight">
           Home Page
         </h1>
+        <h4 className="text-lg text-gray-600 mt-4 max-w-xl mx-auto"> TISON stands for Theatre for in-silico systems oncology</h4>
         <p className="text-lg text-gray-600 mt-4 max-w-xl mx-auto">
           This page has a header and footer.
         </p>

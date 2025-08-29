@@ -7,7 +7,7 @@ import AdminPanel from './features/admin/AdminPanel.tsx';
 import RequireAdmin from './features/admin/RequireAdmin.tsx';
 import AccessDenied from './components/access-denied';
 import HomePage from './features/home/HomePage';
-import AboutPage from './features/about/AboutPage';
+//import AboutPage from './features/about/AboutPage';
 import ServicesPage from './features/services/ServicesPage';
 import SettingsPage from './features/settings/SettingsPage';
 import TestPage from "./features/test.tsx";
@@ -36,10 +36,6 @@ const router = createBrowserRouter([
       {
         index: true,
         element: <HomePage />,
-      },
-      {
-        path: "about",
-        element: <AboutPage />,
       },
       {
         path: "services",
