@@ -1,24 +1,23 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../../supabaseClient";
+import { supabase } from "../../supabaseClient"; // adjust path if needed
 
-interface UserData {
+interface User {
   id: string;
+  name: string;
   email: string;
-  raw_user_meta_data: {
-    name?: string;
-    roles?: string[];
-  };
+  roles: string[];
 }
 
 const AdminPanel = () => {
-  const [users, setUsers] = useState<UserData[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchUsers = async () => {
       setLoading(true);
-      const { data, error } = await supabase.rpc('get_users_as_admin');
-      console.log(data);
+      const { data, error } = await supabase
+        .from("users")
+        .select("id, name, email, roles");
 
       if (error) {
         console.error("Error fetching users:", error);
@@ -51,11 +50,11 @@ const AdminPanel = () => {
             </thead>
             <tbody>
               {users.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50">
+                <tr key={user.email} className="hover:bg-gray-50">
                   <td className="border border-gray-300 px-4 py-2">{user.id}</td>
-                  <td className="border border-gray-300 px-4 py-2">{user.raw_user_meta_data?.name}</td>
+                  <td className="border border-gray-300 px-4 py-2">{user.name}</td>
                   <td className="border border-gray-300 px-4 py-2">{user.email}</td>
-                  <td className="border border-gray-300 px-4 py-2">{user.raw_user_meta_data?.roles?.join(", ")}</td>
+                  <td className="border border-gray-300 px-4 py-2">{user.roles?.join(", ")}</td>
                 </tr>
               ))}
             </tbody>

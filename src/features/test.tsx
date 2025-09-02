@@ -11,7 +11,11 @@ interface User {
     roles?: Array<string>;
   };
 }
-
+/*
+The getSession() method and onAuthStateChange() listener already utilize the JWT behind the scenes. 
+They securely retrieve the token from storage, refresh it when it expires, and ensure your requests 
+are authenticated without you needing to manually handle the raw JWT string.
+*/
 const TestPage = () => {
   const [user, setUser] = useState<User | null>(null);
 
