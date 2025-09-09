@@ -528,7 +528,7 @@ const HomePage = () => {
               <Input
                 value={newProjectName}
                 onChange={(e) => setNewProjectName(e.target.value)}
-                placeholder="e.g. Marketing Campaign Q3"
+                placeholder="e.g. Test Network"
                 className="py-2 px-3"
               />
             </div>
