@@ -63,7 +63,7 @@ const Signup = ({
   // 4. Create a function to handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrors({ name: '', email: '', password: '', roles: '', general: '' }); // Clear previous errors
+    setErrors({ name: '' , email: '' , password: '' , roles: '' , general: '' }); // Clear previous errors
 
     // Pass 'roles' to safeParse to validate all fields
     const result = signupSchema.safeParse({ name, email, password, roles });
@@ -90,7 +90,7 @@ const Signup = ({
       email,
       password,
       options: {
-        data: { name, roles }
+        data: { name, roles, redirectTo: "https://project-learning-seven.vercel.app" }
       }
     });
 console.log(signUpData);
