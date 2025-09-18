@@ -1,20 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Link, Outlet, useNavigate } from "react-router-dom";
-import { Button } from '../components/ui/button'; // Adjusted path
+import { Button } from '../components/ui/button';
 import { Home, Menu, Users } from 'lucide-react';
-import { supabase } from '../supabaseClient'; // Adjusted path
-import { useRole } from "../getRole"; // Adjusted path
+import { supabase } from '../supabaseClient'; 
+import { useRole } from "../getRole";
 
 const AppLayout = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const navigate = useNavigate();
-    // Corrected: Destructure 'roles' as userRolesArray and 'isLoading' as areRolesLoading
     const { roles: userRolesArray, isLoading: areRolesLoading } = useRole();
 
     // New state to manage the currently selected/active role for conditional rendering
     const [activeRole, setActiveRole] = useState<string | null>(null);
 
-    // Effect to initialize activeRole when userRolesArray is loaded from the context
     useEffect(() => {
         if (!areRolesLoading && userRolesArray && userRolesArray.length > 0) {
             // Only set a default if activeRole is not yet set,
@@ -31,7 +29,7 @@ const AppLayout = () => {
             // If no roles are found, ensure activeRole is null
             setActiveRole(null);
         }
-    }, [userRolesArray, areRolesLoading]); // Added activeRole to dependencies for re-evaluation
+    }, [userRolesArray, areRolesLoading, activeRole]);
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
@@ -58,22 +56,6 @@ const AppLayout = () => {
                         <Link to="/app/settings" className="text-gray-600 hover:text-blue-500 transition-colors duration-200">
                             Settings
                         </Link>
-
-                        {/* Admin Panel link - now checks activeRole */}
-                        {/* Only show if the user has an 'Admin' role available and it is the currently active role */}
-                        {/*userRolesArray && userRolesArray.includes("Admin") && (
-                            <Link
-                                to={activeRole === "Admin" ? "/app/admin" : "/app/access-denied"}
-                                className={`text-gray-600 transition-colors duration-200 ${activeRole === "Admin"
-                                    ? "hover:text-blue-500"
-                                    : "opacity-70 cursor-not-allowed"
-                                }`}
-                                tabIndex={activeRole === "Admin" ? 0 : -1}
-                                aria-disabled={activeRole !== "Admin"}
-                            >
-                                Admin Panel
-                            </Link>
-                        )*/}
 
                         {activeRole === "Admin" && userRolesArray && userRolesArray.includes("Admin") && (
   <Link

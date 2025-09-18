@@ -10,7 +10,7 @@ interface UserData {
   };
 }
 
-const AVAILABLE_ROLES = ["Admin", "Role1", "Role2", "Role3"];
+const AVAILABLE_ROLES = ["Admin", "Dev", "QA", "Dummy"];
 
 // Dropdown component for selecting roles
 const RoleDropdown = ({
@@ -99,32 +99,37 @@ const RoleDropdown = ({
 const AdminPanel = () => {
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
     const fetchUsers = async () => {
       setLoading(true);
-      const { data, error } = await supabase.rpc("get_users_as_admin");
-
-      if (error) {
-        console.error("Error fetching users:", error);
-      } else {
-        setUsers(data || []);
+      setErrorMessage(null);
+      try {
+        const { data, error } = await supabase.rpc("get_users_as_admin");
+        if (error) throw error;
+        if (isMounted) setUsers(data || []);
+      } catch (err: any) {
+        if (isMounted) setErrorMessage(err?.message ?? "Failed to load users");
+      } finally {
+        if (isMounted) setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchUsers();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handleUpdateRoles = async (userId: string, roles: string[]) => {
-    const { data, error } = await supabase.rpc("update_users_as_admin", {
-      target_user_id: userId,
-      new_roles: roles,
-    });
-
-    if (error) {
-      console.error("Error updating roles:", error);
-    } else {
+    try {
+      const { data, error } = await supabase.rpc("update_users_as_admin", {
+        target_user_id: userId,
+        new_roles: roles,
+      });
+      if (error) throw error;
       setUsers((prev) =>
         prev.map((u) =>
           u.id === userId
@@ -132,6 +137,9 @@ const AdminPanel = () => {
             : u
         )
       );
+    } catch (err) {
+      console.error("Error updating roles:", err);
+      setErrorMessage("Failed to update roles");
     }
   };
 
@@ -142,6 +150,8 @@ const AdminPanel = () => {
 
       {loading ? (
         <div>Loading users...</div>
+      ) : errorMessage ? (
+        <div className="text-red-600">{errorMessage}</div>
       ) : (
         <div className="w-full max-w-3xl">
           <table className="w-full border-collapse border border-gray-300 shadow-lg rounded-lg">

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
-//import { supabase } from "../../supabaseClient.ts";
-import {useRole} from "../../getRole"
+import { useRole } from "../../getRole";
 
 
 export default function RequireAdmin({ children }: { children: React.ReactNode }) {
@@ -11,25 +10,23 @@ export default function RequireAdmin({ children }: { children: React.ReactNode }
     const { activeRole } = useOutletContext<{ activeRole: string | null }>();
 
   useEffect(() => {
-    // Only proceed if roles are not currently loading
     if (areRolesLoading) {
-      // Still loading, keep hasAdminAccess as null
       return;
     }
     if (userRolesArray) {
       if (userRolesArray.includes("Admin") && activeRole === "Admin") {
         setHasAdminAccess(true);
       } else {
-        // If not an admin, redirect to access denied
+        // Redirect If not an admin
         setHasAdminAccess(false);
-        navigate("/app");
+        navigate("/app", { replace: true });
       }
     } else {
-      // If no roles are found (e.g., user is not logged in or has no roles assigned)
+      // Case when no roles (e.g., user is not logged in or has no roles assigned)
       setHasAdminAccess(false);
-      navigate("/"); // Or navigate("/") if they need to log in first
+      navigate("/", { replace: true });
     }
-  }, [userRolesArray, areRolesLoading, navigate]); // Add navigate to dependency array
+  }, [userRolesArray, areRolesLoading, navigate, activeRole]);
 
   // Show a loading indicator while roles are being fetched
   if (hasAdminAccess === null || areRolesLoading) {
@@ -39,8 +36,5 @@ export default function RequireAdmin({ children }: { children: React.ReactNode }
       </main>
     );
   }
-
-  // If hasAdminAccess is true, render children
-  // If hasAdminAccess is false, the user would have been navigated away by useEffect
   return <>{children}</>;
 }

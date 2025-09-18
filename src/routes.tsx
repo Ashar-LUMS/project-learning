@@ -1,22 +1,16 @@
 import { createBrowserRouter } from "react-router-dom";
 import { Login } from './features/auth/login';
 import { Signup } from './features/auth/signup';
-import { CheckEmail } from './features/auth/check-email.tsx';
+import { CheckEmail } from './features/auth/check-email';
 import AppLayout from './layouts/AppLayout';
-import AdminPanel from './features/admin/AdminPanel.tsx';
-import RequireAdmin from './features/admin/RequireAdmin.tsx';
+import AdminPanel from './features/admin/AdminPanel';
+import RequireAdmin from './features/admin/RequireAdmin';
 import AccessDenied from './components/access-denied';
 import HomePage from './features/home/HomePage';
-//import AboutPage from './features/about/AboutPage';
 import ServicesPage from './features/services/ServicesPage';
 import SettingsPage from './features/settings/SettingsPage';
-import TestPage from "./features/test.tsx";
-import TestPage2 from "./features/test2.tsx";
 
 const router = createBrowserRouter([
-
-  {path: "/test", element: <TestPage />},
-  {path: "/test2", element: <TestPage2 />},
   {
     path: "/",
     element: <Login />,

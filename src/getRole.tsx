@@ -1,13 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { supabase } from "././supabaseClient"; // Adjusted import path
+import { supabase } from "./supabaseClient";
 
-// Define the type for custom claims to ensure type safety
+// Type for custom claims from app_metadata
 interface AppMetadataClaims {
   roles?: string[]; // Roles are now expected to be string[] directly from app_metadata
   [key: string]: any; // Allow other properties
 }
 
-// Updated RoleContextType to handle roles as an array of strings or null
+// Context value type
 type RoleContextType = {
   roles: string[] | null;
   setRoles: (roles: string[] | null) => void;
@@ -24,11 +24,7 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [roles, setRoles] = useState<string[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  /**
-   * Helper function to process raw role data (either from user_metadata or app_metadata.claims)
-   * and consistently return an array of roles or null.
-   * This handles direct arrays, stringified arrays (from old user_metadata), and single string roles.
-   */
+  // Normalize roles from user_metadata or app_metadata.claims
   const parseAndSetRoles = (
     userMetadataRolesData: any, // Could be array, stringified array, or string
     appMetadataClaimsData: AppMetadataClaims | null | undefined // Expected to be native array
@@ -40,25 +36,17 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
       rolesArray = appMetadataClaimsData.roles;
     }
 
-    // 2. Fallback to user_metadata roles if app_metadata roles not found or not an array
-    // This part retains the robust parsing for backward compatibility for user_metadata
+    // 2. Fallback to user_metadata.roles if needed (backward compatibility)
     if (!rolesArray && userMetadataRolesData) {
       if (Array.isArray(userMetadataRolesData)) {
         rolesArray = userMetadataRolesData; // Already an array
       } else if (typeof userMetadataRolesData === 'string') {
         try {
-          // Attempt to parse stringified array from user_metadata (for old data)
           const parsed = JSON.parse(userMetadataRolesData);
           if (Array.isArray(parsed)) {
             rolesArray = parsed;
-          } else {
-            console.warn("User metadata 'roles' was a string but not a JSON array string. Treating as single role.");
-            rolesArray = [userMetadataRolesData]; // Treat as single role string
           }
-        } catch (e) {
-          //console.error("Error parsing user_metadata.roles as JSON, treating as single string:", e);
-          //rolesArray = [userMetadataRolesData]; // Fallback if parsing fails
-        }
+        } catch (e) {}
       }
     }
 
