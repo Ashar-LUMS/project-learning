@@ -13,7 +13,7 @@ import { supabase } from "../../supabaseClient";
 import { Eye, EyeOff, Lock, User, CheckCircle2, XCircle } from "lucide-react";
 import { useOutletContext } from "react-router-dom";
 
-const AVAILABLE_ROLES = process.env.ROLES ? process.env.ROLES.split(',') : ['Dummy']; // Default to ['Dummy']
+const AVAILABLE_ROLES: string[] = (import.meta.env.VITE_ROLES ?? 'Dummy').split(',');
 
 const SettingsPage = () => {
   const { roles, setRoles, isLoading: isRolesLoading } = useRole();

@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient.ts';
-const AVAILABLE_ROLES= process.env.ROLES ? process.env.ROLES.split(',') : ['Dummy']; // Default to ['Dummy']
+
+const AVAILABLE_ROLES: string[] =(import.meta.env.VITE_ROLES ?? 'Dummy').split(',');
 
 // 1. Define the Zod schema for the form data
 const signupSchema = z.object({

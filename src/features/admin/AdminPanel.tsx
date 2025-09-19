@@ -10,7 +10,7 @@ interface UserData {
   };
 }
 
-const AVAILABLE_ROLES = ["Admin", "Dev", "QA", "Dummy"];
+const AVAILABLE_ROLES: string[] = (import.meta.env.VITE_ROLES ?? 'Dummy').split(',');
 
 // Dropdown component for selecting roles
 const RoleDropdown = ({
@@ -100,6 +100,15 @@ const AdminPanel = () => {
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id || null);
+    };
+    getCurrentUser();
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -109,7 +118,8 @@ const AdminPanel = () => {
       try {
         const { data, error } = await supabase.rpc("get_users_as_admin");
         if (error) throw error;
-        if (isMounted) setUsers(data || []);
+        const filteredUsers = data?.filter((user: UserData) => user.id !== currentUserId) || [];
+        if (isMounted) setUsers(filteredUsers);
       } catch (err: any) {
         if (isMounted) setErrorMessage(err?.message ?? "Failed to load users");
       } finally {
@@ -121,7 +131,7 @@ const AdminPanel = () => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [currentUserId]); // Not ideal, but ensures we have currentUserId before fetching users
 
   const handleUpdateRoles = async (userId: string, roles: string[]) => {
     try {
@@ -146,6 +156,7 @@ const AdminPanel = () => {
   return (
     <main className="flex-grow container mx-auto px-4 py-8 flex flex-col items-center">
       <h1 className="text-3xl font-bold mb-4">Admin Panel</h1>
+      <p className="mb-6">Manage other users' roles</p>
       <p className="mb-6">Only admins can see this page.</p>
 
       {loading ? (
