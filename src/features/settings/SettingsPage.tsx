@@ -13,7 +13,7 @@ import { supabase } from "../../supabaseClient";
 import { Eye, EyeOff, Lock, User, CheckCircle2, XCircle } from "lucide-react";
 import { useOutletContext } from "react-router-dom";
 
-const AVAILABLE_ROLES = ["Admin", "Role1", "Role2", "Role3"];
+const AVAILABLE_ROLES = process.env.ROLES ? process.env.ROLES.split(',') : ['Dummy']; // Default to ['Dummy']
 
 const SettingsPage = () => {
   const { roles, setRoles, isLoading: isRolesLoading } = useRole();
@@ -27,7 +27,6 @@ const SettingsPage = () => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPasswords, setShowPasswords] = useState(false);
-
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
 
   useEffect(() => {
