@@ -10,55 +10,60 @@ interface UserData {
   };
 }
 
-const AVAILABLE_ROLES: string[] = (import.meta.env.VITE_ROLES ?? 'Dummy').split(',');
+const AVAILABLE_ROLES: string[] = ((import.meta.env.VITE_ROLES ?? 'Dummy').split(',')).map((r: string) => r.trim()).filter(Boolean).sort((a: string, b: string) => a.localeCompare(b));
 
 // Dropdown component for selecting roles
 const RoleDropdown = ({
   user,
   onUpdate,
+  isOpen,
+  onOpenChange,
 }: {
   user: UserData;
   onUpdate: (id: string, roles: string[]) => void;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
 }) => {
-  const [draftRoles, setDraftRoles] = useState(
-    user.raw_user_meta_data?.roles || []
-  );
-  const [savedRoles, setSavedRoles] = useState(
-    user.raw_user_meta_data?.roles || []
-  );
-  const [open, setOpen] = useState(false);
+  const [draftRoles, setDraftRoles] = useState<string[]>(user.raw_user_meta_data?.roles || []);
+  const [savedRoles, setSavedRoles] = useState<string[]>(user.raw_user_meta_data?.roles || []);
+
+  // Keep local state in sync if parent updates the user prop
+  useEffect(() => {
+    const incoming = user.raw_user_meta_data?.roles || [];
+    setDraftRoles(incoming);
+    setSavedRoles(incoming);
+  }, [user.raw_user_meta_data]);
 
   const toggleRole = (role: string) => {
-    if (draftRoles.includes(role)) {
-      setDraftRoles(draftRoles.filter((r) => r !== role));
-    } else {
-      setDraftRoles([...draftRoles, role]);
-    }
+    setDraftRoles(prev => prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]);
   };
 
   const handleSave = () => {
-    setSavedRoles(draftRoles);
-    onUpdate(user.id, draftRoles);
-    setOpen(false);
+    if (draftRoles.length === 0) return; // guard: require at least one role
+    setSavedRoles(draftRoles.slice().sort((a,b)=>a.localeCompare(b)));
+    onUpdate(user.id, draftRoles.slice().sort((a,b)=>a.localeCompare(b)));
+    onOpenChange(false);
   };
 
   const handleCancel = () => {
-    setDraftRoles(savedRoles); // reset to last saved
-    setOpen(false);
+    setDraftRoles(savedRoles);
+    onOpenChange(false);
   };
+
+  const displaySaved = (savedRoles || []).slice().sort((a,b)=>a.localeCompare(b));
 
   return (
     <div className="relative">
       {/* Button */}
       <button
         className="border border-gray-300 px-2 py-1 rounded w-full text-left"
-        onClick={() => setOpen(!open)}
+        onClick={() => onOpenChange(!isOpen)}
       >
-        {savedRoles.length > 0 ? savedRoles.join(", ") : "Select roles..."}
+        {displaySaved.length > 0 ? displaySaved.join(', ') : "Select roles..."}
       </button>
 
       {/* Dropdown */}
-      {open && (
+      {isOpen && (
         <div className="absolute mt-1 w-56 bg-white border border-gray-200 rounded shadow-lg z-10 p-2">
           {AVAILABLE_ROLES.map((role) => (
             <label
@@ -84,12 +89,16 @@ const RoleDropdown = ({
               Cancel
             </button>
             <button
-              className="px-3 py-1 text-sm rounded bg-indigo-500 text-white hover:bg-indigo-600"
+              className={`px-3 py-1 text-sm rounded ${draftRoles.length === 0 ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-indigo-500 text-white hover:bg-indigo-600'}`}
               onClick={handleSave}
+              disabled={draftRoles.length === 0}
             >
               Save
             </button>
           </div>
+          {draftRoles.length === 0 && (
+            <div className="text-xs text-red-600 mt-2">Select at least one role before saving.</div>
+          )}
         </div>
       )}
     </div>
@@ -101,6 +110,8 @@ const AdminPanel = () => {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  // which user's dropdown is currently open (only one at a time)
+  const [openDropdownUserId, setOpenDropdownUserId] = useState<string | null>(null);
   
   useEffect(() => {
     const getCurrentUser = async () => {
@@ -185,7 +196,12 @@ const AdminPanel = () => {
                     {user.email}
                   </td>
                   <td className="border border-gray-300 px-4 py-2">
-                    <RoleDropdown user={user} onUpdate={handleUpdateRoles} />
+                    <RoleDropdown
+                      user={user}
+                      onUpdate={handleUpdateRoles}
+                      isOpen={openDropdownUserId === user.id}
+                      onOpenChange={(open) => setOpenDropdownUserId(open ? user.id : null)}
+                    />
                   </td>
                 </tr>
               ))}

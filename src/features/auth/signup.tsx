@@ -91,7 +91,7 @@ const Signup = ({
       email,
       password,
       options: {
-        data: { name, roles, redirectTo: "https://project-learning-seven.vercel.app" }
+        data: { name, roles, redirectTo: "" }
       }
     });
 console.log(signUpData);

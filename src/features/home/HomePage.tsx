@@ -8,7 +8,9 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Badge } from "../../components/ui/badge";
 import { Skeleton } from "../../components/ui/skeleton";
+import sampleNetwork from "../../sampleNetwork.js";
 import { Search, Plus, Folder, Edit, Trash2, Users, AlertCircle, FileText, Calendar, UserCheck } from "lucide-react";
+import NetworkGraph from "./Visualize";
 
 type Project = {
   id: string;
@@ -60,6 +62,7 @@ const HomePage = () => {
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [isAssigneesOpen, setIsAssigneesOpen] = useState(false);
   const [assigneesProject, setAssigneesProject] = useState<Project | null>(null);
+  const [visualizeProjectId, setVisualizeProjectId] = useState<string | null>(null);
 
   const userIdToEmail = useMemo(() => {
     const map: Record<string, string> = {};
@@ -98,7 +101,7 @@ const HomePage = () => {
   const emailToName = useMemo(() => {
     const map: Record<string, string> = {};
     for (const u of adminUsers) {
-      if (u.email) map[u.email] = u.name || u.email;
+      if (u.email) map[u.email] = u.name ?? u.email;
     }
     return map;
   }, [adminUsers]);
@@ -271,7 +274,12 @@ const HomePage = () => {
 
       const { error } = await supabase
         .from("projects")
-        .insert([{ name: newProjectName.trim(), assignees: assigneesArray, creator_email: currentUserEmail }]);
+        .insert([{ 
+          name: newProjectName.trim(), 
+          assignees: assigneesArray, 
+          creator_email: currentUserEmail,
+          network_data: sampleNetwork
+         }]);
 
       if (error) {
         setCreateError(error.message || "Failed to create project.");
@@ -542,7 +550,7 @@ const HomePage = () => {
                     <Button 
                       variant="outline" 
                       className="w-full border-gray-300 text-gray-700 hover:bg-gray-100"
-                      onClick={() => { /* Add navigation to project detail */ }}
+                      onClick={() => { setVisualizeProjectId(project.id); }}
                     >
                       View Project
                     </Button>
@@ -639,6 +647,11 @@ const HomePage = () => {
                             <span className="text-sm font-medium text-gray-900">{u.name || "Unnamed User"}</span>
                             <span className="text-xs text-gray-500">{u.email || "No email"}</span>
                           </div>
+                          {u.id === currentUserId && (
+                            <div className="ml-auto">
+                              <span className="inline-block bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">Creator</span>
+                            </div>
+                          )}
                         </label>
                       ))
                     )}
@@ -687,6 +700,30 @@ const HomePage = () => {
                 </>
               ) : "Create Project"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Visualization Dialog */}
+      <Dialog open={!!visualizeProjectId} onOpenChange={(open) => { if (!open) setVisualizeProjectId(null); }}>
+        <DialogContent className="sm:max-w-4xl rounded-xl">
+          <DialogHeader className="pb-2">
+            <DialogTitle className="text-xl flex items-center gap-2">
+              <Folder size={20} />
+              Project Visualization
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="py-4">
+            {visualizeProjectId ? (
+              <NetworkGraph projectId={visualizeProjectId} />
+            ) : (
+              <p>No project selected.</p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVisualizeProjectId(null)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -798,11 +835,16 @@ const HomePage = () => {
                             <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-sm font-medium">
                               {(u.name || u.email || '?').charAt(0).toUpperCase()}
                             </div>
-                            <div className="flex flex-col">
-                              <span className="text-sm font-medium text-gray-900">{u.name || "Unnamed User"}</span>
-                              <span className="text-xs text-gray-500">{u.email || "No email"}</span>
-                            </div>
-                          </label>
+                              <div className="flex flex-col">
+                                <span className="text-sm font-medium text-gray-900">{u.name || "Unnamed User"}</span>
+                                <span className="text-xs text-gray-500">{u.email || "No email"}</span>
+                              </div>
+                              {creatorIdForEditingProject === u.id && (
+                                <div className="ml-auto">
+                                  <span className="inline-block bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">Creator</span>
+                                </div>
+                              )}
+                            </label>
                         );
                       })
                     )}
