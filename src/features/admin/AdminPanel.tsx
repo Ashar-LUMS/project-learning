@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../supabaseClient";
-import { Lock, Unlock, Shield } from "lucide-react";
+//import { Lock, Unlock, Shield } from "lucide-react";
 
 interface UserData {
   id: string;
