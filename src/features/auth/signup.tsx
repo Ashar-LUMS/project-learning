@@ -91,7 +91,7 @@ const Signup = ({
       email,
       password,
       options: {
-        data: { name, roles, redirectTo: "" }
+        data: { name, roles, isLocked: false, redirectTo: "" }
       }
     });
 console.log(signUpData);

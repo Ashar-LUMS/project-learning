@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../supabaseClient";
+import { Lock, Unlock, Shield } from "lucide-react";
 
 interface UserData {
   id: string;
@@ -7,6 +8,7 @@ interface UserData {
   raw_user_meta_data: {
     name?: string;
     roles?: string[];
+    isLocked?: boolean;
   };
 }
 
@@ -112,6 +114,7 @@ const AdminPanel = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   // which user's dropdown is currently open (only one at a time)
   const [openDropdownUserId, setOpenDropdownUserId] = useState<string | null>(null);
+  const [lockingUserId, setLockingUserId] = useState<string | null>(null);
   
   useEffect(() => {
     const getCurrentUser = async () => {
@@ -164,6 +167,37 @@ const AdminPanel = () => {
     }
   };
 
+  const handleToggleLock = async (userId: string, lock: boolean) => {
+    if (userId === currentUserId) {
+      setErrorMessage("You cannot lock/unlock your own account.");
+      return;
+    }
+
+    const ok = window.confirm(`Are you sure you want to ${lock ? 'lock' : 'unlock'} this user?`);
+    if (!ok) return;
+
+    try {
+      setLockingUserId(userId);
+      const { data, error } = await supabase.rpc("update_users_as_admin", {
+        target_user_id: userId,
+        new_is_locked: lock,
+      });
+      if (error) throw error;
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === userId
+            ? { ...u, raw_user_meta_data: data.raw_user_meta_data }
+            : u
+        )
+      );
+      setLockingUserId(null);
+    } catch (err) {
+      console.error("Error updating lock status:", err);
+      setErrorMessage("Failed to update user status");
+      setLockingUserId(null);
+    }
+  };
+
   return (
     <main className="flex-grow container mx-auto px-4 py-8 flex flex-col items-center">
       <h1 className="text-3xl font-bold mb-4">Admin Panel</h1>
@@ -183,6 +217,7 @@ const AdminPanel = () => {
                 <th className="border border-gray-300 px-4 py-2">Name</th>
                 <th className="border border-gray-300 px-4 py-2">Email</th>
                 <th className="border border-gray-300 px-4 py-2">Roles</th>
+                <th className="border border-gray-300 px-4 py-2">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -202,6 +237,27 @@ const AdminPanel = () => {
                       isOpen={openDropdownUserId === user.id}
                       onOpenChange={(open) => setOpenDropdownUserId(open ? user.id : null)}
                     />
+                  </td>
+                  <td className="border border-gray-300 px-4 py-2">
+                    <div className="flex items-center gap-3">
+                      {user.raw_user_meta_data?.isLocked ? (
+                        <span className="inline-block bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full">Locked</span>
+                      ) : (
+                        <span className="inline-block bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">Active</span>
+                      )}
+                      <button
+                        className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors duration-200
+    ${user.raw_user_meta_data?.isLocked 
+      ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+      : 'bg-red-100 text-red-700 hover:bg-red-200'
+    }`}
+    onClick={() => handleToggleLock(user.id, !user.raw_user_meta_data?.isLocked)}
+                        disabled={lockingUserId === user.id || user.id === currentUserId}
+                        title={user.id === currentUserId ? "Cannot lock/unlock your own account" : (user.raw_user_meta_data?.isLocked ? 'Unlock user' : 'Lock user')}
+                      >
+                        {lockingUserId === user.id ? '...' : (user.raw_user_meta_data?.isLocked ? 'Unlock User?' : 'Lock User?')}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
