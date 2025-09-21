@@ -15,6 +15,7 @@ type Project = {
   name?: string | null;
   assignees?: string[] | null;
   created_at?: string | null;
+  creator_email?: string | null;
 };
 
 type MinimalUser = {
@@ -48,6 +49,7 @@ const HomePage = () => {
   const [createError, setCreateError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [assigneeQuery, setAssigneeQuery] = useState("");
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -93,6 +95,36 @@ const HomePage = () => {
     return map;
   }, [adminUsers]);
 
+  const emailToName = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const u of adminUsers) {
+      if (u.email) map[u.email] = u.name || u.email;
+    }
+    return map;
+  }, [adminUsers]);
+
+  const creatorIdForEditingProject = useMemo(() => {
+    if (!editingProject?.creator_email) return null;
+    const creator = adminUsers.find((a) => a.email === editingProject.creator_email);
+    return creator?.id ?? null;
+  }, [editingProject, adminUsers]);
+
+  const orderedAdminUsersForEdit = useMemo(() => {
+    if (!creatorIdForEditingProject) return filteredAdminUsersForEdit;
+    const rest = filteredAdminUsersForEdit.filter((u) => u.id !== creatorIdForEditingProject);
+    const creatorUser = adminUsers.find((u) => u.id === creatorIdForEditingProject);
+    if (!creatorUser) return filteredAdminUsersForEdit;
+    return [creatorUser, ...rest];
+  }, [filteredAdminUsersForEdit, adminUsers, creatorIdForEditingProject]);
+
+  const orderedAdminUsersForCreate = useMemo(() => {
+    if (!currentUserId) return filteredAdminUsers;
+    const rest = filteredAdminUsers.filter((u) => u.id !== currentUserId);
+    const currentUser = adminUsers.find((u) => u.id === currentUserId);
+    if (!currentUser) return filteredAdminUsers;
+    return [currentUser, ...rest];
+  }, [filteredAdminUsers, adminUsers, currentUserId]);
+
   useEffect(() => {
     const fetchProjects = async () => {
       // For admins: fetch all projects
@@ -104,7 +136,7 @@ const HomePage = () => {
       try {
         let query = supabase
           .from("projects")
-          .select("id, name, assignees, created_at")
+          .select("id, name, assignees, created_at, creator_email")
           .order("created_at", { ascending: false });
 
         if (!isAdmin && currentUserId) {
@@ -164,9 +196,22 @@ const HomePage = () => {
     const getUser = async () => {
       const { data } = await supabase.auth.getUser();
       setCurrentUserId(data.user?.id ?? null);
+      setCurrentUserEmail(data.user?.email ?? null);
     };
     getUser();
   }, []);
+
+  // When the Create dialog opens, ensure the current user is selected by default
+  useEffect(() => {
+    if (!isCreateOpen) return;
+    if (!currentUserId) return;
+
+    setSelectedAssigneeIds((prev) => {
+      const next = new Set(prev);
+      next.add(currentUserId);
+      return next;
+    });
+  }, [isCreateOpen, currentUserId]);
 
   // Users are fetched once for admins; no dialog-specific fetch needed
 
@@ -188,7 +233,13 @@ const HomePage = () => {
   const openEditDialog = (project: Project) => {
     setEditingProject(project);
     setEditName(project.name || "");
-    setEditSelectedAssigneeIds(new Set(project.assignees || []));
+    // Ensure project creator (if known) is included in the edit selection (cannot be removed)
+    setEditSelectedAssigneeIds(() => {
+      const next = new Set(project.assignees || []);
+      const creator = adminUsers.find((a) => a.email === project.creator_email);
+      if (creator?.id) next.add(creator.id);
+      return next;
+    });
     setEditAssigneeQuery("");
     setUpdateError(null);
     setIsEditOpen(true);
@@ -220,7 +271,7 @@ const HomePage = () => {
 
       const { error } = await supabase
         .from("projects")
-        .insert([{ name: newProjectName.trim(), assignees: assigneesArray }]);
+        .insert([{ name: newProjectName.trim(), assignees: assigneesArray, creator_email: currentUserEmail }]);
 
       if (error) {
         setCreateError(error.message || "Failed to create project.");
@@ -235,7 +286,7 @@ const HomePage = () => {
       setIsProjectsLoading(true);
       const { data, error: refetchError } = await supabase
         .from("projects")
-        .select("id, name, assignees, created_at")
+        .select("id, name, assignees, created_at, creator_email")
         .order("created_at", { ascending: false });
       if (refetchError) {
         setProjectsError(refetchError.message || "Failed to load projects.");
@@ -275,7 +326,7 @@ const HomePage = () => {
       setIsProjectsLoading(true);
       const { data, error: refetchError } = await supabase
         .from("projects")
-        .select("id, name, assignees, created_at")
+        .select("id, name, assignees, created_at, creator_email")
         .order("created_at", { ascending: false });
       if (refetchError) {
         setProjectsError(refetchError.message || "Failed to load projects.");
@@ -312,7 +363,7 @@ const HomePage = () => {
       setIsProjectsLoading(true);
       const { data, error: refetchError } = await supabase
         .from("projects")
-        .select("id, name, assignees, created_at")
+        .select("id, name, assignees, created_at, creator_email")
         .order("created_at", { ascending: false });
       if (refetchError) {
         setProjectsError(refetchError.message || "Failed to load projects.");
@@ -415,6 +466,16 @@ const HomePage = () => {
                               <Calendar size={12} className="mr-1" />
                               <span className="text-xs">
                                 {new Date(project.created_at).toLocaleDateString()}
+                              </span>
+                            </div>
+                          )}
+                          {project.creator_email && (
+                            <div className="mt-1 text-xs text-gray-500">
+                              Created by: {
+                                // show friendly name when we know it, else show the email
+                              }
+                              <span title={project.creator_email} className="font-medium text-gray-700">
+                                {emailToName[project.creator_email] || project.creator_email}
                               </span>
                             </div>
                           )}
@@ -562,13 +623,14 @@ const HomePage = () => {
                     ) : filteredAdminUsers.length === 0 ? (
                       <div className="text-sm text-gray-500 p-4 text-center">No matching team members found.</div>
                     ) : (
-                      filteredAdminUsers.map((u) => (
-                        <label key={u.id} className="flex items-center gap-3 py-3 px-4 hover:bg-gray-50 cursor-pointer transition-colors">
+                      orderedAdminUsersForCreate.map((u) => (
+                        <label key={u.id} className={`flex items-center gap-3 py-3 px-4 transition-colors ${u.id === currentUserId ? 'bg-gray-50 cursor-default' : 'hover:bg-gray-50 cursor-pointer'}`}>
                           <input
                             type="checkbox"
                             className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
                             checked={selectedAssigneeIds.has(u.id)}
-                            onChange={() => toggleAssignee(u.id)}
+                            onChange={() => { if (u.id !== currentUserId) toggleAssignee(u.id); }}
+                            disabled={u.id === currentUserId}
                           />
                           <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-sm font-medium">
                             {(u.name || u.email || '?').charAt(0).toUpperCase()}
@@ -592,7 +654,7 @@ const HomePage = () => {
               {currentUserId && (
                 <p className="text-xs text-gray-500 mt-3 flex items-center">
                   <UserCheck size={14} className="mr-1" />
-                  You will be added as an Collaborator by default.
+                  You will be added as Project Creator by default.
                 </p>
               )}
             </div>
@@ -722,23 +784,27 @@ const HomePage = () => {
                     ) : filteredAdminUsersForEdit.length === 0 ? (
                       <div className="text-sm text-gray-500 p-4 text-center">No matching team members found.</div>
                     ) : (
-                      filteredAdminUsersForEdit.map((u) => (
-                        <label key={u.id} className="flex items-center gap-3 py-3 px-4 hover:bg-gray-50 cursor-pointer transition-colors">
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
-                            checked={editSelectedAssigneeIds.has(u.id)}
-                            onChange={() => toggleEditAssignee(u.id)}
-                          />
-                          <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-sm font-medium">
-                            {(u.name || u.email || '?').charAt(0).toUpperCase()}
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-sm font-medium text-gray-900">{u.name || "Unnamed User"}</span>
-                            <span className="text-xs text-gray-500">{u.email || "No email"}</span>
-                          </div>
-                        </label>
-                      ))
+                      orderedAdminUsersForEdit.map((u) => {
+                        const isCreator = creatorIdForEditingProject === u.id;
+                        return (
+                          <label key={u.id} className={`flex items-center gap-3 py-3 px-4 transition-colors ${isCreator ? 'bg-gray-50 cursor-default' : 'hover:bg-gray-50 cursor-pointer'}`}>
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+                              checked={editSelectedAssigneeIds.has(u.id)}
+                              onChange={() => { if (!isCreator) toggleEditAssignee(u.id); }}
+                              disabled={isCreator}
+                            />
+                            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-sm font-medium">
+                              {(u.name || u.email || '?').charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium text-gray-900">{u.name || "Unnamed User"}</span>
+                              <span className="text-xs text-gray-500">{u.email || "No email"}</span>
+                            </div>
+                          </label>
+                        );
+                      })
                     )}
                   </div>
                 </>
