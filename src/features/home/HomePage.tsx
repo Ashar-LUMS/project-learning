@@ -327,7 +327,7 @@ const HomePage: React.FC = () => {
                         {project.creator_email && <div className="mt-1 text-xs text-gray-500">Created by: <span title={project.creator_email} className="font-medium text-gray-700">{emailToName[project.creator_email] || project.creator_email}</span></div>}
                       </div>
                     </div>
-                    {isAdmin && (
+                    {(isAdmin || (currentUserId && project.assignees?.includes(currentUserId))) && (
                       <div className="flex items-center gap-1">
                         <button className="text-gray-500 hover:text-blue-600 p-1 rounded-full hover:bg-blue-50" title="Edit project" onClick={() => openEditDialog(project)}><Edit size={16} /></button>
                         <button className="text-gray-500 hover:text-red-600 p-1 rounded-full hover:bg-red-50" title="Delete project" onClick={() => setDeleteCandidate(project)}><Trash2 size={16} /></button>
