@@ -135,8 +135,8 @@ const HomePage: React.FC = () => {
   const [isDeleteLoading, setIsDeleteLoading] = useState(false);
 
   // Page-level filters and UX
-  const [searchTerm, setSearchTerm] = useState("");
-  const [sortBy, setSortBy] = useState<"recent" | "name">("recent");
+  const [searchTerm] = useState("");
+  const [sortBy] = useState<"recent" | "name">("recent");
   const [adminView, setAdminView] = useState<"all" | "mine">("all");
 
   // Inline banner for success/error
@@ -297,6 +297,7 @@ const HomePage: React.FC = () => {
     if (isAdmin && adminView === "mine" && currentUserId) {
       list = list.filter(p => (p.assignees || []).includes(currentUserId));
     }
+    
     // Search filter
     const q = searchTerm.trim().toLowerCase();
     if (q) {
