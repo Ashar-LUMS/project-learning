@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { z } from 'zod';
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Loader2, CheckCircle2 } from "lucide-react";
 // import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input";
 import { useNavigate } from 'react-router-dom';
@@ -50,6 +53,7 @@ const Signup = ({
 
   // 3. Use state to manage validation errors
   const [errors, setErrors] = useState({ name: '', email: '', password: '', roles: '', general: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Initialize the navigate function from React Router
   const navigate = useNavigate();
@@ -64,6 +68,8 @@ const Signup = ({
   // 4. Create a function to handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     setErrors({ name: '' , email: '' , password: '' , roles: '' , general: '' }); // Clear previous errors
 
     // Pass 'roles' to safeParse to validate all fields
@@ -82,6 +88,7 @@ const Signup = ({
         general: '', 
       });
       console.log(errors);
+      setIsSubmitting(false);
       return; // Stop the function if validation fails
     }
 
@@ -101,6 +108,7 @@ console.log(signUpError);
       // Specific handling for "already registered" error
   if (signUpError.message.toLowerCase().includes("already registered")) {
     setErrors({ ...errors, general: "This email is already in use. Please log in instead." });
+    setIsSubmitting(false);
     return;
   }
       setErrors({ ...errors, general: signUpError.message });
@@ -125,85 +133,96 @@ console.log(signUpError);
       
       console.log("Profile created successfully!");
       */
-      navigate('/app');
+  navigate('/app');
+  setIsSubmitting(false);
     } else if (signUpData.user && !signUpData.session) {
       // This is the case where email confirmation is required
       console.log("Signup initiated. Please check your email for a confirmation link.");
-      navigate('/check-email');
+  navigate('/check-email');
+  setIsSubmitting(false);
     } else {
       // Fallback (shouldn't normally happen)
       setErrors({ ...errors, general: "This email is already registered. Please log in instead." });
       console.log(errors);
+      setIsSubmitting(false);
     }
 
   } catch (error) {
     console.error("An unexpected error occurred:", error);
-    setErrors({ ...errors, general: "An unexpected error occurred. Please try again." });
+  setErrors({ ...errors, general: "An unexpected error occurred. Please try again." });
     console.log(errors);
+  setIsSubmitting(false);
     }
 };
   };
 
   return (
-    <section className="bg-muted h-screen">
-      <div className="flex h-full items-center justify-center">
+    <section className="bg-muted min-h-screen">
+      <div className="flex min-h-screen items-center justify-center p-4">
         <div className="flex flex-col items-center gap-6 lg:justify-start">
           <a href={logo.url}>
             <img src={logo.src} alt={logo.alt} title={logo.title} className="h-10 dark:invert" />
           </a>
-          <div className="min-w-sm bg-background flex w-full max-w-sm flex-col items-center gap-y-4 rounded-md border px-6 py-8 shadow-md">
-            {heading && <h1 className="text-xl font-semibold">{heading}</h1>}
-            <form onSubmit={handleSubmit} className="w-full flex flex-col gap-y-4">
-              {errors.general && <p className="text-red-500 text-sm">{errors.general}</p>}
+          <Card className="w-[420px]">
+            <CardHeader className="text-center">
+              {heading && <CardTitle className="text-xl">{heading}</CardTitle>}
+              <CardDescription>Create an account to continue.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {errors.general && <p className="text-red-600 text-sm" role="alert">{errors.general}</p>}
 
-              <Input type="text" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
-              {errors.name && <p className="text-red-500 text-sm">{errors.name}</p>}
+                <div className="space-y-2">
+                  <Label htmlFor="name">Name</Label>
+                  <Input id="name" type="text" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSubmitting} />
+                  {errors.name && <p className="text-red-600 text-xs">{errors.name}</p>}
+                </div>
 
-              <Input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-              {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input id="email" type="email" placeholder="m@example.com" value={email} onChange={(e) => setEmail(e.target.value)} disabled={isSubmitting} />
+                  {errors.email && <p className="text-red-600 text-xs">{errors.email}</p>}
+                </div>
 
-              <Input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
-              {errors.password && <p className="text-red-500 text-sm">{errors.password}</p>}
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} disabled={isSubmitting} />
+                  {errors.password && <p className="text-red-600 text-xs">{errors.password}</p>}
+                </div>
 
-{/* Roles with consistent Input-like UI */}
-<div className="flex flex-col gap-3">
-  <p className="font-medium">Select Roles:</p>
-  <div className="grid grid-cols-2 gap-2">
-    {AVAILABLE_ROLES.map(role => {
-      const isSelected = roles.includes(role);
-      return (
-        <button
-          type="button"
-          key={role}
-          onClick={() => toggleRole(role)}
-          className={`h-10 w-full rounded-md border px-3 text-sm text-left transition
-            ${isSelected 
-              ? "bg-primary text-white border-primary shadow-sm" 
-              : "bg-background text-muted-foreground hover:border-primary/50"}`}
-        >
-          {role}
-        </button>
-      );
-    })}
-  </div>
+                <div className="space-y-2">
+                  <Label>Select roles</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {AVAILABLE_ROLES.map(role => {
+                      const isSelected = roles.includes(role);
+                      return (
+                        <button
+                          type="button"
+                          key={role}
+                          onClick={() => toggleRole(role)}
+                          className={`h-10 w-full rounded-md border px-3 text-sm text-left transition
+                            ${isSelected 
+                              ? "bg-primary text-white border-primary shadow-sm" 
+                              : "bg-background text-muted-foreground hover:border-primary/50"}`}
+                          disabled={isSubmitting}
+                        >
+                          {isSelected ? <span className="inline-flex items-center gap-2"><CheckCircle2 /> {role}</span> : role}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {roles.length > 0 && (
+                    <div className="text-xs text-muted-foreground">Selected: {roles.join(", ")}</div>
+                  )}
+                  {errors.roles && <p className="text-red-600 text-xs">{errors.roles}</p>}
+                </div>
 
-  {/* Show selected roles summary */}
-  {roles.length > 0 && (
-    <div className="text-xs text-muted-foreground">
-      Selected: {roles.join(", ")}
-    </div>
-  )}
-
-  {errors.roles && <p className="text-red-500 text-sm">{errors.roles}</p>}
-</div>
-
-
-
-              <Button type="submit" className="w-full">
-                {buttonText}
-              </Button>
-            </form>
-          </div>
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                  {isSubmitting ? (<><Loader2 className="animate-spin" /> Creating account...</>) : buttonText}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
           <div className="text-muted-foreground flex justify-center gap-1 text-sm">
             <p>{signupText}</p>
             <a href={loginUrl} className="text-primary font-medium hover:underline">Login</a>

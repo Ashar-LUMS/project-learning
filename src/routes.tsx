@@ -1,5 +1,6 @@
 import { createBrowserRouter } from "react-router-dom";
 import { Login } from './features/auth/login';
+import { ForgotPasswordForm } from './features/auth/forget-password';
 import { Signup } from './features/auth/signup';
 import { CheckEmail } from './features/auth/check-email';
 import AppLayout from './layouts/AppLayout';
@@ -22,6 +23,10 @@ const router = createBrowserRouter([
   {
     path: "/check-email",
     element: <CheckEmail />,
+  },
+  {
+    path: "/forgot-password",
+    element: <ForgotPasswordForm />,
   },
   {
     path: "/app",
