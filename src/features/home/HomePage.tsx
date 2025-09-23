@@ -413,14 +413,15 @@ const HomePage: React.FC = () => {
 
       {/* Visualization dialog */}
       <Dialog open={!!visualizeProjectId} onOpenChange={(open) => { if (!open) setVisualizeProjectId(null); }}>
-        <DialogContent className="sm:max-w-4xl rounded-xl">
-          <DialogHeader><DialogTitle className="text-xl flex items-center gap-2"><Folder size={20} /> Project Visualization</DialogTitle></DialogHeader>
-          <div className="py-4">
-            {visualizeProjectId ? <NetworkGraph projectId={visualizeProjectId} height={520} /> : <p>No project selected.</p>}
+        <DialogContent className="sm:max-w-6xl w-[95vw] max-h-[85vh] rounded-xl p-0 overflow-hidden">
+          <div className="flex flex-col h-full">
+            <DialogHeader className="px-6 pt-6">
+              <DialogTitle className="text-xl flex items-center gap-2"><Folder size={20} /> Project Visualization</DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 min-h-[360px] overflow-hidden px-6 pb-6">
+              {visualizeProjectId ? <NetworkGraph projectId={visualizeProjectId} height="100%" /> : <p>No project selected.</p>}
+            </div>
           </div>
-          <DialogFooter>
-            {/* <Button variant="outline" onClick={() => setVisualizeProjectId(null)}>Close</Button> */}
-            </DialogFooter>
         </DialogContent>
       </Dialog>
 

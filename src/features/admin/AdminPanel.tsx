@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../supabaseClient";
-//import { Lock, Unlock, Shield } from "lucide-react";
+import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
+import { Lock, Unlock, ShieldCheck, Loader2 } from "lucide-react";
 
 interface UserData {
   id: string;
@@ -147,23 +149,36 @@ const AdminPanel = () => {
     };
   }, [currentUserId]); // Not ideal, but ensures we have currentUserId before fetching users
 
-  const handleUpdateRoles = async (userId: string, roles: string[]) => {
+  const handleUpdateUserMeta = async (userId: string, updates: { roles?: string[]; isLocked?: boolean }) => {
     try {
+      const user = users.find(u => u.id === userId);
+      if (!user) return;
+
+      const currentMeta = user.raw_user_meta_data || {};
+      const newRoles = updates.roles || currentMeta.roles || [];
+      
       const { data, error } = await supabase.rpc("update_users_as_admin", {
         target_user_id: userId,
-        new_roles: roles,
+        new_roles: newRoles,
       });
       if (error) throw error;
+
+      // Update the returned data with our lock status if provided
+      let updatedMeta = data.raw_user_meta_data;
+      if (updates.isLocked !== undefined) {
+        updatedMeta = { ...updatedMeta, isLocked: updates.isLocked };
+      }
+
       setUsers((prev) =>
         prev.map((u) =>
           u.id === userId
-            ? { ...u, raw_user_meta_data: data.raw_user_meta_data }
+            ? { ...u, raw_user_meta_data: updatedMeta }
             : u
         )
       );
     } catch (err) {
-      console.error("Error updating roles:", err);
-      setErrorMessage("Failed to update roles");
+      console.error("Error updating user:", err);
+      setErrorMessage("Failed to update user");
     }
   };
 
@@ -178,18 +193,7 @@ const AdminPanel = () => {
 
     try {
       setLockingUserId(userId);
-      const { data, error } = await supabase.rpc("update_users_as_admin", {
-        target_user_id: userId,
-        new_is_locked: lock,
-      });
-      if (error) throw error;
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === userId
-            ? { ...u, raw_user_meta_data: data.raw_user_meta_data }
-            : u
-        )
-      );
+      await handleUpdateUserMeta(userId, { isLocked: lock });
       setLockingUserId(null);
     } catch (err) {
       console.error("Error updating lock status:", err);
@@ -233,7 +237,7 @@ const AdminPanel = () => {
                   <td className="border border-gray-300 px-4 py-2">
                     <RoleDropdown
                       user={user}
-                      onUpdate={handleUpdateRoles}
+                      onUpdate={(id, roles) => handleUpdateUserMeta(id, { roles })}
                       isOpen={openDropdownUserId === user.id}
                       onOpenChange={(open) => setOpenDropdownUserId(open ? user.id : null)}
                     />
@@ -241,22 +245,58 @@ const AdminPanel = () => {
                   <td className="border border-gray-300 px-4 py-2">
                     <div className="flex items-center gap-3">
                       {user.raw_user_meta_data?.isLocked ? (
-                        <span className="inline-block bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full">Locked</span>
+                        <Badge
+                          variant="destructive"
+                          className="h-8 px-3 text-sm gap-1.5 [&>svg]:size-4"
+                        >
+                          <Lock className="opacity-90" /> Locked
+                        </Badge>
                       ) : (
-                        <span className="inline-block bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">Active</span>
+                        <Badge
+                          className="h-8 px-3 text-sm gap-1.5 [&>svg]:size-4 bg-green-600 text-white border-transparent"
+                        >
+                          <ShieldCheck className="opacity-90" /> Active
+                        </Badge>
                       )}
-                      <button
-                        className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors duration-200
-    ${user.raw_user_meta_data?.isLocked 
-      ? 'bg-green-100 text-green-700 hover:bg-green-200' 
-      : 'bg-red-100 text-red-700 hover:bg-red-200'
-    }`}
-    onClick={() => handleToggleLock(user.id, !user.raw_user_meta_data?.isLocked)}
-                        disabled={lockingUserId === user.id || user.id === currentUserId}
-                        title={user.id === currentUserId ? "Cannot lock/unlock your own account" : (user.raw_user_meta_data?.isLocked ? 'Unlock user' : 'Lock user')}
-                      >
-                        {lockingUserId === user.id ? '...' : (user.raw_user_meta_data?.isLocked ? 'Unlock User?' : 'Lock User?')}
-                      </button>
+
+                      {user.raw_user_meta_data?.isLocked ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleToggleLock(user.id, false)}
+                          disabled={lockingUserId === user.id || user.id === currentUserId}
+                          title={user.id === currentUserId ? "Cannot lock/unlock your own account" : 'Unlock user'}
+                          className="border-green-300 text-green-700 hover:bg-green-50"
+                        >
+                          {lockingUserId === user.id ? (
+                            <>
+                              <Loader2 className="animate-spin" /> Updating
+                            </>
+                          ) : (
+                            <>
+                              <Unlock /> Unlock
+                            </>
+                          )}
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleToggleLock(user.id, true)}
+                          disabled={lockingUserId === user.id || user.id === currentUserId}
+                          title={user.id === currentUserId ? "Cannot lock/unlock your own account" : 'Lock user'}
+                        >
+                          {lockingUserId === user.id ? (
+                            <>
+                              <Loader2 className="animate-spin" /> Updating
+                            </>
+                          ) : (
+                            <>
+                              <Lock /> Lock
+                            </>
+                          )}
+                        </Button>
+                      )}
                     </div>
                   </td>
                 </tr>
