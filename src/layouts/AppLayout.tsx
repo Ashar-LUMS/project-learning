@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, Outlet, useNavigate } from "react-router-dom";
+import { Link, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { Home, Menu, Users } from "lucide-react";
 import { supabase } from "../supabaseClient";
@@ -9,6 +9,9 @@ const AppLayout = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();
   const { roles: userRolesArray, isLoading: areRolesLoading } = useRole();
+  const location = useLocation();
+  const [isLocked, setIsLocked] = useState<boolean | null>(null);
+  const [checkingLock, setCheckingLock] = useState(true);
 
   // State to manage the currently selected/active role
   const [activeRole, setActiveRole] = useState<string | null>(null);
@@ -23,15 +26,97 @@ const AppLayout = () => {
         }
       }
     } else if (!areRolesLoading && (!userRolesArray || userRolesArray.length === 0)) {
-      // If no roles are found, ensure activeRole is null
       setActiveRole(null);
     }
   }, [userRolesArray, areRolesLoading, activeRole]);
+
+  // Fetch user metadata to determine lock status
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      setCheckingLock(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (cancelled) return;
+  const locked = !!(user?.user_metadata?.isLocked || user?.user_metadata?.is_locked);
+      setIsLocked(locked);
+      setCheckingLock(false);
+      if (locked && !location.pathname.endsWith('/locked')) {
+        navigate('/app/locked', { replace: true });
+      }
+    };
+    check();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const u = session?.user;
+  const locked = !!(u?.user_metadata?.isLocked || u?.user_metadata?.is_locked);
+      setIsLocked(locked);
+      if (locked && !location.pathname.endsWith('/locked')) {
+        navigate('/app/locked', { replace: true });
+      }
+    });
+    return () => { cancelled = true; subscription.unsubscribe(); };
+  }, [navigate, location.pathname]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate("/");
   };
+
+  // Sign out automatically when the tab/window is closed or navigated away.
+  // Uses local scope signOut for speed 
+  // Remove this useEffect if you want to keep users logged in across sessions.
+  useEffect(() => {
+    let active = true;
+    const quickLocalSignOut = () => {
+      try {
+        // Local only: clears client session/token cache synchronously; network revocation may not finish on unload anyway.
+        supabase.auth.signOut({ scope: 'local' });
+      } catch { /* ignore */ }
+    };
+
+    // Attach only if a user is present
+    const attachIfAuthenticated = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!active) return;
+      if (user) {
+        window.addEventListener('beforeunload', quickLocalSignOut);
+        // pagehide covers some mobile browsers / bfcache scenarios
+        window.addEventListener('pagehide', quickLocalSignOut);
+      }
+    };
+    attachIfAuthenticated();
+
+    // Also respond to auth state changes (e.g., login after mount)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const user = session?.user;
+      if (user) {
+        window.addEventListener('beforeunload', quickLocalSignOut);
+        window.addEventListener('pagehide', quickLocalSignOut);
+      } else {
+        window.removeEventListener('beforeunload', quickLocalSignOut);
+        window.removeEventListener('pagehide', quickLocalSignOut);
+      }
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+      window.removeEventListener('beforeunload', quickLocalSignOut);
+      window.removeEventListener('pagehide', quickLocalSignOut);
+    };
+  }, [navigate]);
+
+  if (checkingLock) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-gray-600">Checking account status...</div>
+    );
+  }
+
+  if (isLocked) {
+    // The route component for /app/locked will render; short-circuit other layout parts if already redirected
+    if (!location.pathname.endsWith('/locked')) {
+      return null; // navigation effect will handle redirect
+    }
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 text-gray-800 font-sans antialiased">
@@ -204,7 +289,7 @@ const AppLayout = () => {
       {/* Footer */}
       <footer className="bg-gray-800 text-gray-300 py-6">
         <div className="container mx-auto px-4 text-center">
-          <p>&copy; 2025 TISON App. All rights reserved.</p>
+          <p>&copy; 2025 TISON - BIRL&trade; All rights reserved.</p>
         </div>
       </footer>
     </div>

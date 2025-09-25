@@ -17,6 +17,7 @@ type Project = {
   name?: string | null;
   assignees?: string[] | null;
   created_at?: string | null;
+  created_by?: string | null; // uuid of creator
   creator_email?: string | null;
 };
 
@@ -24,41 +25,56 @@ type MinimalUser = {
   id: string;
   email: string | null;
   name?: string | null;
+  roles?: string[] | null;
+  is_locked?: boolean | null;
 };
 
-const useAdminUsers = (isAdmin: boolean) => {
-  const [adminUsers, setAdminUsers] = useState<MinimalUser[]>([]);
+// New hook using get_users (available for any authenticated user)
+const useUsers = (enabled: boolean) => {
+  const [users, setUsers] = useState<MinimalUser[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-      if (!isAdmin) return;
-      let mounted = true;
-      setIsLoading(true);
-      (async () => {
-        try {
-          const { data, error } = await supabase.rpc("get_users_as_admin");
-          if (!mounted) return;
-          if (error) {
-            setError(error.message || "Failed to load users");
-            setAdminUsers([]);
-          } else {
-            setAdminUsers(((data || []) as any[]).map((u) => ({ id: u.id, email: u.email ?? null, name: u.raw_user_meta_data?.name ?? null })));
+    if (!enabled) return;
+    let mounted = true;
+    setIsLoading(true);
+    (async () => {
+      try {
+        const { data, error } = await supabase.rpc("get_users");
+        if (!mounted) return;
+        if (error) {
+          setError(error.message || "Failed to load users");
+          setUsers([]);
+        } else {
+          // Supabase auth.users rows contain metadata in raw_user_meta_data / user_metadata
+            const list: MinimalUser[] = ((data || []) as any[]).map((u) => {
+              const meta = (u.raw_user_meta_data || u.user_metadata || {}) as any;
+              const name = meta.name ?? meta.full_name ?? null;
+              const roles = Array.isArray(meta.roles) ? meta.roles : (typeof meta.roles === 'string' ? [meta.roles] : null);
+              return {
+                id: u.id,
+                email: u.email ?? null,
+                name,
+                roles,
+                is_locked: meta.isLocked ?? meta.is_locked ?? null,
+              } as MinimalUser;
+            });
+            setUsers(list);
             setError(null);
-          }
-        } catch {
-          if (!mounted) return;
-          setError("Unexpected error while loading users.");
-          setAdminUsers([]);
-        } finally {
-          if (mounted) setIsLoading(false);
         }
-      })();
-  
-      return () => { mounted = false; };
-    }, [isAdmin]);
+      } catch (e) {
+        if (!mounted) return;
+        setError("Unexpected error while loading users.");
+        setUsers([]);
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [enabled]);
 
-  return { adminUsers, isLoading, error } as const;
+  return { users, isLoading, error } as const;
 };
 
 const useProjects = (isAdmin: boolean | null, currentUserId: string | null) => {
@@ -74,7 +90,7 @@ const useProjects = (isAdmin: boolean | null, currentUserId: string | null) => {
     try {
       let query = supabase
         .from("projects")
-        .select("id, name, assignees, created_at, creator_email")
+  .select("id, name, assignees, created_at, created_by, creator_email")
         .order("created_at", { ascending: false });
 
       if (!isAdmin && currentUserId) {
@@ -146,8 +162,8 @@ const HomePage: React.FC = () => {
   const [createTeamSearch, setCreateTeamSearch] = useState("");
   const [editTeamSearch, setEditTeamSearch] = useState("");
 
-  // admin users hook
-  const { adminUsers, isLoading: isAdminUsersLoading, error: adminUsersError } = useAdminUsers(isAdmin);
+  // All users (any authenticated user can fetch)
+  const { users, isLoading: isUsersLoading, error: usersError } = useUsers(true);
 
   useEffect(() => {
     (async () => {
@@ -185,7 +201,7 @@ const HomePage: React.FC = () => {
   }, []);
 
   const handleCreateProject = useCallback(async () => {
-    if (!isAdmin) return;
+    // Allow non-admin users to create projects
     if (!newProjectName.trim()) return; // UI already disables button, but double-check
 
     try {
@@ -198,6 +214,7 @@ const HomePage: React.FC = () => {
         name: newProjectName.trim(),
         assignees: assigneesArray,
         creator_email: currentUserEmail,
+        created_by: currentUserId,
         network_data: sampleNetwork,
       }]);
 
@@ -213,14 +230,13 @@ const HomePage: React.FC = () => {
     finally {
       setIsCreateLoading(false);
     }
-  }, [isAdmin, newProjectName, selectedAssigneeIds, currentUserId, currentUserEmail, resetCreateForm, refetchProjects]);
+  }, [newProjectName, selectedAssigneeIds, currentUserId, currentUserEmail, resetCreateForm, refetchProjects]);
 
   const openEditDialog = useCallback((project: Project) => {
     setEditingProject(project);
     setEditName(project.name || "");
     setEditSelectedAssigneeIds(new Set(project.assignees || []));
-    // ensure creator remains in set if found
-    const creator = adminUsers.find((a) => a.email === project.creator_email);
+    const creator = users.find((a) => a.email === project.creator_email);
     if (creator?.id) {
       setEditSelectedAssigneeIds((prev) => {
         const next = new Set(prev);
@@ -229,7 +245,7 @@ const HomePage: React.FC = () => {
       });
     }
     setIsEditOpen(true);
-  }, [adminUsers]);
+  }, [users]);
 
   const handleUpdateProject = useCallback(async () => {
     if (!editingProject) return;
@@ -272,23 +288,24 @@ const HomePage: React.FC = () => {
   }, []);
 
   // derived maps
-  const userIdToEmail = useMemo(() => {
+  const userIdToLabel = useMemo(() => {
     const map: Record<string, string> = {};
-    for (const u of adminUsers) map[u.id] = u.email ?? u.name ?? u.id;
+    for (const u of users) map[u.id] = u.name || u.email || u.id;
     return map;
-  }, [adminUsers]);
+  }, [users]);
 
   const userIdToUser = useMemo(() => {
     const map: Record<string, MinimalUser> = {};
-    for (const u of adminUsers) map[u.id] = u;
+    for (const u of users) map[u.id] = u;
     return map;
-  }, [adminUsers]);
+  }, [users]);
 
+  // Quick lookup for email -> name fallback
   const emailToName = useMemo(() => {
     const map: Record<string, string> = {};
-    for (const u of adminUsers) if (u.email) map[u.email] = u.name ?? u.email;
+    for (const u of users) if (u.email) map[u.email] = u.name || u.email;
     return map;
-  }, [adminUsers]);
+  }, [users]);
 
   // Filter + sort derived list
   const displayedProjects = useMemo(() => {
@@ -317,17 +334,17 @@ const HomePage: React.FC = () => {
   }, [projects, isAdmin, adminView, currentUserId, searchTerm, sortBy]);
 
   // Filter admin users by dialog searches
-  const filteredAdminUsersForCreate = useMemo(() => {
+  const filteredUsersForCreate = useMemo(() => {
     const q = createTeamSearch.trim().toLowerCase();
-    if (!q) return adminUsers;
-    return adminUsers.filter(u => (u.name || u.email || "").toLowerCase().includes(q));
-  }, [adminUsers, createTeamSearch]);
+    if (!q) return users;
+    return users.filter(u => (u.name || u.email || "").toLowerCase().includes(q));
+  }, [users, createTeamSearch]);
 
-  const filteredAdminUsersForEdit = useMemo(() => {
+  const filteredUsersForEdit = useMemo(() => {
     const q = editTeamSearch.trim().toLowerCase();
-    if (!q) return adminUsers;
-    return adminUsers.filter(u => (u.name || u.email || "").toLowerCase().includes(q));
-  }, [adminUsers, editTeamSearch]);
+    if (!q) return users;
+    return users.filter(u => (u.name || u.email || "").toLowerCase().includes(q));
+  }, [users, editTeamSearch]);
 
   return (
     <main className="flex-grow container mx-auto px-4 py-8">
@@ -409,8 +426,19 @@ const HomePage: React.FC = () => {
                       <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600"><Folder size={20} /></div>
                       <div className="min-w-0">
                         <h3 className="text-base font-semibold text-gray-900 truncate">{project.name || 'Untitled Project'}</h3>
-                        {project.created_at && <div className="mt-1 flex items-center text-gray-500"><Calendar size={12} className="mr-1" /><span className="text-xs">{new Date(project.created_at).toLocaleDateString()}</span></div>}
-                        {project.creator_email && <div className="mt-1 text-xs text-gray-500">Created by: <span title={project.creator_email} className="font-medium text-gray-700">{emailToName[project.creator_email] || project.creator_email}</span></div>}
+                        {project.created_at && (
+                          <div className="mt-1 flex items-center text-gray-500">
+                            <Calendar size={12} className="mr-1" />
+                            <span className="text-xs">{new Date(project.created_at).toLocaleDateString()}</span>
+                          </div>
+                        )}
+                        {(project.created_by || project.creator_email) && (
+                          <div className="mt-1 text-xs text-gray-500">Created by: {(() => {
+                            const creator = project.created_by ? userIdToUser[project.created_by] : users.find(u => u.email === project.creator_email);
+                            const label = creator?.name || creator?.email || (project.creator_email ? emailToName[project.creator_email] : '') || project.creator_email || 'Unknown';
+                            return <span title={creator?.email || project.creator_email || undefined} className="font-medium text-gray-700">{label}</span>;
+                          })()}</div>
+                        )}
                       </div>
                     </div>
                     {(isAdmin || (currentUserId && project.assignees?.includes(currentUserId))) && (
@@ -427,7 +455,7 @@ const HomePage: React.FC = () => {
                       <div className="flex items-center justify-between">
                         <button type="button" className="flex -space-x-2 group" title="View assignees" onClick={() => openAssigneesDialog(project)}>
                           {project.assignees.slice(0,3).map(id => {
-                            const label = userIdToEmail[id] || id;
+                            const label = userIdToLabel[id] || id;
                             const initials = (label || "").split(/[\s@._-]+/).filter(Boolean).slice(0,2).map(s => s[0]?.toUpperCase()).join("") || "?";
                             return <div key={id} className="h-7 w-7 rounded-full bg-blue-100 border-2 border-white flex items-center justify-center text-xs font-medium text-blue-700" title={label}>{initials}</div>;
                           })}
@@ -450,8 +478,8 @@ const HomePage: React.FC = () => {
             <CardContent className="flex flex-col items-center">
               <div className="bg-gray-200 p-4 rounded-full mb-4"><FileText size={32} className="text-gray-500" /></div>
               <h3 className="text-lg font-medium text-gray-700 mb-2">No projects found</h3>
-              <p className="text-gray-500 mb-6 max-w-md">Only Admins can create projects. Organize tasks and collaborate with your team.</p>
-              {isAdmin && <Button onClick={() => setIsCreateOpen(true)}><Plus size={18} /> Create Your First Project</Button>}
+              <p className="text-gray-500 mb-6 max-w-md">Create a project to organize tasks and collaborate with your team.</p>
+              <Button onClick={() => setIsCreateOpen(true)}><Plus size={18} /> Create Your First Project</Button>
             </CardContent>
           </Card>
         )}
@@ -470,23 +498,29 @@ const HomePage: React.FC = () => {
 
             <div>
               <div className="flex items-center justify-between mb-2"><label className="block text-sm font-medium text-gray-700">Assign Team Members</label><span className="text-xs text-gray-500">{selectedAssigneeIds.size} selected</span></div>
-              {isAdminUsersLoading ? (
+              {isUsersLoading ? (
                 <div className="flex items-center justify-center h-20 border rounded-lg bg-gray-50">Loading team members...</div>
               ) : (
                 <>
                   <div className="mb-3 relative"><Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" /><Input placeholder="Search team members" className="pl-9" value={createTeamSearch} onChange={(e) => setCreateTeamSearch(e.target.value)} /></div>
-                  <div className="max-h-60 overflow-auto border rounded-lg divide-y">
-                    {filteredAdminUsersForCreate.length === 0 ? <div className="text-sm text-gray-500 p-4 text-center">No team members found.</div> : filteredAdminUsersForCreate.map(u => (
-                      <label key={u.id} className={`flex items-center gap-3 py-3 px-4`}>
-                        <input type="checkbox" checked={selectedAssigneeIds.has(u.id)} onChange={() => toggleAssignee(u.id, setSelectedAssigneeIds)} />
-                        <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">{(u.name || u.email || '?').charAt(0).toUpperCase()}</div>
-                        <div className="flex flex-col"><span className="text-sm font-medium text-gray-900">{u.name || 'Unnamed User'}</span><span className="text-xs text-gray-500">{u.email || 'No email'}</span></div>
-                      </label>
-                    ))}
-                  </div>
+                  {(!usersError && filteredUsersForCreate.length > 0) ? (
+                    <div className="max-h-60 overflow-auto border rounded-lg divide-y">
+                      {filteredUsersForCreate.map(u => (
+                        <label key={u.id} className={`flex items-center gap-3 py-3 px-4`}>
+                          <input type="checkbox" checked={selectedAssigneeIds.has(u.id)} onChange={() => toggleAssignee(u.id, setSelectedAssigneeIds)} />
+                          <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">{(u.name || u.email || '?').charAt(0).toUpperCase()}</div>
+                          <div className="flex flex-col"><span className="text-sm font-medium text-gray-900">{u.name || 'Unnamed User'}</span><span className="text-xs text-gray-500">{u.email || 'No email'}</span></div>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-4 text-sm text-gray-600 border rounded-lg bg-gray-50">
+                      {usersError ? 'Unable to load other users. You can still create the project; you will be the sole assignee.' : 'No other users found. You will be the sole assignee.'}
+                    </div>
+                  )}
                 </>
               )}
-              {adminUsersError && <div className="text-xs text-red-600 mt-2"><AlertCircle size={14} className="mr-1" />{adminUsersError}</div>}
+              {usersError && <div className="text-xs text-red-600 mt-2"><AlertCircle size={14} className="mr-1" />{usersError}</div>}
               {currentUserId && <p className="text-xs text-gray-500 mt-3"><UserCheck size={14} className="mr-1" />You will be added as Project Creator by default.</p>}
             </div>
           </div>
@@ -546,20 +580,26 @@ const HomePage: React.FC = () => {
             </div>
             <div>
               <div className="flex items-center justify-between mb-2"><label className="block text-sm font-medium text-gray-700">Assign Team Members</label><span className="text-xs text-gray-500">{editSelectedAssigneeIds.size} selected</span></div>
-              {isAdminUsersLoading ? <div className="flex items-center justify-center h-20 border rounded-lg bg-gray-50">Loading team members...</div> : (
+              {isUsersLoading ? <div className="flex items-center justify-center h-20 border rounded-lg bg-gray-50">Loading team members...</div> : (
                 <>
-                <div className="mb-3 relative"><Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" /><Input placeholder="Search team members" className="pl-9" value={editTeamSearch} onChange={(e) => setEditTeamSearch(e.target.value)} /></div>
-                <div className="max-h-60 overflow-auto border rounded-lg divide-y">{filteredAdminUsersForEdit.length === 0 ? <div className="text-sm text-gray-500 p-4 text-center">No team members found.</div> : filteredAdminUsersForEdit.map(u => {
-                  const isCreator = editingProject && editingProject.creator_email === u.email;
-                  return (
-                    <label key={u.id} className={`flex items-center gap-3 py-3 px-4 ${isCreator ? 'bg-gray-50 cursor-default' : ''}`}>
-                      <input type="checkbox" checked={editSelectedAssigneeIds.has(u.id)} onChange={() => toggleAssignee(u.id, setEditSelectedAssigneeIds)} disabled={!!isCreator} />
-                      <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">{(u.name || u.email || '?').charAt(0).toUpperCase()}</div>
-                      <div className="flex flex-col"><span className="text-sm font-medium text-gray-900">{u.name || 'Unnamed User'}</span><span className="text-xs text-gray-500">{u.email || 'No email'}</span></div>
-                      {isCreator && <div className="ml-auto"><span className="inline-block bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">Creator</span></div>}
-                    </label>
-                  );
-                })}</div>
+                  <div className="mb-3 relative"><Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" /><Input placeholder="Search team members" className="pl-9" value={editTeamSearch} onChange={(e) => setEditTeamSearch(e.target.value)} /></div>
+                  {(!usersError && filteredUsersForEdit.length > 0) ? (
+                    <div className="max-h-60 overflow-auto border rounded-lg divide-y">{filteredUsersForEdit.map(u => {
+                      const isCreator = editingProject && editingProject.creator_email === u.email;
+                      return (
+                        <label key={u.id} className={`flex items-center gap-3 py-3 px-4 ${isCreator ? 'bg-gray-50 cursor-default' : ''}`}>
+                          <input type="checkbox" checked={editSelectedAssigneeIds.has(u.id)} onChange={() => toggleAssignee(u.id, setEditSelectedAssigneeIds)} disabled={!!isCreator} />
+                          <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">{(u.name || u.email || '?').charAt(0).toUpperCase()}</div>
+                          <div className="flex flex-col"><span className="text-sm font-medium text-gray-900">{u.name || 'Unnamed User'}</span><span className="text-xs text-gray-500">{u.email || 'No email'}</span></div>
+                          {isCreator && <div className="ml-auto"><span className="inline-block bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">Creator</span></div>}
+                        </label>
+                      );
+                    })}</div>
+                  ) : (
+                    <div className="p-4 text-sm text-gray-600 border rounded-lg bg-gray-50">
+                      {usersError ? 'Unable to load other users. You can still update the project.' : 'No other users available.'}
+                    </div>
+                  )}
                 </>
               )}
             </div>

@@ -16,7 +16,7 @@ import { useOutletContext } from "react-router-dom";
 const AVAILABLE_ROLES: string[] = (import.meta.env.VITE_ROLES ?? 'Dummy').split(',');
 
 const SettingsPage = () => {
-  const { roles, setRoles, isLoading: isRolesLoading } = useRole();
+  const { roles, setRoles, isLoading: isRolesLoading, refreshRoles } = useRole();
 
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{
@@ -104,7 +104,12 @@ const SettingsPage = () => {
       if (error) {
         setMessage({ type: "error", text: error.message });
       } else {
+        // Optimistically update local roles
         setRoles(selectedRoles);
+        // Force refresh of session to pull in updated app_metadata if backend trigger populates it
+        await supabase.auth.refreshSession();
+        // Re-derive roles from latest session/auth state
+        await refreshRoles();
         setMessage({ type: "success", text: "Roles updated successfully!" });
       }
     } catch {

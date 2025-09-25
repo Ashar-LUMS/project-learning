@@ -7,6 +7,7 @@ import AppLayout from './layouts/AppLayout';
 import AdminPanel from './features/admin/AdminPanel';
 import RequireAdmin from './features/admin/RequireAdmin';
 import AccessDenied from './components/access-denied';
+import UserLocked from './components/user-locked';
 import HomePage from './features/home/HomePage';
 import ServicesPage from './features/services/ServicesPage';
 import SettingsPage from './features/settings/SettingsPage';
@@ -43,6 +44,10 @@ const router = createBrowserRouter([
       {
         path: "access-denied",
         element: <AccessDenied />,
+      },
+      {
+        path: "locked",
+        element: <UserLocked />,
       },
       {
         path: "admin",

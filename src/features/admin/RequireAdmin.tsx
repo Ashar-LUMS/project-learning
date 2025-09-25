@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import { useRole } from "../../getRole";
 
@@ -6,27 +6,35 @@ import { useRole } from "../../getRole";
 export default function RequireAdmin({ children }: { children: React.ReactNode }) {
   const [hasAdminAccess, setHasAdminAccess] = useState<boolean | null>(null);
   const navigate = useNavigate();
-  const { roles: userRolesArray, isLoading: areRolesLoading } = useRole();
+  const { roles: userRolesArray, isLoading: areRolesLoading, refreshRoles } = useRole();
     const { activeRole } = useOutletContext<{ activeRole: string | null }>();
+  const triedRefresh = useRef(false);
 
   useEffect(() => {
     if (areRolesLoading) {
       return;
     }
-    if (userRolesArray) {
-      if (userRolesArray.includes("Admin") && activeRole === "Admin") {
-        setHasAdminAccess(true);
-      } else {
-        // Redirect If not an admin
-        setHasAdminAccess(false);
-        navigate("/app", { replace: true });
-      }
-    } else {
-      // Case when no roles (e.g., user is not logged in or has no roles assigned)
+    if (!userRolesArray) {
       setHasAdminAccess(false);
       navigate("/", { replace: true });
+      return;
     }
-  }, [userRolesArray, areRolesLoading, navigate, activeRole]);
+    const isAdminNow = userRolesArray.includes("Admin") && activeRole === "Admin";
+    if (isAdminNow) {
+      setHasAdminAccess(true);
+      return;
+    }
+    // If the activeRole is Admin but roles don't yet contain Admin, attempt a one-time refresh (handles race after role update)
+    if (activeRole === "Admin" && !isAdminNow && !triedRefresh.current) {
+      triedRefresh.current = true;
+      (async () => {
+        await refreshRoles();
+      })();
+      return; // wait for next effect cycle
+    }
+    setHasAdminAccess(false);
+    navigate("/app", { replace: true });
+  }, [userRolesArray, areRolesLoading, navigate, activeRole, refreshRoles]);
 
   // Show a loading indicator while roles are being fetched
   if (hasAdminAccess === null || areRolesLoading) {

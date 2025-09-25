@@ -14,7 +14,7 @@ interface UserData {
   };
 }
 
-const AVAILABLE_ROLES: string[] = ((import.meta.env.VITE_ROLES ?? 'Dummy').split(',')).map((r: string) => r.trim()).filter(Boolean).sort((a: string, b: string) => a.localeCompare(b));
+const AVAILABLE_ROLES: string[] = ((import.meta.env.VITE_ROLES ?? 'User').split(',')).map((r: string) => r.trim()).filter(Boolean).sort((a: string, b: string) => a.localeCompare(b));
 
 // Dropdown component for selecting roles
 const RoleDropdown = ({
@@ -156,26 +156,25 @@ const AdminPanel = () => {
 
       const currentMeta = user.raw_user_meta_data || {};
       const newRoles = updates.roles || currentMeta.roles || [];
-      
-      const { data, error } = await supabase.rpc("update_users_as_admin", {
+      // Build payload conditionally so we don't accidentally null out lock status when only editing roles
+      const payload: Record<string, any> = {
         target_user_id: userId,
         new_roles: newRoles,
-      });
+      };
+      if (updates.isLocked !== undefined) {
+        payload.new_is_locked = updates.isLocked; // boolean passed directly
+      }
+
+      const { data, error } = await supabase.rpc("update_users_as_admin", payload);
       if (error) throw error;
 
-      // Update the returned data with our lock status if provided
-      let updatedMeta = data.raw_user_meta_data;
+      // Fallback if RPC didn't return expected structure
+      let updatedMeta: any = data?.raw_user_meta_data || { ...currentMeta };
       if (updates.isLocked !== undefined) {
         updatedMeta = { ...updatedMeta, isLocked: updates.isLocked };
       }
 
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === userId
-            ? { ...u, raw_user_meta_data: updatedMeta }
-            : u
-        )
-      );
+      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, raw_user_meta_data: updatedMeta } : u)));
     } catch (err) {
       console.error("Error updating user:", err);
       setErrorMessage("Failed to update user");
