@@ -7,8 +7,6 @@ import { useNavigate } from 'react-router-dom';
 import { Link } from "react-router-dom";
 import { supabase } from '../../supabaseClient.ts';
 
-
-// 1. Define the Zod schema for the form data
 const loginSchema = z.object({
   email: z.email({
     message: "Please enter a valid email address."
