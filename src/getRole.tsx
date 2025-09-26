@@ -1,10 +1,10 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { supabase } from "./supabaseClient";
 
 // Type for custom claims from app_metadata
 interface AppMetadataClaims {
-  roles?: string[]; // Roles are now expected to be string[] directly from app_metadata
-  [key: string]: any; // Allow other properties
+  roles?: string[];
+  [key: string]: any;
 }
 
 // Context value type
@@ -12,46 +12,54 @@ type RoleContextType = {
   roles: string[] | null;
   setRoles: (roles: string[] | null) => void;
   isLoading: boolean;
+  refreshRoles: () => Promise<void>;
+  isLocked: boolean | null;
 };
 
 const RoleContext = createContext<RoleContextType>({
   roles: null,
   setRoles: () => {},
   isLoading: true,
+  refreshRoles: async () => {},
+  isLocked: null,
 });
 
 export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [roles, setRoles] = useState<string[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLocked, setIsLocked] = useState<boolean | null>(null);
 
-  // Normalize roles from user_metadata or app_metadata.claims
-  const parseAndSetRoles = (
-    userMetadataRolesData: any, // Could be array, stringified array, or string
-    appMetadataClaimsData: AppMetadataClaims | null | undefined // Expected to be native array
-  ): string[] | null => {
-    let rolesArray: string[] | null = null;
+  // Derive roles as a union of app_metadata.claims.roles and user_metadata.roles (handles string / JSON / array)
+  const deriveRoles = (user: any): string[] | null => {
+    if (!user) return null;
+    const rolesFromClaimsRaw = (user.app_metadata?.claims as AppMetadataClaims | undefined)?.roles;
+    const rolesFromClaims = Array.isArray(rolesFromClaimsRaw) ? rolesFromClaimsRaw : [];
 
-    // 1. Prioritize roles from app_metadata.claims (where the new trigger sets them as a native JSON array)
-    if (appMetadataClaimsData && Array.isArray(appMetadataClaimsData.roles)) {
-      rolesArray = appMetadataClaimsData.roles;
-    }
-
-    // 2. Fallback to user_metadata.roles if needed (backward compatibility)
-    if (!rolesArray && userMetadataRolesData) {
-      if (Array.isArray(userMetadataRolesData)) {
-        rolesArray = userMetadataRolesData; // Already an array
-      } else if (typeof userMetadataRolesData === 'string') {
-        try {
-          const parsed = JSON.parse(userMetadataRolesData);
-          if (Array.isArray(parsed)) {
-            rolesArray = parsed;
-          }
-        } catch (e) {}
+    const userMetaRolesRaw = user.user_metadata?.roles;
+    let rolesFromUserMeta: string[] = [];
+    if (Array.isArray(userMetaRolesRaw)) {
+      rolesFromUserMeta = userMetaRolesRaw;
+    } else if (typeof userMetaRolesRaw === 'string') {
+      try {
+        const parsed = JSON.parse(userMetaRolesRaw);
+        if (Array.isArray(parsed)) rolesFromUserMeta = parsed;
+      } catch {
+        // treat as single role string
+        rolesFromUserMeta = [userMetaRolesRaw];
       }
     }
 
-    return rolesArray;
+    const combined = Array.from(new Set([...rolesFromClaims, ...rolesFromUserMeta])).filter(Boolean);
+    return combined.length > 0 ? combined : null;
   };
+
+  const refreshRoles = useCallback(async () => {
+    setIsLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    setRoles(deriveRoles(user));
+    setIsLocked(!!(user?.user_metadata?.isLocked || user?.user_metadata?.is_locked));
+    setIsLoading(false);
+  }, []);
 
   useEffect(() => {
     const fetchRoles = async () => {
@@ -59,14 +67,13 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setRoles(null);
+        setIsLocked(null);
         setIsLoading(false);
         return;
       }
 
-      const userMetadataRoles = user.user_metadata?.roles;
-      const appMetadataClaims = user.app_metadata?.claims as AppMetadataClaims | undefined; // Cast for type safety
-
-      setRoles(parseAndSetRoles(userMetadataRoles, appMetadataClaims));
+      setRoles(deriveRoles(user));
+      setIsLocked(!!(user?.user_metadata?.isLocked || user?.user_metadata?.is_locked));
       setIsLoading(false);
     };
     fetchRoles();
@@ -75,14 +82,13 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const sessionUser = session?.user;
       if (!sessionUser) {
         setRoles(null);
+        setIsLocked(null);
         setIsLoading(false);
         return;
       }
 
-      const newRolesFromMetadata = sessionUser.user_metadata?.roles;
-      const newAppMetadataClaims = sessionUser.app_metadata?.claims as AppMetadataClaims | undefined; // Cast for type safety
-      
-      setRoles(parseAndSetRoles(newRolesFromMetadata, newAppMetadataClaims));
+      setRoles(deriveRoles(sessionUser));
+      setIsLocked(!!(sessionUser?.user_metadata?.isLocked || sessionUser?.user_metadata?.is_locked));
       setIsLoading(false);
     });
 
@@ -92,7 +98,7 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   return (
-    <RoleContext.Provider value={{ roles, setRoles, isLoading }}>
+    <RoleContext.Provider value={{ roles, setRoles, isLoading, refreshRoles, isLocked }}>
       {children}
     </RoleContext.Provider>
   );
