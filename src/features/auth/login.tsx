@@ -161,11 +161,11 @@ const Login = ({
             <Card 
               ref={cardRef}
               className="w-full max-w-full sm:max-w-md transform transition-all duration-500 ease-out backdrop-blur-sm bg-white/95 shadow-2xl border-0 mx-2 sm:mx-0"
-              style={{
-                transform: isAnimating ? 'translateY(20px) scale(0.95)' : 'translateY(0) scale(1)',
-                opacity: isAnimating ? 0 : 1,
-                boxShadow: '0 20px 40px rgba(47, 85, 151, 0.15)',
-              }}
+              // style={{
+              //   transform: isAnimating ? 'translateY(20px) scale(0.95)' : 'translateY(0) scale(1)',
+              //   opacity: isAnimating ? 0 : 1,
+              //   boxShadow: '0 20px 40px rgba(47, 85, 151, 0.15)',
+              // }}
             >
               <CardHeader className="text-center space-y-2 sm:space-y-3 pb-3 sm:pb-4 px-4 sm:px-6">
                 <div className="relative">
