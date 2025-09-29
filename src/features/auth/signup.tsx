@@ -1,9 +1,9 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { z } from 'zod';
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Loader2, CheckCircle2, FlaskConical, Microscope, Atom, Brain } from "lucide-react";
+import { Loader2, CheckCircle2} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../supabaseClient.ts';
@@ -48,27 +48,8 @@ const Signup = ({
   const [roles, setRoles] = useState<string[]>([]);
   const [errors, setErrors] = useState({ name: '', email: '', password: '', roles: '', general: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isAnimating, setIsAnimating] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-
-  const scienceIcons = [FlaskConical, Microscope, Atom, Brain];
-  const [activeIcons, setActiveIcons] = useState<number[]>([]);
-
-  useEffect(() => {
-    setIsAnimating(true);
-    const timer = setTimeout(() => setIsAnimating(false), 1000);
-
-    const iconInterval = setInterval(() => {
-      const randomIcon = Math.floor(Math.random() * scienceIcons.length);
-      setActiveIcons(prev => [...prev.slice(-2), randomIcon]);
-    }, 2000);
-
-    return () => {
-      clearTimeout(timer);
-      clearInterval(iconInterval);
-    };
-  }, []);
 
   const toggleRole = (role: string) => {
     setRoles(prev =>
@@ -156,22 +137,7 @@ const Signup = ({
     <section className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 relative overflow-hidden">
       {/* Background elements with responsive sizing */}
       <div className="absolute inset-0 overflow-hidden">
-        {activeIcons.map((iconIndex, index) => {
-          const IconComponent = scienceIcons[iconIndex];
-          return (
-            <div
-              key={index}
-              className="absolute opacity-5 animate-float"
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-                animationDelay: `${index * 0.5}s`,
-              }}
-            >
-              <IconComponent className="w-8 h-8 md:w-12 md:h-12 text-[#2f5597]" />
-            </div>
-          );
-        })}
+
       </div>
 
       <div className={`absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=\"60\" height=\"60\" viewBox=\"0 0 60 60\" xmlns=\"http://www.w3.org/2000/svg\"%3E%3Cg fill=\"none\" fill-rule=\"evenodd\"%3E%3Cg fill=\"%232f5597\" fill-opacity=\"0.03\"%3E%3Ccircle cx=\"30\" cy=\"30\" r=\"1\"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] animate-pulse-slow`} />

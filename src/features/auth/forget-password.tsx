@@ -8,8 +8,6 @@ import { supabase } from "../../supabaseClient";
 import { Link } from "react-router-dom";
 
 export function ForgotPasswordForm({
-  className,
-  ...props
 }: React.ComponentProps<"div">) {
   const [email, setEmail] = React.useState("");
   const [loading, setLoading] = React.useState(false);
