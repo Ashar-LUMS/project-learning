@@ -4,13 +4,15 @@ import { ForgotPasswordForm } from './features/auth/forget-password';
 import { Signup } from './features/auth/signup';
 import { CheckEmail } from './features/auth/check-email';
 import AppLayout from './layouts/AppLayout';
-import AdminPanel from './features/admin/AdminPanel';
 import RequireAdmin from './features/admin/RequireAdmin';
 import AccessDenied from './components/access-denied';
 import UserLocked from './components/user-locked';
 import HomePage from './features/home/HomePage';
 import ServicesPage from './features/services/ServicesPage';
 import SettingsPage from './features/settings/SettingsPage';
+import AdminPanel from "./features/admin/AdminPanel"; // Import AdminPanel (the layout)
+import UserManagement from "./features/admin/AdminUserManagement"; // Your existing user management
+import AdminDashboard from "./features/admin/AdminStats";
 
 const router = createBrowserRouter([
   {
@@ -50,16 +52,26 @@ const router = createBrowserRouter([
         element: <UserLocked />,
       },
       {
+        path: "settings",
+        element: <SettingsPage />,
+      },
+      {
         path: "admin",
         element: (
           <RequireAdmin>
             <AdminPanel />
           </RequireAdmin>
         ),
-      },
-      {
-        path: "settings",
-        element: <SettingsPage />,
+        children: [
+          {
+            index: true,
+            element: <AdminDashboard />,
+          },
+          {
+            path: "users",
+            element: <UserManagement />,
+          },
+        ],
       },
     ],
   }

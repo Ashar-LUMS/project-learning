@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { z } from 'zod';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Loader2, Eye, EyeOff, FlaskConical, Microscope, Atom, Brain } from "lucide-react";
+import { Loader2, Eye, EyeOff } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 import { Link } from "react-router-dom";
 import { supabase } from '../../supabaseClient.ts';
@@ -49,27 +49,9 @@ const Login = ({
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({ email: '', password: '', general: '' });
-  const [isAnimating, setIsAnimating] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
-  const scienceIcons = [FlaskConical, Microscope, Atom, Brain];
-  const [activeIcons, setActiveIcons] = useState<number[]>([]);
-
-  useEffect(() => {
-    setIsAnimating(true);
-    const timer = setTimeout(() => setIsAnimating(false), 1000);
-
-    const iconInterval = setInterval(() => {
-      const randomIcon = Math.floor(Math.random() * scienceIcons.length);
-      setActiveIcons(prev => [...prev.slice(-2), randomIcon]);
-    }, 2000);
-
-    return () => {
-      clearTimeout(timer);
-      clearInterval(iconInterval);
-    };
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,22 +102,7 @@ const Login = ({
     <section className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 relative overflow-hidden">
       {/* Background elements with responsive sizing */}
       <div className="absolute inset-0 overflow-hidden">
-        {activeIcons.map((iconIndex, index) => {
-          const IconComponent = scienceIcons[iconIndex];
-          return (
-            <div
-              key={index}
-              className="absolute opacity-5 animate-float"
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-                animationDelay: `${index * 0.5}s`,
-              }}
-            >
-              <IconComponent className="w-8 h-8 md:w-12 md:h-12 text-[#2f5597]" />
-            </div>
-          );
-        })}
+   
       </div>
 
       <div className={`absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=\"60\" height=\"60\" viewBox=\"0 0 60 60\" xmlns=\"http://www.w3.org/2000/svg\"%3E%3Cg fill=\"none\" fill-rule=\"evenodd\"%3E%3Cg fill=\"%232f5597\" fill-opacity=\"0.03\"%3E%3Ccircle cx=\"30\" cy=\"30\" r=\"1\"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] animate-pulse-slow`} />
@@ -161,11 +128,7 @@ const Login = ({
             <Card 
               ref={cardRef}
               className="w-full max-w-full sm:max-w-md transform transition-all duration-500 ease-out backdrop-blur-sm bg-white/95 shadow-2xl border-0 mx-2 sm:mx-0"
-              // style={{
-              //   transform: isAnimating ? 'translateY(20px) scale(0.95)' : 'translateY(0) scale(1)',
-              //   opacity: isAnimating ? 0 : 1,
-              //   boxShadow: '0 20px 40px rgba(47, 85, 151, 0.15)',
-              // }}
+              
             >
               <CardHeader className="text-center space-y-2 sm:space-y-3 pb-3 sm:pb-4 px-4 sm:px-6">
                 <div className="relative">
