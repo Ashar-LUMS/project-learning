@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "../components/ui/button";
-import { Home, Menu, Users, Settings, LogOut, Shield } from "lucide-react";
+import { Home, Menu, Users, Settings, LogOut, Shield, UserRoundPen } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import { useRole } from "../getRole";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -163,7 +163,7 @@ const AppLayout = () => {
               className="text-gray-600 hover:text-blue-500 transition-colors duration-200 flex items-center gap-1"
             >
               Projects
-            </Link> 
+            </Link>
 
             {/* Role Selector Dropdown */}
             {!areRolesLoading && userRolesArray && userRolesArray.length > 0 && (
@@ -206,7 +206,7 @@ const AppLayout = () => {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                
+
                 {/* Admin Panel Link */}
                 {activeRole === "Admin" && userRolesArray?.includes("Admin") && (
                   <>
@@ -221,14 +221,21 @@ const AppLayout = () => {
                 )}
 
                 <DropdownMenuItem asChild>
+                  <Link to="/app/user-profile" className="flex items-center gap-2 cursor-pointer w-full">
+                    <UserRoundPen size={16} />
+                    Profile
+                  </Link>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem asChild>
                   <Link to="/app/settings" className="flex items-center gap-2 cursor-pointer w-full">
                     <Settings size={16} />
                     Settings
                   </Link>
                 </DropdownMenuItem>
-                
+
                 <DropdownMenuSeparator />
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   onClick={handleLogout}
                   className="flex items-center gap-2 cursor-pointer text-red-600 focus:text-red-600 w-full"
                 >
@@ -263,7 +270,7 @@ const AppLayout = () => {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                
+
                 {activeRole === "Admin" && userRolesArray?.includes("Admin") && (
                   <>
                     <DropdownMenuItem asChild>
@@ -282,9 +289,9 @@ const AppLayout = () => {
                     Settings
                   </Link>
                 </DropdownMenuItem>
-                
+
                 <DropdownMenuSeparator />
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   onClick={handleLogout}
                   className="flex items-center gap-2 cursor-pointer text-red-600 focus:text-red-600 w-full"
                 >
