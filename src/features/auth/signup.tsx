@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { z } from 'zod';
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -7,8 +7,9 @@ import { Loader2, CheckCircle2} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../supabaseClient.ts';
+import { fetchRoleNames } from '../../roles';
 
-const AVAILABLE_ROLES: string[] =(import.meta.env.VITE_ROLES ?? 'Dummy').split(',');
+const AVAILABLE_ROLES_FALLBACK = ['User'];
 
 const signupSchema = z.object({
   name: z.string().min(3, { message: "Name must be at least 3 characters." }),
@@ -46,6 +47,7 @@ const Signup = ({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [roles, setRoles] = useState<string[]>([]);
+  const [availableRoles, setAvailableRoles] = useState<string[]>([]);
   const [errors, setErrors] = useState({ name: '', email: '', password: '', roles: '', general: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -56,6 +58,22 @@ const Signup = ({
       prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]
     );
   };
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const names = await fetchRoleNames();
+        if (!mounted) return;
+        const normalized = (names || []).map(r => String(r).trim()).filter(Boolean).sort((a,b) => a.localeCompare(b));
+        setAvailableRoles(normalized.length ? normalized : AVAILABLE_ROLES_FALLBACK);
+      } catch (e) {
+        if (!mounted) return;
+        setAvailableRoles(AVAILABLE_ROLES_FALLBACK);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,17 +116,10 @@ const Signup = ({
           }
         });
 
-        console.log(signUpData);
-        console.log(signUpError);
-
         if (signUpError) {
           console.error("Supabase sign-up error:", signUpError.message);
-          if (signUpError.message.toLowerCase().includes("already registered")) {
-            setErrors({ ...errors, general: "This email is already in use. Please log in instead." });
-            setIsSubmitting(false);
-            return;
-          }
-          setErrors({ ...errors, general: signUpError.message });
+          setErrors(prev => ({ ...prev, general: signUpError.message }));
+          setIsSubmitting(false);
           return;
         }
 
@@ -116,14 +127,20 @@ const Signup = ({
           console.log("Signup successful. User ID:", signUpData.user.id);
           navigate('/app');
           setIsSubmitting(false);
-        } else if (signUpData.user && !signUpData.session) {
+        } else if (signUpData.user && !signUpData.session) 
+          {
+      if (signUpData.user.email_confirmed_at) 
+        {
+    setErrors(prev => ({ ...prev, general: "This email is already registered. Please log in instead." }));
+  } 
+  else 
+        {
           console.log("Signup initiated. Please check your email for a confirmation link.");
           navigate('/check-email');
-          setIsSubmitting(false);
-        } else {
-          setErrors({ ...errors, general: "This email is already registered. Please log in instead." });
-          setIsSubmitting(false);
         }
+  setIsSubmitting(false);
+}
+
 
       } catch (error) {
         console.error("An unexpected error occurred:", error);
@@ -263,7 +280,7 @@ const Signup = ({
                       Select Roles
                     </Label>
                     <div className="grid grid-cols-2 gap-2">
-                      {AVAILABLE_ROLES.map(role => {
+                      {(availableRoles || []).map(role => {
                         const isSelected = roles.includes(role);
                         return (
                           <button
