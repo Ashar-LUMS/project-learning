@@ -135,15 +135,20 @@ const Signup = ({
           console.log("Signup successful. User ID:", signUpData.user.id);
           navigate('/app');
           setIsSubmitting(false);
-        } else if (signUpData.user && !signUpData.session) {
-          console.log("Signup initiated. Please check your email for a confirmation link.");
-          navigate('/check-email');
-          setIsSubmitting(false);
-        } else {
-          setErrors({ ...errors, general: "This email is already registered. Please log in instead." });
-          setIsSubmitting(false);
-        }
-
+        } 
+        else if (signUpData?.user && !signUpData.session) {
+  if (!signUpData.user.identities || signUpData.user.identities.length === 0) {
+    // means Supabase didn't create a real identity → duplicate email
+    setErrors(prev => ({
+      ...prev,
+      general: "This email is already in use. Please log in instead."
+    }));
+  } else {
+    console.log("Signup initiated. Please check your email for a confirmation link.");
+    navigate('/check-email');
+  }
+  setIsSubmitting(false);
+}
       } catch (error) {
         console.error("An unexpected error occurred:", error);
         setErrors({ ...errors, general: "An unexpected error occurred. Please try again." });
