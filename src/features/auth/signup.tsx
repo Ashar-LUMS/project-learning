@@ -76,86 +76,107 @@ const Signup = ({
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isSubmitting) return;
-    setIsSubmitting(true);
-    setErrors({ name: '' , email: '' , password: '' , roles: '' , general: '' });
+  e.preventDefault();
+  if (isSubmitting) return;
+  setIsSubmitting(true);
+  setErrors({ name: '' , email: '' , password: '' , roles: '' , general: '' });
 
-    if (cardRef.current) {
-      cardRef.current.style.transform = 'scale(0.98)';
-      setTimeout(() => {
-        if (cardRef.current) {
-          cardRef.current.style.transform = 'scale(1)';
-        }
-      }, 150);
-    }
+  if (cardRef.current) {
+    cardRef.current.style.transform = 'scale(0.98)';
+    setTimeout(() => {
+      if (cardRef.current) {
+        cardRef.current.style.transform = 'scale(1)';
+      }
+    }, 150);
+  }
 
-    const result = signupSchema.safeParse({ name, email, password, roles });
+  const result = signupSchema.safeParse({ name, email, password, roles });
 
-    if (!result.success) {
-      console.error("Form validation failed:", result.error);
-      const fieldErrors = result.error.flatten().fieldErrors;
-      setErrors({
-        name: fieldErrors.name?.[0] || '',
-        email: fieldErrors.email?.[0] || '',
-        password: fieldErrors.password?.[0] || '',
-        roles: fieldErrors.roles?.[0] || '',
-        general: '', 
-      });
+  if (!result.success) {
+    console.error("Form validation failed:", result.error);
+    const fieldErrors = result.error.flatten().fieldErrors;
+    setErrors({
+      name: fieldErrors.name?.[0] || '',
+      email: fieldErrors.email?.[0] || '',
+      password: fieldErrors.password?.[0] || '',
+      roles: fieldErrors.roles?.[0] || '',
+      general: '', 
+    });
+    setIsSubmitting(false);
+    return;
+  }
+
+  try {
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { name, roles, isLocked: false, redirectTo: "" }
+      }
+    });
+
+    console.log("=== SIGNUP RESPONSE ===");
+    console.log("signUpData:", JSON.stringify(signUpData, null, 2));
+    console.log("signUpError: ", signUpError);
+
+    // 🔴 CASE 1: Network / Supabase error
+    if (signUpError) {
+      console.error("Supabase sign-up error:", signUpError.message);
+
+      if (signUpError.message.toLowerCase().includes("already registered")) {
+        setErrors(prev => ({ ...prev, general: "This email is already in use. Please log in instead." }));
+      } else if (signUpError.message.toLowerCase().includes("invalid email")) {
+        setErrors(prev => ({ ...prev, general: "Invalid email format. Please try again." }));
+      } else if (signUpError.message.toLowerCase().includes("weak password")) {
+        setErrors(prev => ({ ...prev, general: "Your password is too weak. Use at least 6 characters." }));
+      } else {
+        setErrors(prev => ({ ...prev, general: signUpError.message }));
+      }
+
       setIsSubmitting(false);
       return;
     }
 
-    if (result.success) {
-      try {
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { name, roles, isLocked: false, redirectTo: "" }
-          }
-        });
+    // 🟢 CASE 2: Signup successful with session (auto-login enabled)
+    if (signUpData?.user && signUpData.session) {
+      console.log("Signup successful. User ID:", signUpData.user.id);
+      navigate('/app');
+      setIsSubmitting(false);
+      return;
+    } 
 
-        console.log("=== SIGNUP RESPONSE ===");
-        console.log("signUpData:", JSON.stringify(signUpData, null, 2));
-        console.log("signUpError: ", signUpError);
+    // 🟡 CASE 3: Signup successful, no session (email confirmation required)
+    if (signUpData?.user && !signUpData.session) {
+      if (!signUpData.user.identities || signUpData.user.identities.length === 0) {
+        // 🔴 CASE 3a: Duplicate email → no identities returned
+        setErrors(prev => ({
+          ...prev,
+          general: "This email is already in use. Please log in instead."
+        }));
+      } else {
+        // 🟡 CASE 3b: Valid signup, but confirmation pending
+        console.log("Signup initiated. Please check your email for a confirmation link.");
+        navigate('/check-email');
+      }
+      setIsSubmitting(false);
+      return;
+    }
 
-        if (signUpError) {
-          console.error("Supabase sign-up error:", signUpError.message);
-          if (signUpError.message.toLowerCase().includes("already registered")) {
-            setErrors({ ...errors, general: "This email is already in use. Please log in instead." });
-            setIsSubmitting(false);
-            return;
-          }
-          setErrors({ ...errors, general: signUpError.message });
-          return;
-        }
-
-        if (signUpData?.user && signUpData.session) {
-          console.log("Signup successful. User ID:", signUpData.user.id);
-          navigate('/app');
-          setIsSubmitting(false);
-        } 
-        else if (signUpData?.user && !signUpData.session) {
-  if (!signUpData.user.identities || signUpData.user.identities.length === 0) {
-    // means Supabase didn't create a real identity → duplicate email
+    // ⚪ CASE 4: Unexpected edge case
+    console.warn("Unexpected signup response:", signUpData);
     setErrors(prev => ({
       ...prev,
-      general: "This email is already in use. Please log in instead."
+      general: "Something went wrong during signup. Please try again."
     }));
-  } else {
-    console.log("Signup initiated. Please check your email for a confirmation link.");
-    navigate('/check-email');
+    setIsSubmitting(false);
+
+  } catch (error) {
+    console.error("An unexpected error occurred:", error);
+    setErrors(prev => ({ ...prev, general: "Unexpected error. Please try again later." }));
+    setIsSubmitting(false);
   }
-  setIsSubmitting(false);
-}
-      } catch (error) {
-        console.error("An unexpected error occurred:", error);
-        setErrors({ ...errors, general: "An unexpected error occurred. Please try again." });
-        setIsSubmitting(false);
-      }
-    }
-  };
+};
+
 
   return (
     <section className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 relative overflow-hidden">
