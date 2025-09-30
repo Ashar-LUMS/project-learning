@@ -3,7 +3,6 @@ import { supabase } from "../../supabaseClient";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Lock, Unlock, ShieldCheck, Loader2 } from "lucide-react";
-import { fetchRoleNames } from "../../roles";
 
 interface UserData {
   id: string;
@@ -14,7 +13,8 @@ interface UserData {
     isLocked?: boolean;
   };
 }
-// available roles will be loaded at runtime from src/roles.tsx
+
+const AVAILABLE_ROLES: string[] = ((import.meta.env.VITE_ROLES ?? 'User').split(',')).map((r: string) => r.trim()).filter(Boolean).sort((a: string, b: string) => a.localeCompare(b));
 
 // Dropdown component for selecting roles
 const RoleDropdown = ({
@@ -22,13 +22,11 @@ const RoleDropdown = ({
   onUpdate,
   isOpen,
   onOpenChange,
-  availableRoles,
 }: {
   user: UserData;
   onUpdate: (id: string, roles: string[]) => void;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  availableRoles: string[];
 }) => {
   const [draftRoles, setDraftRoles] = useState<string[]>(user.raw_user_meta_data?.roles || []);
   const [savedRoles, setSavedRoles] = useState<string[]>(user.raw_user_meta_data?.roles || []);
@@ -71,7 +69,7 @@ const RoleDropdown = ({
       {/* Dropdown */}
       {isOpen && (
         <div className="absolute mt-1 w-56 bg-white border border-gray-200 rounded shadow-lg z-10 p-2">
-          {(availableRoles || []).map((role) => (
+          {AVAILABLE_ROLES.map((role) => (
             <label
               key={role}
               className="flex items-center px-2 py-1 hover:bg-gray-100 cursor-pointer"
@@ -119,7 +117,6 @@ const UserManagement = () => {
   // which user's dropdown is currently open (only one at a time)
   const [openDropdownUserId, setOpenDropdownUserId] = useState<string | null>(null);
   const [lockingUserId, setLockingUserId] = useState<string | null>(null);
-  const [availableRoles, setAvailableRoles] = useState<string[]>([]);
 
   useEffect(() => {
     const getCurrentUser = async () => {
@@ -148,18 +145,6 @@ const UserManagement = () => {
 
     if (currentUserId) {
       fetchUsers();
-      // fetch available roles for dropdowns
-      (async () => {
-        try {
-          const names = await fetchRoleNames();
-          if (!isMounted) return;
-          const normalized = (names || []).map(r => String(r).trim()).filter(Boolean).sort((a,b) => a.localeCompare(b));
-          setAvailableRoles(normalized.length ? normalized : ['User']);
-        } catch (e) {
-          if (!isMounted) return;
-          setAvailableRoles(['User']);
-        }
-      })();
     }
 
     return () => {
@@ -266,7 +251,6 @@ const UserManagement = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <RoleDropdown
                       user={user}
-                      availableRoles={availableRoles}
                       onUpdate={(id, roles) => handleUpdateUserMeta(id, { roles })}
                       isOpen={openDropdownUserId === user.id}
                       onOpenChange={(open) => setOpenDropdownUserId(open ? user.id : null)}

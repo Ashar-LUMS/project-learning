@@ -13,9 +13,7 @@ import { supabase } from "../../supabaseClient";
 import { Eye, EyeOff, Lock, User, CheckCircle2, XCircle } from "lucide-react";
 import { useOutletContext } from "react-router-dom";
 
-import { fetchRoleNames } from '../../roles';
-
-const AVAILABLE_ROLES_FALLBACK = ['User'];
+const AVAILABLE_ROLES: string[] = (import.meta.env.VITE_ROLES ?? 'Dummy').split(',');
 
 const SettingsPage = () => {
   const { roles, setRoles, isLoading: isRolesLoading, refreshRoles } = useRole();
@@ -30,27 +28,10 @@ const SettingsPage = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPasswords, setShowPasswords] = useState(false);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
-  const [availableRoles, setAvailableRoles] = useState<string[]>([]);
 
   useEffect(() => {
     setSelectedRoles(roles || []);
   }, [roles]);
-
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const names = await fetchRoleNames();
-        if (!mounted) return;
-        const normalized = (names || []).map(r => String(r).trim()).filter(Boolean).sort((a,b) => a.localeCompare(b));
-        setAvailableRoles(normalized.length ? normalized : AVAILABLE_ROLES_FALLBACK);
-      } catch (e) {
-        if (!mounted) return;
-        setAvailableRoles(AVAILABLE_ROLES_FALLBACK);
-      }
-    })();
-    return () => { mounted = false; };
-  }, []);
 
   const toggleRole = (roleOption: string) => {
     setSelectedRoles((prev) =>
@@ -266,7 +247,7 @@ const SettingsPage = () => {
                   Select New Roles:
                 </p>
                 <div className="grid grid-cols-2 gap-2">
-                  {(availableRoles || []).map((roleOption) => {
+                  {AVAILABLE_ROLES.map((roleOption) => {
                     const isSelected = selectedRoles.includes(roleOption);
                     return (
                       <Button

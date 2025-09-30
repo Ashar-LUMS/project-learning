@@ -116,10 +116,18 @@ const Signup = ({
           }
         });
 
+        console.log("=== SIGNUP RESPONSE ===");
+        console.log("signUpData:", JSON.stringify(signUpData, null, 2));
+        console.log("signUpError: ", signUpError);
+
         if (signUpError) {
           console.error("Supabase sign-up error:", signUpError.message);
-          setErrors(prev => ({ ...prev, general: signUpError.message }));
-          setIsSubmitting(false);
+          if (signUpError.message.toLowerCase().includes("already registered")) {
+            setErrors({ ...errors, general: "This email is already in use. Please log in instead." });
+            setIsSubmitting(false);
+            return;
+          }
+          setErrors({ ...errors, general: signUpError.message });
           return;
         }
 
@@ -127,20 +135,14 @@ const Signup = ({
           console.log("Signup successful. User ID:", signUpData.user.id);
           navigate('/app');
           setIsSubmitting(false);
-        } else if (signUpData.user && !signUpData.session) 
-          {
-      if (signUpData.user.email_confirmed_at) 
-        {
-    setErrors(prev => ({ ...prev, general: "This email is already registered. Please log in instead." }));
-  } 
-  else 
-        {
+        } else if (signUpData.user && !signUpData.session) {
           console.log("Signup initiated. Please check your email for a confirmation link.");
           navigate('/check-email');
+          setIsSubmitting(false);
+        } else {
+          setErrors({ ...errors, general: "This email is already registered. Please log in instead." });
+          setIsSubmitting(false);
         }
-  setIsSubmitting(false);
-}
-
 
       } catch (error) {
         console.error("An unexpected error occurred:", error);
