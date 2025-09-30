@@ -3,9 +3,9 @@ import { supabase } from "../../supabaseClient";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
+import { Card, CardContent } from "../../components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog";
-import { Lock, Unlock, ShieldCheck, Loader2, Search, Filter, MoreVertical, User, Mail, Key, Trash2, Edit3, Send, Plus } from "lucide-react";
+import { Lock, Unlock, ShieldCheck, Loader2, Search, MoreVertical, User, Mail, Trash2, Edit3, Send, Plus } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 
 interface UserData {
@@ -22,47 +22,7 @@ interface UserData {
 
 const AVAILABLE_ROLES: string[] = ((import.meta.env.VITE_ROLES ?? 'User').split(',')).map((r: string) => r.trim()).filter(Boolean).sort((a: string, b: string) => a.localeCompare(b));
 
-// Portal component for dropdown to escape table overflow
-const DropdownPortal = ({ children, isOpen, triggerRef }: { children: React.ReactNode; isOpen: boolean; triggerRef: React.RefObject<HTMLDivElement> }) => {
-  const [position, setPosition] = useState({ top: 0, left: 0 });
-  const portalRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (isOpen && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      const portalHeight = 250; // Approximate dropdown height
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const spaceAbove = rect.top;
-
-      let top = rect.bottom + window.scrollY;
-      let left = rect.left + window.scrollX;
-
-      // If there's not enough space below, show above
-      if (spaceBelow < portalHeight && spaceAbove > portalHeight) {
-        top = rect.top + window.scrollY - portalHeight;
-      }
-
-      setPosition({ top, left });
-    }
-  }, [isOpen, triggerRef]);
-
-  if (!isOpen) return null;
-
-  return (
-    <div
-      ref={portalRef}
-      className="fixed z-50"
-      style={{
-        top: `${position.top}px`,
-        left: `${position.left}px`,
-      }}
-    >
-      {children}
-    </div>
-  );
-};
-
-// Enhanced RoleDropdown with proper portal behavior
+// Enhanced RoleDropdown with proper positioning
 const RoleDropdown = ({
   user,
   onUpdate,
@@ -76,7 +36,7 @@ const RoleDropdown = ({
 }) => {
   const [draftRoles, setDraftRoles] = useState<string[]>(user.raw_user_meta_data?.roles || []);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setDraftRoles(user.raw_user_meta_data?.roles || []);
@@ -84,8 +44,10 @@ const RoleDropdown = ({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node) &&
-          triggerRef.current && !triggerRef.current.contains(event.target as Node)) {
+      if (dropdownRef.current && 
+          !dropdownRef.current.contains(event.target as Node) &&
+          triggerRef.current &&
+          !triggerRef.current.contains(event.target as Node)) {
         onOpenChange(false);
       }
     };
@@ -128,125 +90,9 @@ const RoleDropdown = ({
   const displayRoles = (user.raw_user_meta_data?.roles || []).slice().sort((a, b) => a.localeCompare(b));
 
   return (
-    <div className="relative" ref={triggerRef}>
+    <div className="relative">
       <button
-        className="flex items-center justify-between w-full px-3 py-2 text-sm border border-gray-300 rounded-lg hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition-colors"
-        onClick={() => onOpenChange(!isOpen)}
-      >
-        <span className={`truncate ${displayRoles.length === 0 ? 'text-gray-400' : ''}`}>
-          {displayRoles.length > 0 ? displayRoles.join(', ') : "Select roles..."}
-        </span>
-        <svg className="w-4 h-4 ml-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-
-      <DropdownPortal isOpen={isOpen} triggerRef={triggerRef}>
-        <div 
-          ref={dropdownRef}
-          className="w-64 bg-white border border-gray-200 rounded-lg shadow-lg p-3"
-        >
-          <div className="max-h-48 overflow-y-auto mb-3">
-            {AVAILABLE_ROLES.map((role) => (
-              <label
-                key={role}
-                className="flex items-center px-3 py-2 rounded-md hover:bg-gray-50 cursor-pointer transition-colors"
-              >
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                  checked={draftRoles.includes(role)}
-                  onChange={() => toggleRole(role)}
-                />
-                <span className="ml-3 text-sm font-medium text-gray-700">{role}</span>
-              </label>
-            ))}
-          </div>
-
-          {draftRoles.length === 0 && (
-            <div className="text-xs text-red-600 mb-2 px-2">Select at least one role</div>
-          )}
-
-          <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
-            <button
-              className="px-3 py-1.5 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 transition-colors"
-              onClick={handleCancel}
-            >
-              Cancel
-            </button>
-            <button
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                draftRoles.length === 0 
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                  : 'bg-blue-600 text-white hover:bg-blue-700'
-              }`}
-              onClick={handleSave}
-              disabled={draftRoles.length === 0}
-            >
-              Save
-            </button>
-          </div>
-        </div>
-      </DropdownPortal>
-    </div>
-  );
-};
-
-// Alternative simpler dropdown without portal (if you prefer)
-const SimpleRoleDropdown = ({
-  user,
-  onUpdate,
-  isOpen,
-  onOpenChange,
-}: {
-  user: UserData;
-  onUpdate: (id: string, roles: string[]) => void;
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
-}) => {
-  const [draftRoles, setDraftRoles] = useState<string[]>(user.raw_user_meta_data?.roles || []);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setDraftRoles(user.raw_user_meta_data?.roles || []);
-  }, [user.raw_user_meta_data]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        onOpenChange(false);
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isOpen, onOpenChange]);
-
-  const toggleRole = (role: string) => {
-    setDraftRoles(prev => prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]);
-  };
-
-  const handleSave = () => {
-    if (draftRoles.length === 0) return;
-    onUpdate(user.id, draftRoles.slice().sort((a, b) => a.localeCompare(b)));
-    onOpenChange(false);
-  };
-
-  const handleCancel = () => {
-    setDraftRoles(user.raw_user_meta_data?.roles || []);
-    onOpenChange(false);
-  };
-
-  const displayRoles = (user.raw_user_meta_data?.roles || []).slice().sort((a, b) => a.localeCompare(b));
-
-  return (
-    <div className="relative" ref={dropdownRef}>
-      <button
+        ref={triggerRef}
         className="flex items-center justify-between w-full px-3 py-2 text-sm border border-gray-300 rounded-lg hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition-colors"
         onClick={() => onOpenChange(!isOpen)}
       >
@@ -259,7 +105,15 @@ const SimpleRoleDropdown = ({
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-3">
+        <div 
+          ref={dropdownRef}
+          className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-3"
+          style={{
+            // Ensure dropdown stays within viewport
+            maxHeight: 'calc(100vh - 200px)',
+            overflow: 'hidden',
+          }}
+        >
           <div className="max-h-48 overflow-y-auto mb-3">
             {AVAILABLE_ROLES.map((role) => (
               <label
@@ -495,7 +349,7 @@ const UserManagement = () => {
         return;
       }
 
-      const { data, error } = await supabase.auth.admin.createUser({
+      const { error } = await supabase.auth.admin.createUser({
         email: newUser.email,
         password: newUser.password,
         email_confirm: true,
@@ -702,7 +556,7 @@ const UserManagement = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <SimpleRoleDropdown
+                        <RoleDropdown
                           user={user}
                           onUpdate={(id, roles) => handleUpdateUserMeta(id, { roles })}
                           isOpen={openDropdownUserId === user.id}
@@ -754,17 +608,25 @@ const UserManagement = () => {
                               {user.raw_user_meta_data?.isLocked ? (
                                 <DropdownMenuItem 
                                   onClick={() => handleToggleLock(user.id, false)}
-                                  disabled={user.id === currentUserId}
+                                  disabled={user.id === currentUserId || lockingUserId === user.id}
                                 >
-                                  <Unlock className="w-4 h-4 mr-2" />
+                                  {lockingUserId === user.id ? (
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  ) : (
+                                    <Unlock className="w-4 h-4 mr-2" />
+                                  )}
                                   Unlock Account
                                 </DropdownMenuItem>
                               ) : (
                                 <DropdownMenuItem 
                                   onClick={() => handleToggleLock(user.id, true)}
-                                  disabled={user.id === currentUserId}
+                                  disabled={user.id === currentUserId || lockingUserId === user.id}
                                 >
-                                  <Lock className="w-4 h-4 mr-2" />
+                                  {lockingUserId === user.id ? (
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  ) : (
+                                    <Lock className="w-4 h-4 mr-2" />
+                                  )}
                                   Lock Account
                                 </DropdownMenuItem>
                               )}
