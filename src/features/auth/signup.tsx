@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../supabaseClient.ts';
 import {useAllRoles} from '../../roles';
+import { Skeleton } from "@/components/ui/skeleton";
 
 
 
@@ -59,6 +60,7 @@ const Signup = ({
   };
 
   const availableRoles = useAllRoles();
+  const rolesLoading = (availableRoles || []).length === 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -293,7 +295,12 @@ const Signup = ({
                       Select Roles
                     </Label>
                     <div className="grid grid-cols-2 gap-2">
-                      {(availableRoles || []).map(role => {
+                      {rolesLoading ? (
+                        Array.from({ length: 4 }).map((_, i) => (
+                          <Skeleton key={i} className="h-10 rounded-lg" />
+                        ))
+                      ) : (
+                      (availableRoles || []).map(role => {
                         const isSelected = roles.includes(role);
                         return (
                           <button
@@ -304,7 +311,7 @@ const Signup = ({
                               ${isSelected 
                                 ? "bg-[#2f5597] text-white border-[#2f5597] shadow-sm" 
                                 : "bg-white text-gray-700 border-gray-200 hover:border-[#2f5597]/50"}`}
-                            disabled={isSubmitting}
+                            disabled={isSubmitting || rolesLoading}
                           >
                             {isSelected ? (
                               <span className="inline-flex items-center gap-2 text-xs">
@@ -315,7 +322,8 @@ const Signup = ({
                             )}
                           </button>
                         );
-                      })}
+                      })
+                      )}
                     </div>
                     {roles.length > 0 && (
                       <div className="text-xs text-gray-500 mt-1">Selected: {roles.join(", ")}</div>

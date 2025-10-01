@@ -1,15 +1,21 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { Loader2, Mail, FlaskConical, Microscope, Atom, Brain, ArrowLeft } from "lucide-react";
+import { Loader2, Mail, FlaskConical, Microscope, Atom, Brain, ArrowLeft, Lock } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "../../supabaseClient";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 export function ForgotPasswordForm({
 }: React.ComponentProps<"div">) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const isResetMode = location.pathname === '/reset-password';
+  
   const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [confirmPassword, setConfirmPassword] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [message, setMessage] = React.useState<string | null>(null);
   const [isSuccess, setIsSuccess] = React.useState<boolean | null>(null);
@@ -43,6 +49,42 @@ export function ForgotPasswordForm({
     } else {
       setMessage("If an account with this email exists, a reset link has been sent.");
       setIsSuccess(true);
+    }
+    setLoading(false);
+  };
+
+  const handlePasswordUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage(null);
+
+    if (password !== confirmPassword) {
+      setMessage("Passwords do not match.");
+      setIsSuccess(false);
+      setLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      setMessage("Password must be at least 6 characters long.");
+      setIsSuccess(false);
+      setLoading(false);
+      return;
+    }
+
+    const { error } = await supabase.auth.updateUser({
+      password: password,
+    });
+
+    if (error) {
+      setMessage(error.message);
+      setIsSuccess(false);
+    } else {
+      setMessage("Password updated successfully! Redirecting to login...");
+      setIsSuccess(true);
+      setTimeout(() => {
+        navigate('/');
+      }, 2000);
     }
     setLoading(false);
   };
@@ -103,32 +145,70 @@ export function ForgotPasswordForm({
                   </Link>
                 </div>
                 <CardTitle className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-[#2f5597] to-blue-600 bg-clip-text text-transparent">
-                  Trouble logging in?
+                  {isResetMode ? "Reset your password" : "Trouble logging in?"}
                 </CardTitle>
                 <CardDescription className="text-gray-600 text-xs sm:text-sm leading-relaxed">
-                  Enter your email and we'll send you a link to reset your password.
+                  {isResetMode 
+                    ? "Enter your new password below to complete the reset process."
+                    : "Enter your email and we'll send you a link to reset your password."
+                  }
                 </CardDescription>
               </CardHeader>
               
               <CardContent className="space-y-4 sm:space-y-6 px-4 sm:px-6 pb-4 sm:pb-6">
-                <form onSubmit={handlePasswordReset} className="space-y-4 sm:space-y-5" noValidate>
-                  <div className="space-y-2 sm:space-y-3">
-                    <Label htmlFor="email" className="text-xs sm:text-sm font-medium text-gray-700">
-                      Email Address
-                    </Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="researcher@institution.edu"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      disabled={loading}
-                      aria-invalid={!!message && !isSuccess}
-                      className="h-10 sm:h-12 text-sm sm:text-base transition-all duration-200 border-2 focus:border-[#2f5597] focus:ring-2 focus:ring-blue-100 rounded-lg sm:rounded-xl px-3 sm:px-4"
-                      formNoValidate
-                    />
-                  </div>
+                <form onSubmit={isResetMode ? handlePasswordUpdate : handlePasswordReset} className="space-y-4 sm:space-y-5" noValidate>
+                  {!isResetMode ? (
+                    <div className="space-y-2 sm:space-y-3">
+                      <Label htmlFor="email" className="text-xs sm:text-sm font-medium text-gray-700">
+                        Email Address
+                      </Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="researcher@institution.edu"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        disabled={loading}
+                        aria-invalid={!!message && !isSuccess}
+                        className="h-10 sm:h-12 text-sm sm:text-base transition-all duration-200 border-2 focus:border-[#2f5597] focus:ring-2 focus:ring-blue-100 rounded-lg sm:rounded-xl px-3 sm:px-4"
+                        formNoValidate
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <div className="space-y-2 sm:space-y-3">
+                        <Label htmlFor="password" className="text-xs sm:text-sm font-medium text-gray-700">
+                          New Password
+                        </Label>
+                        <Input
+                          id="password"
+                          type="password"
+                          placeholder="Enter your new password"
+                          required
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          disabled={loading}
+                          className="h-10 sm:h-12 text-sm sm:text-base transition-all duration-200 border-2 focus:border-[#2f5597] focus:ring-2 focus:ring-blue-100 rounded-lg sm:rounded-xl px-3 sm:px-4"
+                        />
+                      </div>
+                      <div className="space-y-2 sm:space-y-3">
+                        <Label htmlFor="confirmPassword" className="text-xs sm:text-sm font-medium text-gray-700">
+                          Confirm New Password
+                        </Label>
+                        <Input
+                          id="confirmPassword"
+                          type="password"
+                          placeholder="Confirm your new password"
+                          required
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          disabled={loading}
+                          className="h-10 sm:h-12 text-sm sm:text-base transition-all duration-200 border-2 focus:border-[#2f5597] focus:ring-2 focus:ring-blue-100 rounded-lg sm:rounded-xl px-3 sm:px-4"
+                        />
+                      </div>
+                    </>
+                  )}
 
                   {message && (
                     <div 
@@ -155,12 +235,21 @@ export function ForgotPasswordForm({
                     {loading ? (
                       <div className="flex items-center gap-2 animate-pulse">
                         <Loader2 className="animate-spin w-4 h-4 sm:w-5 sm:h-5" />
-                        <span>Sending reset link...</span>
+                        <span>{isResetMode ? "Updating password..." : "Sending reset link..."}</span>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
-                        <Mail size={18} className="w-4 h-4 sm:w-5 sm:h-5" />
-                        <span>Send reset link</span>
+                        {isResetMode ? (
+                          <>
+                            <Lock size={18} className="w-4 h-4 sm:w-5 sm:h-5" />
+                            <span>Update password</span>
+                          </>
+                        ) : (
+                          <>
+                            <Mail size={18} className="w-4 h-4 sm:w-5 sm:h-5" />
+                            <span>Send reset link</span>
+                          </>
+                        )}
                       </div>
                     )}
                   </Button>

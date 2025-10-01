@@ -32,6 +32,10 @@ const router = createBrowserRouter([
     element: <ForgotPasswordForm />,
   },
   {
+    path: "/reset-password",
+    element: <ForgotPasswordForm />,
+  },
+  {
     path: "/app",
     element: <AppLayout />,
     children: [

@@ -13,10 +13,12 @@ import { supabase } from "../../supabaseClient";
 import { Eye, EyeOff, Lock, User, CheckCircle2, XCircle } from "lucide-react";
 import { useOutletContext } from "react-router-dom";
 import { useAllRoles } from "../../roles";
+import { Skeleton } from "../../components/ui/skeleton";
 
 const SettingsPage = () => {
   // All possible roles from backend roles table
   const availableRoles = useAllRoles();
+  const rolesLoading = availableRoles.length === 0;
   const { roles, setRoles, isLoading: isRolesLoading, refreshRoles } = useRole();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -248,7 +250,12 @@ const SettingsPage = () => {
                   Select New Roles:
                 </p>
                 <div className="grid grid-cols-2 gap-2">
-                  {availableRoles.map((roleOption) => {
+                  {rolesLoading ? (
+                    Array.from({ length: 4 }).map((_, i) => (
+                      <Skeleton key={i} className="h-10 rounded-md" />
+                    ))
+                  ) : (
+                  availableRoles.map((roleOption) => {
                     const isSelected = selectedRoles.includes(roleOption);
                     return (
                       <Button
@@ -257,11 +264,13 @@ const SettingsPage = () => {
                         variant={isSelected ? "default" : "outline"}
                         onClick={() => toggleRole(roleOption)}
                         className="justify-start"
+                        disabled={rolesLoading}
                       >
                         {roleOption}
                       </Button>
                     );
-                  })}
+                  })
+                  )}
                 </div>
 
                 {selectedRoles.length > 0 && (
@@ -271,7 +280,7 @@ const SettingsPage = () => {
                 )}
               </div>
 
-              <Button type="submit" disabled={isLoading || isRolesLoading} className="w-full mt-auto">
+              <Button type="submit" disabled={isLoading || isRolesLoading || rolesLoading} className="w-full mt-auto">
                 {isLoading ? "Updating..." : "Update Roles"}
               </Button>
             </form>

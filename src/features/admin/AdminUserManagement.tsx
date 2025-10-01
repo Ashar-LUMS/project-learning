@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Lock, Unlock, ShieldCheck, Loader2, Search, MoreVertical, User, Mail, Trash2, Edit3, Send, Plus } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import { useAllRoles } from "../../roles";
+import { Skeleton } from "../../components/ui/skeleton";
 interface UserData {
   id: string;
   email: string;
@@ -116,7 +117,12 @@ const RoleDropdown = ({
           }}
         >
           <div className="max-h-48 overflow-y-auto mb-3">
-            {availableRoles.map((role: string) => (
+            {availableRoles.length === 0 ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-8 rounded-md my-1" />
+              ))
+            ) : (
+            availableRoles.map((role: string) => (
               <label
                 key={role}
                 className="flex items-center px-3 py-2 rounded-md hover:bg-gray-50 cursor-pointer transition-colors"
@@ -129,7 +135,8 @@ const RoleDropdown = ({
                 />
                 <span className="ml-3 text-sm font-medium text-gray-700">{role}</span>
               </label>
-            ))}
+            ))
+            )}
           </div>
 
           {draftRoles.length === 0 && (
@@ -165,6 +172,7 @@ const UserManagement = () => {
   const [users, setUsers] = useState<UserData[]>([]);
   // All possible roles from backend roles table for dropdowns and filters
   const AVAILABLE_ROLES = useAllRoles();
+  const rolesLoading = AVAILABLE_ROLES.length === 0;
   const [filteredUsers, setFilteredUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -281,16 +289,13 @@ const UserManagement = () => {
       if (!user) return;
 
       const currentMeta = user.raw_user_meta_data || {};
-      const newRoles = updates.roles || currentMeta.roles || [];
       
       const payload: Record<string, any> = {
         target_user_id: userId,
-        new_roles: newRoles,
+        new_roles: updates.roles !== undefined ? updates.roles : currentMeta.roles || [],
+        new_name: currentMeta.name || null,
+        new_is_locked: updates.isLocked !== undefined ? updates.isLocked : currentMeta.isLocked || false
       };
-      
-      if (updates.isLocked !== undefined) {
-        payload.new_is_locked = updates.isLocked;
-      }
 
       const { data, error } = await supabase.rpc("update_users_as_admin", payload);
       if (error) throw error;
@@ -332,7 +337,7 @@ const UserManagement = () => {
     try {
       setResettingUserId(userId);
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: `${window.location.origin}/forgot-password`,
       });
 
       if (error) throw error;
@@ -381,20 +386,58 @@ const UserManagement = () => {
     if (!selectedUser) return;
 
     try {
-      await handleUpdateUserMeta(selectedUser.id, { roles: editUser.roles });
+      const currentName = selectedUser.raw_user_meta_data?.name || "";
+      const currentRoles = selectedUser.raw_user_meta_data?.roles || [];
       
-      // Update name in user metadata
-      const { error } = await supabase.auth.admin.updateUserById(
-        selectedUser.id,
-        { user_metadata: { name: editUser.name } }
-      );
+      // Check if roles changed
+      const rolesChanged = 
+        [...currentRoles].sort().join(",") !== [...editUser.roles].sort().join(",");
+      
+      // Check if name changed
+      const nameChanged = currentName !== editUser.name;
+      
+      if (!rolesChanged && !nameChanged) {
+        setErrorMessage("No changes detected. Please modify the name or roles to update.");
+        return;
+      }
+      
+      // Use RPC to update both name and roles in a single call
+      const currentMeta = selectedUser.raw_user_meta_data || {};
+      
+      const payload: Record<string, any> = {
+        target_user_id: selectedUser.id,
+        new_roles: rolesChanged ? editUser.roles : currentMeta.roles || [],
+        new_name: nameChanged ? editUser.name : currentMeta.name || null,
+        new_is_locked: currentMeta.isLocked || false
+      };
 
-      if (error) throw error;
+      const { data, error } = await supabase.rpc("update_users_as_admin", payload);
+
+      if (error) {
+        console.error("Error updating user:", error);
+        setErrorMessage(error.message || "Failed to update user");
+        return;
+      }
+      
+      // Update local state with the returned data
+      if (data) {
+        setUsers((prev) => prev.map((u) => 
+          u.id === selectedUser.id 
+            ? { ...u, raw_user_meta_data: data.raw_user_meta_data }
+            : u
+        ));
+      } else {
+        // Fallback: refresh users list if no data returned
+        const { data: usersData } = await supabase.rpc("get_users_as_admin");
+        const filteredUsers = usersData?.filter((user: UserData) => user.id !== currentUserId) || [];
+        setUsers(filteredUsers);
+      }
 
       setSuccessMessage("User updated successfully");
       setIsEditDialogOpen(false);
       setSelectedUser(null);
     } catch (err: any) {
+      console.error("Error in handleUpdateUser:", err);
       setErrorMessage(err?.message || "Failed to update user");
     }
   };
@@ -409,7 +452,9 @@ const UserManagement = () => {
 
     try {
       setDeletingUserId(selectedUser.id);
-      const { error } = await supabase.auth.admin.deleteUser(selectedUser.id);
+      const { error } = await supabase.rpc("delete_user_as_admin", {
+        target_user_id: selectedUser.id
+      });
       
       if (error) throw error;
 
@@ -499,9 +544,13 @@ const UserManagement = () => {
                 className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">All Roles</option>
-                {AVAILABLE_ROLES.map(role => (
-                  <option key={role} value={role}>{role}</option>
-                ))}
+                {rolesLoading ? (
+                  <option disabled>Loading roles...</option>
+                ) : (
+                  AVAILABLE_ROLES.map(role => (
+                    <option key={role} value={role}>{role}</option>
+                  ))
+                )}
               </select>
             </div>
           </div>
@@ -706,7 +755,12 @@ const UserManagement = () => {
             <div>
               <label className="text-sm font-medium text-gray-700">Roles</label>
               <div className="mt-2 space-y-2">
-                {AVAILABLE_ROLES.map((role) => (
+                {rolesLoading ? (
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={i} className="h-6 rounded-md" />
+                  ))
+                ) : (
+                AVAILABLE_ROLES.map((role) => (
                   <label key={role} className="flex items-center">
                     <input
                       type="checkbox"
@@ -722,7 +776,8 @@ const UserManagement = () => {
                     />
                     <span className="ml-2 text-sm text-gray-700">{role}</span>
                   </label>
-                ))}
+                ))
+                )}
               </div>
             </div>
           </div>
@@ -759,7 +814,12 @@ const UserManagement = () => {
             <div>
               <label className="text-sm font-medium text-gray-700">Roles</label>
               <div className="mt-2 space-y-2">
-                {AVAILABLE_ROLES.map((role) => (
+                {rolesLoading ? (
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={i} className="h-6 rounded-md" />
+                  ))
+                ) : (
+                AVAILABLE_ROLES.map((role) => (
                   <label key={role} className="flex items-center">
                     <input
                       type="checkbox"
@@ -775,7 +835,8 @@ const UserManagement = () => {
                     />
                     <span className="ml-2 text-sm text-gray-700">{role}</span>
                   </label>
-                ))}
+                ))
+                )}
               </div>
             </div>
           </div>
