@@ -5,24 +5,73 @@ import {
   TrendingUp, 
   AlertTriangle,
   CheckCircle2,
-  Clock
+  Clock,
+  Loader2
 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { supabase } from '../../supabaseClient';
 
 const AdminDashboard = () => {
-  // Mock data - replace with actual data from your API
+  const [statsData, setStatsData] = useState({
+    totalUsers: 0,
+    adminUsers: 0,
+    activeSessions: 0,
+    lockedAccounts: 0,
+    loading: true
+  });
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        // Fetch users data
+        const { data: users, error: usersError } = await supabase.rpc("get_users_as_admin");
+        if (usersError) throw usersError;
+
+        const totalUsers = users?.length || 0;
+        const adminUsers = users?.filter((user: any) => 
+          user.raw_user_meta_data?.roles?.includes('Admin')
+        ).length || 0;
+        const lockedAccounts = users?.filter((user: any) => 
+          user.raw_user_meta_data?.isLocked
+        ).length || 0;
+
+        // For active sessions, we'll use a simple approximation based on recent sign-ins
+        // You might want to implement a more sophisticated session tracking
+        const oneDayAgo = new Date();
+        oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+        const activeSessions = users?.filter((user: any) => 
+          user.last_sign_in_at && new Date(user.last_sign_in_at) > oneDayAgo
+        ).length || 0;
+
+        setStatsData({
+          totalUsers,
+          adminUsers,
+          activeSessions,
+          lockedAccounts,
+          loading: false
+        });
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+        setStatsData(prev => ({ ...prev, loading: false }));
+      }
+    };
+
+    fetchStats();
+  }, []);
+
   const stats = [
     {
       title: 'Total Users',
-      value: '1,247',
+      value: statsData.loading ? '...' : statsData.totalUsers.toString(),
       change: '+12%',
       trend: 'up',
       icon: Users,
       color: 'blue',
-      description: 'Active users'
+      description: 'Registered users'
     },
     {
       title: 'Admin Users',
-      value: '23',
+      value: statsData.loading ? '...' : statsData.adminUsers.toString(),
       change: '+2',
       trend: 'up',
       icon: Shield,
@@ -31,16 +80,16 @@ const AdminDashboard = () => {
     },
     {
       title: 'Active Sessions',
-      value: '89',
+      value: statsData.loading ? '...' : statsData.activeSessions.toString(),
       change: '-5%',
       trend: 'down',
       icon: Activity,
       color: 'green',
-      description: 'Current sessions'
+      description: 'Signed in today'
     },
     {
       title: 'Locked Accounts',
-      value: '7',
+      value: statsData.loading ? '...' : statsData.lockedAccounts.toString(),
       change: '+1',
       trend: 'up',
       icon: AlertTriangle,
@@ -113,7 +162,10 @@ const AdminDashboard = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard(DUMMY DATA)</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+          {statsData.loading && <Loader2 className="w-6 h-6 animate-spin text-gray-400" />}
+        </div>
         <p className="text-gray-600 mt-2">Overview of system statistics and recent activities</p>
       </div>
 
@@ -133,14 +185,25 @@ const AdminDashboard = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">{stat.title}</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-2">{stat.value}</p>
-                  <div className="flex items-center mt-1">
-                    <TrendingUp className={`w-4 h-4 ${stat.trend === 'up' ? 'text-green-500' : 'text-red-500'}`} />
-                    <span className={`text-sm font-medium ml-1 ${stat.trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
-                      {stat.change}
-                    </span>
-                    <span className="text-sm text-gray-500 ml-2">from last week</span>
+                  <div className="flex items-center mt-2">
+                    {statsData.loading ? (
+                      <div className="flex items-center">
+                        <Loader2 className="w-5 h-5 animate-spin text-gray-400 mr-2" />
+                        <span className="text-2xl font-bold text-gray-400">Loading...</span>
+                      </div>
+                    ) : (
+                      <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                    )}
                   </div>
+                  {!statsData.loading && (
+                    <div className="flex items-center mt-1">
+                      <TrendingUp className={`w-4 h-4 ${stat.trend === 'up' ? 'text-green-500' : 'text-red-500'}`} />
+                      <span className={`text-sm font-medium ml-1 ${stat.trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
+                        {stat.change}
+                      </span>
+                      <span className="text-sm text-gray-500 ml-2">from last week</span>
+                    </div>
+                  )}
                 </div>
                 <div className={`p-3 rounded-lg ${colorClasses}`}>
                   <Icon className="w-6 h-6" />
