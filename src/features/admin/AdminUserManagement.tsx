@@ -7,7 +7,7 @@ import { Card, CardContent } from "../../components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog";
 import { Lock, Unlock, ShieldCheck, Loader2, Search, MoreVertical, User, Mail, Trash2, Edit3, Send, Plus } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
-
+import { useAllRoles } from "../../roles";
 interface UserData {
   id: string;
   email: string;
@@ -20,7 +20,6 @@ interface UserData {
   last_sign_in_at?: string;
 }
 
-const AVAILABLE_ROLES: string[] = ((import.meta.env.VITE_ROLES ?? 'User').split(',')).map((r: string) => r.trim()).filter(Boolean).sort((a: string, b: string) => a.localeCompare(b));
 
 // Enhanced RoleDropdown with proper positioning
 const RoleDropdown = ({
@@ -28,11 +27,13 @@ const RoleDropdown = ({
   onUpdate,
   isOpen,
   onOpenChange,
+  availableRoles,
 }: {
   user: UserData;
   onUpdate: (id: string, roles: string[]) => void;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  availableRoles: string[];
 }) => {
   const [draftRoles, setDraftRoles] = useState<string[]>(user.raw_user_meta_data?.roles || []);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -115,7 +116,7 @@ const RoleDropdown = ({
           }}
         >
           <div className="max-h-48 overflow-y-auto mb-3">
-            {AVAILABLE_ROLES.map((role) => (
+            {availableRoles.map((role: string) => (
               <label
                 key={role}
                 className="flex items-center px-3 py-2 rounded-md hover:bg-gray-50 cursor-pointer transition-colors"
@@ -162,6 +163,8 @@ const RoleDropdown = ({
 
 const UserManagement = () => {
   const [users, setUsers] = useState<UserData[]>([]);
+  // All possible roles from backend roles table for dropdowns and filters
+  const AVAILABLE_ROLES = useAllRoles();
   const [filteredUsers, setFilteredUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -561,6 +564,7 @@ const UserManagement = () => {
                           onUpdate={(id, roles) => handleUpdateUserMeta(id, { roles })}
                           isOpen={openDropdownUserId === user.id}
                           onOpenChange={(open) => setOpenDropdownUserId(open ? user.id : null)}
+                          availableRoles={AVAILABLE_ROLES}
                         />
                       </td>
                       <td className="px-6 py-4">

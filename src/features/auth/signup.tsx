@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { z } from 'zod';
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -7,9 +7,9 @@ import { Loader2, CheckCircle2} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../supabaseClient.ts';
-import { fetchRoleNames } from '../../roles';
+import {useAllRoles} from '../../roles';
 
-const AVAILABLE_ROLES_FALLBACK = ['User'];
+
 
 const signupSchema = z.object({
   name: z.string().min(3, { message: "Name must be at least 3 characters." }),
@@ -47,7 +47,6 @@ const Signup = ({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [roles, setRoles] = useState<string[]>([]);
-  const [availableRoles, setAvailableRoles] = useState<string[]>([]);
   const [errors, setErrors] = useState({ name: '', email: '', password: '', roles: '', general: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -59,21 +58,7 @@ const Signup = ({
     );
   };
 
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const names = await fetchRoleNames();
-        if (!mounted) return;
-        const normalized = (names || []).map(r => String(r).trim()).filter(Boolean).sort((a,b) => a.localeCompare(b));
-        setAvailableRoles(normalized.length ? normalized : AVAILABLE_ROLES_FALLBACK);
-      } catch (e) {
-        if (!mounted) return;
-        setAvailableRoles(AVAILABLE_ROLES_FALLBACK);
-      }
-    })();
-    return () => { mounted = false; };
-  }, []);
+  const availableRoles = useAllRoles();
 
   const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();

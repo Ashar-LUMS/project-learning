@@ -12,10 +12,11 @@ import { useRole } from "../../getRole";
 import { supabase } from "../../supabaseClient";
 import { Eye, EyeOff, Lock, User, CheckCircle2, XCircle } from "lucide-react";
 import { useOutletContext } from "react-router-dom";
-
-const AVAILABLE_ROLES: string[] = (import.meta.env.VITE_ROLES ?? 'Dummy').split(',');
+import { useAllRoles } from "../../roles";
 
 const SettingsPage = () => {
+  // All possible roles from backend roles table
+  const availableRoles = useAllRoles();
   const { roles, setRoles, isLoading: isRolesLoading, refreshRoles } = useRole();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -247,7 +248,7 @@ const SettingsPage = () => {
                   Select New Roles:
                 </p>
                 <div className="grid grid-cols-2 gap-2">
-                  {AVAILABLE_ROLES.map((roleOption) => {
+                  {availableRoles.map((roleOption) => {
                     const isSelected = selectedRoles.includes(roleOption);
                     return (
                       <Button
