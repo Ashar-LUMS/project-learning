@@ -321,7 +321,7 @@ const AdminDashboard = () => {
       await checkSystemHealth();
       
       // Also refresh user stats
-      const { data: users, error } = await supabase.rpc("get_users_as_admin");
+      const { data: error } = await supabase.rpc("get_users_as_admin");
       if (error) throw error;
       
       const healthyServices = Object.values(systemStatus).filter(status => status === 'operational').length;
