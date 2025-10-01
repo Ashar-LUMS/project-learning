@@ -19,6 +19,7 @@ interface UserData {
   };
   created_at?: string;
   last_sign_in_at?: string;
+  email_confirmed_at?: string;
 }
 
 
@@ -184,6 +185,7 @@ const UserManagement = () => {
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "locked">("all");
+  const [emailStatusFilter, setEmailStatusFilter] = useState<"all" | "confirmed" | "pending">("all");
   const [roleFilter, setRoleFilter] = useState<string>("all");
 
   // Dialog states
@@ -273,6 +275,13 @@ const UserManagement = () => {
       );
     }
 
+    // Email status filter
+    if (emailStatusFilter !== "all") {
+      result = result.filter(user => 
+        emailStatusFilter === "confirmed" ? user.email_confirmed_at : !user.email_confirmed_at
+      );
+    }
+
     // Role filter
     if (roleFilter !== "all") {
       result = result.filter(user => 
@@ -281,7 +290,7 @@ const UserManagement = () => {
     }
 
     setFilteredUsers(result);
-  }, [users, searchTerm, statusFilter, roleFilter]);
+  }, [users, searchTerm, statusFilter, emailStatusFilter, roleFilter]);
 
   const handleUpdateUserMeta = useCallback(async (userId: string, updates: { roles?: string[]; isLocked?: boolean }) => {
     try {
@@ -350,6 +359,24 @@ const UserManagement = () => {
     }
   };
 
+  const handleResendConfirmation = async (userId: string, email: string) => {
+    try {
+      setResettingUserId(userId);
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email,
+      });
+
+      if (error) throw error;
+      
+      setSuccessMessage(`Confirmation email resent to ${email}`);
+    } catch (err: any) {
+      setErrorMessage(err?.message || "Failed to resend confirmation email");
+    } finally {
+      setResettingUserId(null);
+    }
+  };
+
   const handleCreateUser = async () => {
     try {
       if (!newUser.email || !newUser.password) {
@@ -357,13 +384,14 @@ const UserManagement = () => {
         return;
       }
 
-      const { error } = await supabase.auth.admin.createUser({
+      const { data, error } = await supabase.auth.signUp({
         email: newUser.email,
         password: newUser.password,
-        email_confirm: true,
-        user_metadata: {
-          name: newUser.name,
-          roles: newUser.roles,
+        options: {
+          data: {
+            name: newUser.name,
+            roles: newUser.roles,
+          },
         },
       });
 
@@ -374,7 +402,7 @@ const UserManagement = () => {
       const filteredUsers = usersData?.filter((user: UserData) => user.id !== currentUserId) || [];
       setUsers(filteredUsers);
 
-      setSuccessMessage("User created successfully");
+      setSuccessMessage(`User created successfully. ${data.user?.email_confirmed_at ? 'User can now sign in.' : 'Confirmation email sent to ' + newUser.email}`);
       setIsCreateDialogOpen(false);
       setNewUser({ email: "", name: "", roles: ["User"], password: "" });
     } catch (err: any) {
@@ -539,6 +567,15 @@ const UserManagement = () => {
                 <option value="locked">Locked</option>
               </select>
               <select
+                value={emailStatusFilter}
+                onChange={(e) => setEmailStatusFilter(e.target.value as any)}
+                className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Email Status</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="pending">Pending</option>
+              </select>
+              <select
                 value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value)}
                 className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -579,6 +616,9 @@ const UserManagement = () => {
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Status
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Email Status
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Last Sign In
@@ -627,6 +667,17 @@ const UserManagement = () => {
                           </Badge>
                         )}
                       </td>
+                      <td className="px-6 py-4">
+                        {user.email_confirmed_at ? (
+                          <Badge variant="default" className="bg-blue-100 text-blue-800 hover:bg-blue-100 gap-1.5">
+                            <Mail className="w-3 h-3" /> Confirmed
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100 gap-1.5">
+                            <Mail className="w-3 h-3" /> Pending
+                          </Badge>
+                        )}
+                      </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {user.last_sign_in_at 
                           ? new Date(user.last_sign_in_at).toLocaleDateString()
@@ -657,6 +708,19 @@ const UserManagement = () => {
                                 )}
                                 Send Reset Email
                               </DropdownMenuItem>
+                              {!user.email_confirmed_at && (
+                                <DropdownMenuItem 
+                                  onClick={() => handleResendConfirmation(user.id, user.email)}
+                                  disabled={resettingUserId === user.id}
+                                >
+                                  {resettingUserId === user.id ? (
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  ) : (
+                                    <Mail className="w-4 h-4 mr-2" />
+                                  )}
+                                  Resend Confirmation
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuSeparator />
                               {user.raw_user_meta_data?.isLocked ? (
                                 <DropdownMenuItem 
