@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { z } from 'zod';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +51,18 @@ const Login = ({
   const [errors, setErrors] = useState({ email: '', password: '', general: '' });
   const cardRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  // Check if user is already authenticated
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        navigate('/app', { replace: true });
+      }
+    };
+    
+    checkSession();
+  }, [navigate]);
 
 
   const handleSubmit = async (e: React.FormEvent) => {

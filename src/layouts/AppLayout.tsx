@@ -13,6 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { AuthDebug } from "../components/auth-debug";
 
 const AppLayout = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -86,41 +87,30 @@ const AppLayout = () => {
     navigate("/");
   };
 
-  // Sign out automatically when the tab/window is closed or navigated away.
+  // Check for authentication state and redirect if not authenticated
   useEffect(() => {
     let active = true;
-    const quickLocalSignOut = () => {
-      try {
-        supabase.auth.signOut({ scope: 'local' });
-      } catch { /* ignore */ }
-    };
-
-    const attachIfAuthenticated = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+    
+    const checkAuthState = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       if (!active) return;
-      if (user) {
-        window.addEventListener('beforeunload', quickLocalSignOut);
-        window.addEventListener('pagehide', quickLocalSignOut);
+      
+      if (!session) {
+        navigate("/", { replace: true });
       }
     };
-    attachIfAuthenticated();
+    
+    checkAuthState();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      const user = session?.user;
-      if (user) {
-        window.addEventListener('beforeunload', quickLocalSignOut);
-        window.addEventListener('pagehide', quickLocalSignOut);
-      } else {
-        window.removeEventListener('beforeunload', quickLocalSignOut);
-        window.removeEventListener('pagehide', quickLocalSignOut);
+      if (!session) {
+        navigate("/", { replace: true });
       }
     });
 
     return () => {
       active = false;
       subscription.unsubscribe();
-      window.removeEventListener('beforeunload', quickLocalSignOut);
-      window.removeEventListener('pagehide', quickLocalSignOut);
     };
   }, [navigate]);
 
@@ -393,6 +383,9 @@ const AppLayout = () => {
 
       {/* Main Outlet */}
       <Outlet context={{ activeRole }} />
+
+      {/* Auth Debug Component (Development Only) */}
+      <AuthDebug />
 
       {/* Footer */}
       <footer className="bg-white border-t border-gray-100 py-6 mt-auto">

@@ -62,9 +62,13 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   useEffect(() => {
-    const fetchRoles = async () => {
+    const initializeAuth = async () => {
       setIsLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
+      
+      // First check for existing session
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      
       if (!user) {
         setRoles(null);
         setIsLocked(null);
@@ -76,20 +80,24 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLocked(!!(user?.user_metadata?.isLocked || user?.user_metadata?.is_locked));
       setIsLoading(false);
     };
-    fetchRoles();
+    
+    initializeAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      const sessionUser = session?.user;
-      if (!sessionUser) {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // Handle different auth events
+      if (event === 'SIGNED_OUT' || !session) {
         setRoles(null);
         setIsLocked(null);
         setIsLoading(false);
         return;
       }
-
-      setRoles(deriveRoles(sessionUser));
-      setIsLocked(!!(sessionUser?.user_metadata?.isLocked || sessionUser?.user_metadata?.is_locked));
-      setIsLoading(false);
+      
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        const user = session.user;
+        setRoles(deriveRoles(user));
+        setIsLocked(!!(user?.user_metadata?.isLocked || user?.user_metadata?.is_locked));
+        setIsLoading(false);
+      }
     });
 
     return () => {
