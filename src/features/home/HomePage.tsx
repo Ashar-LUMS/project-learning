@@ -9,7 +9,7 @@ import { Input } from "../../components/ui/input";
 import { Badge } from "../../components/ui/badge";
 import { Skeleton } from "../../components/ui/skeleton";
 import sampleNetwork from "../../sampleNetwork.js";
-import { Search, Plus, Folder, Edit, Trash2, Users, AlertCircle, FileText, Calendar, UserCheck, Loader2, Filter, X } from "lucide-react";
+import { Search, Plus, Folder, Edit, Trash2, Users, AlertCircle, FileText, Calendar, UserCheck, Loader2, Filter, X, Eye } from "lucide-react";
 import NetworkGraph from "./NetworkGraph"; 
 
 type Project = {
@@ -17,7 +17,7 @@ type Project = {
   name?: string | null;
   assignees?: string[] | null;
   created_at?: string | null;
-  created_by?: string | null; // uuid of creator
+  created_by?: string | null;
   creator_email?: string | null;
 };
 
@@ -29,7 +29,6 @@ type MinimalUser = {
   is_locked?: boolean | null;
 };
 
-// New hook using get_users (available for any authenticated user)
 const useUsers = (enabled: boolean) => {
   const [users, setUsers] = useState<MinimalUser[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -47,21 +46,20 @@ const useUsers = (enabled: boolean) => {
           setError(error.message || "Failed to load users");
           setUsers([]);
         } else {
-          // Supabase auth.users rows contain metadata in raw_user_meta_data / user_metadata
-            const list: MinimalUser[] = ((data || []) as any[]).map((u) => {
-              const meta = (u.raw_user_meta_data || u.user_metadata || {}) as any;
-              const name = meta.name ?? meta.full_name ?? null;
-              const roles = Array.isArray(meta.roles) ? meta.roles : (typeof meta.roles === 'string' ? [meta.roles] : null);
-              return {
-                id: u.id,
-                email: u.email ?? null,
-                name,
-                roles,
-                is_locked: meta.isLocked ?? meta.is_locked ?? null,
-              } as MinimalUser;
-            });
-            setUsers(list);
-            setError(null);
+          const list: MinimalUser[] = ((data || []) as any[]).map((u) => {
+            const meta = (u.raw_user_meta_data || u.user_metadata || {}) as any;
+            const name = meta.name ?? meta.full_name ?? null;
+            const roles = Array.isArray(meta.roles) ? meta.roles : (typeof meta.roles === 'string' ? [meta.roles] : null);
+            return {
+              id: u.id,
+              email: u.email ?? null,
+              name,
+              roles,
+              is_locked: meta.isLocked ?? meta.is_locked ?? null,
+            } as MinimalUser;
+          });
+          setUsers(list);
+          setError(null);
         }
       } catch (e) {
         if (!mounted) return;
@@ -90,7 +88,7 @@ const useProjects = (isAdmin: boolean | null, currentUserId: string | null) => {
     try {
       let query = supabase
         .from("projects")
-  .select("id, name, assignees, created_at, created_by, creator_email")
+        .select("id, name, assignees, created_at, created_by, creator_email")
         .order("created_at", { ascending: false });
 
       if (!isAdmin && currentUserId) {
@@ -127,7 +125,6 @@ const HomePage: React.FC = () => {
     return userRolesArray.includes("Admin") && activeRole === "Admin";
   }, [userRolesArray, areRolesLoading, activeRole]);
 
-  // Basic UI state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<Set<string>>(new Set());
@@ -146,23 +143,18 @@ const HomePage: React.FC = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
 
-  // Delete confirmation state (replaces window.confirm)
   const [deleteCandidate, setDeleteCandidate] = useState<Project | null>(null);
   const [isDeleteLoading, setIsDeleteLoading] = useState(false);
 
-  // Page-level filters and UX
   const [searchTerm] = useState("");
   const [sortBy] = useState<"recent" | "name">("recent");
   const [adminView, setAdminView] = useState<"all" | "mine">("all");
 
-  // Inline banner for success/error
   const [banner, setBanner] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
-  // Dialog-level teammate search
   const [createTeamSearch, setCreateTeamSearch] = useState("");
   const [editTeamSearch, setEditTeamSearch] = useState("");
 
-  // All users (any authenticated user can fetch)
   const { users, isLoading: isUsersLoading, error: usersError } = useUsers(true);
 
   useEffect(() => {
@@ -175,7 +167,6 @@ const HomePage: React.FC = () => {
 
   const { projects, isLoading: isProjectsLoading, error: projectsError, refetch: refetchProjects } = useProjects(isAdmin, currentUserId);
 
-  // helpers
   const toggleAssignee = useCallback((userId: string, setter: React.Dispatch<React.SetStateAction<Set<string>>>) => {
     setter((prev) => {
       const next = new Set(prev);
@@ -185,7 +176,6 @@ const HomePage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // when opening Create dialog ensure current user is selected
     if (!isCreateOpen) return;
     if (!currentUserId) return;
     setSelectedAssigneeIds((prev) => {
@@ -201,8 +191,7 @@ const HomePage: React.FC = () => {
   }, []);
 
   const handleCreateProject = useCallback(async () => {
-    // Allow non-admin users to create projects
-    if (!newProjectName.trim()) return; // UI already disables button, but double-check
+    if (!newProjectName.trim()) return;
 
     try {
       setIsCreateLoading(true);
@@ -287,7 +276,6 @@ const HomePage: React.FC = () => {
     setIsAssigneesOpen(true);
   }, []);
 
-  // derived maps
   const userIdToLabel = useMemo(() => {
     const map: Record<string, string> = {};
     for (const u of users) map[u.id] = u.name || u.email || u.id;
@@ -300,22 +288,18 @@ const HomePage: React.FC = () => {
     return map;
   }, [users]);
 
-  // Quick lookup for email -> name fallback
   const emailToName = useMemo(() => {
     const map: Record<string, string> = {};
     for (const u of users) if (u.email) map[u.email] = u.name || u.email;
     return map;
   }, [users]);
 
-  // Filter + sort derived list
   const displayedProjects = useMemo(() => {
     let list = (projects || []).slice();
-    // Admin view filter
     if (isAdmin && adminView === "mine" && currentUserId) {
       list = list.filter(p => (p.assignees || []).includes(currentUserId));
     }
     
-    // Search filter
     const q = searchTerm.trim().toLowerCase();
     if (q) {
       list = list.filter(p => {
@@ -324,7 +308,6 @@ const HomePage: React.FC = () => {
         return name.includes(q) || creator.includes(q);
       });
     }
-    // Sort
     if (sortBy === "name") {
       list.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     } else {
@@ -333,7 +316,6 @@ const HomePage: React.FC = () => {
     return list;
   }, [projects, isAdmin, adminView, currentUserId, searchTerm, sortBy]);
 
-  // Filter admin users by dialog searches
   const filteredUsersForCreate = useMemo(() => {
     const q = createTeamSearch.trim().toLowerCase();
     if (!q) return users;
@@ -348,196 +330,377 @@ const HomePage: React.FC = () => {
 
   return (
     <main className="flex-grow container mx-auto px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Project Dashboard</h1>
-        <p className="text-gray-600 mt-2">Manage and organize your projects</p>
+      {/* Header Section */}
+      <div className="mb-8">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-2 h-8 bg-gradient-to-b from-[#2f5597] to-[#3b6bc9] rounded-full"></div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+            Project Dashboard
+          </h1>
+        </div>
+        <p className="text-[#4b5563] text-lg">Manage and organize your projects with your team</p>
       </div>
 
+      {/* Banner */}
       {banner && (
-        <div className={`mb-6 rounded-lg border px-4 py-3 flex items-start justify-between ${banner.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}> 
-          <div className="flex items-start gap-2">
-            <div className={`mt-0.5 rounded-full p-1 ${banner.type === 'success' ? 'bg-green-100' : 'bg-red-100'}`}> 
-              {banner.type === 'success' ? <UserCheck size={14} /> : <AlertCircle size={14} />}
+        <div 
+          className={`mb-8 rounded-2xl border p-4 flex items-start justify-between backdrop-blur-sm animate-fade-in ${
+            banner.type === 'success' 
+              ? 'bg-green-50/80 border-green-200 text-green-800' 
+              : 'bg-[#fee2e2]/80 border-[#fecaca] text-[#b91c1c]'
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <div className={`mt-0.5 rounded-full p-2 ${
+              banner.type === 'success' ? 'bg-green-100' : 'bg-[#fee2e2]'
+            }`}>
+              {banner.type === 'success' ? <UserCheck size={16} /> : <AlertCircle size={16} />}
             </div>
-            <p className="text-sm">{banner.message}</p>
+            <p className="text-sm font-medium">{banner.message}</p>
           </div>
-          <button className="text-sm opacity-70 hover:opacity-100" aria-label="Dismiss" onClick={() => setBanner(null)}>
+          <button 
+            className="text-sm opacity-70 hover:opacity-100 transition-opacity"
+            onClick={() => setBanner(null)}
+          >
             <X size={16} />
           </button>
         </div>
       )}
 
-      <section className="w-full max-w-6xl mx-auto">
-        <div className="flex flex-col gap-4 mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-semibold text-gray-800">Projects</h2>
-              <p className="text-gray-500 text-sm mt-1">{displayedProjects && displayedProjects.length > 0 ? `${displayedProjects.length} project${displayedProjects.length !== 1 ? 's' : ''} shown` : 'No projects to display'}</p>
-            </div>
-            <div className="flex items-center gap-2">
-              {isAdmin && (
-                <div className="hidden sm:flex rounded-md border overflow-hidden">
-                  <button className={`px-3 py-1.5 text-sm ${adminView === 'all' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`} onClick={() => setAdminView('all')}><Filter className="inline mr-1" size={14} />All</button>
-                  <button className={`px-3 py-1.5 text-sm border-l ${adminView === 'mine' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`} onClick={() => setAdminView('mine')}>My</button>
-                </div>
-              )}
-              <Button onClick={() => setIsCreateOpen(true)} className="flex items-center gap-2">
-                <Plus size={18} /> New Project
-              </Button>
-            </div>
+      {/* Controls Section */}
+      <section className="mb-8">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="flex items-center gap-4">
+            {isAdmin && (
+              <div className="flex rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
+                <button 
+                  className={`px-4 py-2 text-sm font-medium transition-all ${
+                    adminView === 'all' 
+                      ? 'bg-[#2f5597] text-white shadow-md' 
+                      : 'text-[#4b5563] hover:text-gray-900'
+                  }`}
+                  onClick={() => setAdminView('all')}
+                >
+                  <Filter className="inline mr-2" size={14} />
+                  All Projects
+                </button>
+                <button 
+                  className={`px-4 py-2 text-sm font-medium transition-all border-l ${
+                    adminView === 'mine' 
+                      ? 'bg-[#2f5597] text-white shadow-md' 
+                      : 'text-[#4b5563] hover:text-gray-900'
+                  }`}
+                  onClick={() => setAdminView('mine')}
+                >
+                  My Projects
+                </button>
+              </div>
+            )}
           </div>
 
-          
+          <Button 
+            onClick={() => setIsCreateOpen(true)}
+            className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
+            style={{
+              background: 'linear-gradient(135deg, #2f5597 0%, #3b6bc9 100%)',
+            }}
+          >
+            <Plus size={20} />
+            New Project
+          </Button>
         </div>
+      </section>
 
+      {/* Projects Grid */}
+      <section>
         {isProjectsLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {[1,2,3,4,5,6].map(i => (
-              <Card key={i} className="overflow-hidden border border-gray-200 rounded-xl">
-                <CardContent className="p-5">
-                  <div className="flex items-center gap-3 mb-4">
-                    <Skeleton className="h-10 w-10 rounded-full" />
-                    <Skeleton className="h-5 w-40" />
+              <Card key={i} className="rounded-2xl border-0 bg-white/80 backdrop-blur-sm overflow-hidden shadow-lg">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4 mb-4">
+                    <Skeleton className="h-12 w-12 rounded-xl bg-gradient-to-br from-gray-200 to-gray-300" />
+                    <Skeleton className="h-6 flex-1 bg-gradient-to-r from-gray-200 to-gray-300" />
                   </div>
-                  <div className="space-y-2 mb-4">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-5/6" />
+                  <div className="space-y-3">
+                    <Skeleton className="h-4 w-full bg-gradient-to-r from-gray-200 to-gray-300" />
+                    <Skeleton className="h-4 w-5/6 bg-gradient-to-r from-gray-200 to-gray-300" />
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
         ) : projectsError ? (
-          <Card className="p-6 border border-red-200 bg-red-50 rounded-xl">
-            <CardContent className="text-red-800 flex flex-col items-center justify-center py-6">
-              <div className="bg-red-100 p-3 rounded-full mb-4"><AlertCircle size={24} className="text-red-600" /></div>
-              <h3 className="font-medium text-lg mb-2">Unable to load projects</h3>
-              <p className="text-center text-red-700 mb-4">{projectsError}</p>
-              <Button variant="outline" onClick={() => refetchProjects()}>Try Again</Button>
+          <Card className="rounded-2xl border-0 bg-gradient-to-br from-red-50 to-red-100/50 backdrop-blur-sm shadow-lg">
+            <CardContent className="p-8 text-center">
+              <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <AlertCircle size={32} className="text-red-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-red-900 mb-2">Unable to load projects</h3>
+              <p className="text-red-700 mb-6">{projectsError}</p>
+              <Button 
+                variant="outline" 
+                onClick={() => refetchProjects()}
+                className="border-red-300 text-red-700 hover:bg-red-50 rounded-xl"
+              >
+                Try Again
+              </Button>
             </CardContent>
           </Card>
         ) : displayedProjects && displayedProjects.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {displayedProjects.map(project => (
-              <Card key={project.id} className="overflow-hidden border border-gray-200 rounded-xl hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-                <CardContent className="p-5">
+              <Card 
+                key={project.id}
+                className="group rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm overflow-hidden transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 hover:border-blue-200/60 shadow-lg"
+              >
+                <CardContent className="p-6">
+                  {/* Header */}
                   <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600"><Folder size={20} /></div>
-                      <div className="min-w-0">
-                        <h3 className="text-base font-semibold text-gray-900 truncate">{project.name || 'Untitled Project'}</h3>
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#b1ceff] to-[#003db6] flex items-center justify-center text-white shadow-lg">
+                        <Folder size={24} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-lg font-semibold text-gray-900 truncate">
+                          {project.name || 'Untitled Project'}
+                        </h3>
                         {project.created_at && (
-                          <div className="mt-1 flex items-center text-gray-500">
-                            <Calendar size={12} className="mr-1" />
-                            <span className="text-xs">{new Date(project.created_at).toLocaleDateString()}</span>
+                          <div className="flex items-center text-[#6b7280] text-sm mt-1">
+                            <Calendar size={14} className="mr-1.5" />
+                            {new Date(project.created_at).toLocaleDateString()}
                           </div>
-                        )}
-                        {(project.created_by || project.creator_email) && (
-                          <div className="mt-1 text-xs text-gray-500">Created by: {(() => {
-                            const creator = project.created_by ? userIdToUser[project.created_by] : users.find(u => u.email === project.creator_email);
-                            const label = creator?.name || creator?.email || (project.creator_email ? emailToName[project.creator_email] : '') || project.creator_email || 'Unknown';
-                            return <span title={creator?.email || project.creator_email || undefined} className="font-medium text-gray-700">{label}</span>;
-                          })()}</div>
                         )}
                       </div>
                     </div>
+                    
+                    {/* Actions */}
                     {(isAdmin || (currentUserId && project.assignees?.includes(currentUserId))) && (
-                      <div className="flex items-center gap-1">
-                        <button className="text-gray-500 hover:text-blue-600 p-1 rounded-full hover:bg-blue-50" title="Edit project" onClick={() => openEditDialog(project)}><Edit size={16} /></button>
-                        <button className="text-gray-500 hover:text-red-600 p-1 rounded-full hover:bg-red-50" title="Delete project" onClick={() => setDeleteCandidate(project)}><Trash2 size={16} /></button>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          className="p-2 text-gray-400 hover:text-[#2f5597] hover:bg-blue-50 rounded-lg transition-all"
+                          onClick={() => openEditDialog(project)}
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button 
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                          onClick={() => setDeleteCandidate(project)}
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
                     )}
                   </div>
 
-                  <div className="mb-4">
-                    <div className="h-px bg-gray-100 my-4" />
+                  {/* Creator Info */}
+                  {(project.created_by || project.creator_email) && (
+                    <div className="mb-4 text-sm text-[#6b7280]">
+                      Created by: {(() => {
+                        const creator = project.created_by ? userIdToUser[project.created_by] : users.find(u => u.email === project.creator_email);
+                        const label = creator?.name || creator?.email || (project.creator_email ? emailToName[project.creator_email] : '') || project.creator_email || 'Unknown';
+                        return (
+                          <span className="font-medium text-gray-700" title={creator?.email || project.creator_email || undefined}>
+                            {label}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                  )}
+
+                  {/* Assignees */}
+                  <div className="mb-6">
+                    <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent my-4" />
                     {project.assignees && project.assignees.length > 0 ? (
                       <div className="flex items-center justify-between">
-                        <button type="button" className="flex -space-x-2 group" title="View assignees" onClick={() => openAssigneesDialog(project)}>
-                          {project.assignees.slice(0,3).map(id => {
+                        <button 
+                          type="button" 
+                          className="flex -space-x-2 group/avatars"
+                          onClick={() => openAssigneesDialog(project)}
+                        >
+                          {project.assignees.slice(0, 4).map(id => {
                             const label = userIdToLabel[id] || id;
                             const initials = (label || "").split(/[\s@._-]+/).filter(Boolean).slice(0,2).map(s => s[0]?.toUpperCase()).join("") || "?";
-                            return <div key={id} className="h-7 w-7 rounded-full bg-blue-100 border-2 border-white flex items-center justify-center text-xs font-medium text-blue-700" title={label}>{initials}</div>;
+                            return (
+                              <div 
+                                key={id}
+                                className="w-8 h-8 rounded-full bg-gradient-to-br from-[#2f5597] to-[#3b6bc9] border-2 border-white flex items-center justify-center text-xs font-semibold text-white shadow-lg transition-transform group-hover/avatars:translate-y-[-2px]"
+                                title={label}
+                              >
+                                {initials}
+                              </div>
+                            );
                           })}
-                          {project.assignees.length > 3 && <div className="h-7 w-7 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-xs font-medium text-gray-600">+{project.assignees.length - 3}</div>}
+                          {project.assignees.length > 4 && (
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-500 to-gray-600 border-2 border-white flex items-center justify-center text-xs font-semibold text-white shadow-lg">
+                              +{project.assignees.length - 4}
+                            </div>
+                          )}
                         </button>
-                        <Badge variant="outline" className="text-xs"><UserCheck size={12} className="mr-1" />{project.assignees.length} {project.assignees.length === 1 ? 'assignee' : 'assignees'}</Badge>
+                        <Badge 
+                          variant="secondary" 
+                          className="bg-blue-50 text-[#2f5597] border-blue-200 rounded-lg"
+                        >
+                          <UserCheck size={12} className="mr-1" />
+                          {project.assignees.length}
+                        </Badge>
                       </div>
                     ) : (
-                      <div className="text-sm text-gray-500 flex items-center"><Users size={14} className="mr-2" />No assignees yet</div>
+                      <div className="text-sm text-[#6b7280] flex items-center justify-center py-2">
+                        <Users size={16} className="mr-2" />
+                        No assignees yet
+                      </div>
                     )}
                   </div>
 
-                  <Button variant="outline" className="w-full" onClick={() => setVisualizeProjectId(project.id)}>Open Project</Button>
+                  {/* Action Button */}
+                  <Button 
+                    onClick={() => setVisualizeProjectId(project.id)}
+                    className="w-full rounded-xl py-3 font-semibold transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
+                    style={{
+                      background: 'linear-gradient(135deg, #2f5597 0%, #3b6bc9 100%)',
+                    }}
+                  >
+                    <Eye size={18} className="mr-2" />
+                    Open Project
+                  </Button>
                 </CardContent>
               </Card>
             ))}
           </div>
         ) : (
-          <Card className="p-8 text-center border border-dashed border-gray-300 bg-gray-50 rounded-xl">
-            <CardContent className="flex flex-col items-center">
-              <div className="bg-gray-200 p-4 rounded-full mb-4"><FileText size={32} className="text-gray-500" /></div>
-              <h3 className="text-lg font-medium text-gray-700 mb-2">No projects found</h3>
-              <p className="text-gray-500 mb-6 max-w-md">Create a project to organize tasks and collaborate with your team.</p>
-              <Button onClick={() => setIsCreateOpen(true)}><Plus size={18} /> Create Your First Project</Button>
+          <Card className="rounded-2xl border-0 bg-gradient-to-br from-gray-50 to-blue-50/30 backdrop-blur-sm text-center shadow-lg">
+            <CardContent className="p-12">
+              <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-blue-200 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <FileText size={32} className="text-[#2f5597]" />
+              </div>
+              <h3 className="text-2xl font-semibold text-gray-900 mb-3">No projects found</h3>
+              <p className="text-[#6b7280] mb-8 max-w-md mx-auto">
+                Create your first project to start collaborating with your team and organizing your work.
+              </p>
+              <Button 
+                onClick={() => setIsCreateOpen(true)}
+                className="px-8 py-3 rounded-xl font-semibold text-white transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
+                style={{
+                  background: 'linear-gradient(135deg, #2f5597 0%, #3b6bc9 100%)',
+                }}
+              >
+                <Plus size={20} className="mr-2" />
+                Create Your First Project
+              </Button>
             </CardContent>
           </Card>
         )}
       </section>
 
-      {/* Create dialog (simple) */}
+      {/* Create Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={(open) => { setIsCreateOpen(open); if (!open) { resetCreateForm(); setCreateTeamSearch(""); } }}>
-        <DialogContent className="sm:max-w-xl rounded-xl">
-          <DialogHeader><DialogTitle className="text-xl flex items-center gap-2"><Folder size={20} /> Create New Project</DialogTitle></DialogHeader>
+        <DialogContent className="sm:max-w-xl rounded-2xl border-0 bg-white/95 backdrop-blur-sm shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-[#2f5597] to-[#3b6bc9] rounded-xl flex items-center justify-center">
+                <Folder size={20} className="text-white" />
+              </div>
+              Create New Project
+            </DialogTitle>
+          </DialogHeader>
           <div className="space-y-5 py-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Project Name</label>
-              <Input value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} maxLength={80} placeholder="e.g. Test Network" />
+              <Input 
+                value={newProjectName} 
+                onChange={(e) => setNewProjectName(e.target.value)} 
+                maxLength={80} 
+                placeholder="e.g. Test Network"
+                className="rounded-xl border-2 focus:border-[#2f5597] focus:ring-2 focus:ring-blue-100"
+              />
               <div className="text-xs text-gray-400 mt-1">{newProjectName.length}/80</div>
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-2"><label className="block text-sm font-medium text-gray-700">Assign Team Members</label><span className="text-xs text-gray-500">{selectedAssigneeIds.size} selected</span></div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">Assign Team Members</label>
+                <span className="text-xs text-gray-500">{selectedAssigneeIds.size} selected</span>
+              </div>
               {isUsersLoading ? (
-                <div className="flex items-center justify-center h-20 border rounded-lg bg-gray-50">Loading team members...</div>
+                <div className="flex items-center justify-center h-20 border rounded-xl bg-gray-50">Loading team members...</div>
               ) : (
                 <>
-                  <div className="mb-3 relative"><Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" /><Input placeholder="Search team members" className="pl-9" value={createTeamSearch} onChange={(e) => setCreateTeamSearch(e.target.value)} /></div>
+                  <div className="mb-3 relative">
+                    <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <Input 
+                      placeholder="Search team members" 
+                      className="pl-9 rounded-xl border-2 focus:border-[#2f5597] focus:ring-2 focus:ring-blue-100"
+                      value={createTeamSearch} 
+                      onChange={(e) => setCreateTeamSearch(e.target.value)} 
+                    />
+                  </div>
                   {(!usersError && filteredUsersForCreate.length > 0) ? (
-                    <div className="max-h-60 overflow-auto border rounded-lg divide-y">
+                    <div className="max-h-60 overflow-auto border rounded-xl divide-y">
                       {filteredUsersForCreate.map(u => (
-                        <label key={u.id} className={`flex items-center gap-3 py-3 px-4`}>
-                          <input type="checkbox" checked={selectedAssigneeIds.has(u.id)} onChange={() => toggleAssignee(u.id, setSelectedAssigneeIds)} />
-                          <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">{(u.name || u.email || '?').charAt(0).toUpperCase()}</div>
-                          <div className="flex flex-col"><span className="text-sm font-medium text-gray-900">{u.name || 'Unnamed User'}</span><span className="text-xs text-gray-500">{u.email || 'No email'}</span></div>
+                        <label key={u.id} className={`flex items-center gap-3 py-3 px-4 hover:bg-gray-50 cursor-pointer`}>
+                          <input 
+                            type="checkbox" 
+                            checked={selectedAssigneeIds.has(u.id)} 
+                            onChange={() => toggleAssignee(u.id, setSelectedAssigneeIds)} 
+                            className="rounded border-gray-300 text-[#2f5597] focus:ring-[#2f5597]"
+                          />
+                          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#2f5597] to-[#3b6bc9] flex items-center justify-center text-white text-sm font-medium">
+                            {(u.name || u.email || '?').charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium text-gray-900">{u.name || 'Unnamed User'}</span>
+                            <span className="text-xs text-gray-500">{u.email || 'No email'}</span>
+                          </div>
                         </label>
                       ))}
                     </div>
                   ) : (
-                    <div className="p-4 text-sm text-gray-600 border rounded-lg bg-gray-50">
+                    <div className="p-4 text-sm text-gray-600 border rounded-xl bg-gray-50">
                       {usersError ? 'Unable to load other users. You can still create the project; you will be the sole assignee.' : 'No other users found. You will be the sole assignee.'}
                     </div>
                   )}
                 </>
               )}
-              {usersError && <div className="text-xs text-red-600 mt-2"><AlertCircle size={14} className="mr-1" />{usersError}</div>}
-              {currentUserId && <p className="text-xs text-gray-500 mt-3"><UserCheck size={14} className="mr-1" />You will be added as Project Creator by default.</p>}
+              {usersError && <div className="text-xs text-red-600 mt-2 flex items-center"><AlertCircle size={14} className="mr-1" />{usersError}</div>}
+              {currentUserId && <p className="text-xs text-gray-500 mt-3 flex items-center"><UserCheck size={14} className="mr-1" />You will be added as Project Creator by default.</p>}
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setIsCreateOpen(false); resetCreateForm(); }} disabled={isCreateLoading}>Cancel</Button>
-            <Button onClick={handleCreateProject} disabled={!newProjectName.trim() || isCreateLoading}>{isCreateLoading ? (<><Loader2 className="animate-spin" /> Creating...</>) : 'Create Project'}</Button>
+            <Button 
+              variant="outline" 
+              onClick={() => { setIsCreateOpen(false); resetCreateForm(); }} 
+              disabled={isCreateLoading}
+              className="rounded-xl border-gray-300"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreateProject} 
+              disabled={!newProjectName.trim() || isCreateLoading}
+              className="rounded-xl text-white transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
+              style={{
+                background: 'linear-gradient(135deg, #2f5597 0%, #3b6bc9 100%)',
+              }}
+            >
+              {isCreateLoading ? (<><Loader2 className="animate-spin mr-2" size={16} /> Creating...</>) : 'Create Project'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Visualization dialog */}
+      {/* Visualization Dialog */}
       <Dialog open={!!visualizeProjectId} onOpenChange={(open) => { if (!open) setVisualizeProjectId(null); }}>
-        <DialogContent className="sm:max-w-6xl w-[95vw] max-h-[85vh] rounded-xl p-0 overflow-hidden">
+        <DialogContent className="sm:max-w-6xl w-[95vw] max-h-[85vh] rounded-2xl p-0 overflow-hidden border-0 shadow-2xl">
           <div className="flex flex-col h-full">
             <DialogHeader className="px-6 pt-6">
-              <DialogTitle className="text-xl flex items-center gap-2"><Folder size={20} /> Project Visualization</DialogTitle>
+              <DialogTitle className="text-xl flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-[#2f5597] to-[#3b6bc9] rounded-xl flex items-center justify-center">
+                  <Folder size={20} className="text-white" />
+                </div>
+                Project Visualization
+              </DialogTitle>
             </DialogHeader>
             <div className="flex-1 min-h-[360px] overflow-hidden px-6 pb-6">
               {visualizeProjectId ? <NetworkGraph projectId={visualizeProjectId} height="100%" /> : <p>No project selected.</p>}
@@ -548,55 +711,128 @@ const HomePage: React.FC = () => {
 
       {/* Assignees Dialog */}
       <Dialog open={isAssigneesOpen} onOpenChange={(open) => { setIsAssigneesOpen(open); if (!open) setAssigneesProject(null); }}>
-        <DialogContent className="sm:max-w-md rounded-xl">
-          <DialogHeader><DialogTitle className="text-xl flex items-center gap-2"><Users size={20} /> Project Assignees {assigneesProject && `: ${assigneesProject.name || 'Untitled Project'}`}</DialogTitle></DialogHeader>
+        <DialogContent className="sm:max-w-md rounded-2xl border-0 bg-white/95 backdrop-blur-sm shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-[#2f5597] to-[#3b6bc9] rounded-xl flex items-center justify-center">
+                <Users size={20} className="text-white" />
+              </div>
+              Project Assignees {assigneesProject && `: ${assigneesProject.name || 'Untitled Project'}`}
+            </DialogTitle>
+          </DialogHeader>
           <div className="py-4 max-h-96 overflow-auto">
             {assigneesProject && assigneesProject.assignees && assigneesProject.assignees.length > 0 ? (
-              <div className="space-y-3">{assigneesProject.assignees.map(id => {
-                const u = userIdToUser[id];
-                const label = u?.name || u?.email || id;
-                const initials = (label || "").split(/[\s@._-]+/).filter(Boolean).slice(0,2).map(s => s[0]?.toUpperCase()).join("") || "?";
-                return <div key={id} className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50"><div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">{initials}</div><div className="flex flex-col"><span className="text-sm font-medium text-gray-900">{u?.name || 'Unnamed User'}</span><span className="text-xs text-gray-500">{u?.email || 'No email'}</span></div></div>;
-              })}</div>
+              <div className="space-y-3">
+                {assigneesProject.assignees.map(id => {
+                  const u = userIdToUser[id];
+                  const label = u?.name || u?.email || id;
+                  const initials = (label || "").split(/[\s@._-]+/).filter(Boolean).slice(0,2).map(s => s[0]?.toUpperCase()).join("") || "?";
+                  return (
+                    <div key={id} className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#2f5597] to-[#3b6bc9] flex items-center justify-center text-white text-sm font-medium">
+                        {initials}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium text-gray-900">{u?.name || 'Unnamed User'}</span>
+                        <span className="text-xs text-gray-500">{u?.email || 'No email'}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             ) : (
-              <div className="text-center py-8 text-gray-500"><Users size={40} className="mx-auto mb-3 text-gray-400" /><p>No assignees for this project</p></div>
+              <div className="text-center py-8 text-gray-500">
+                <Users size={40} className="mx-auto mb-3 text-gray-400" />
+                <p>No assignees for this project</p>
+              </div>
             )}
           </div>
           <DialogFooter>
-            {/* <Button variant="outline" onClick={() => setIsAssigneesOpen(false)}>Close</Button> */}
-            </DialogFooter>
+            <Button 
+              onClick={() => setIsAssigneesOpen(false)}
+              className="rounded-xl text-white transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
+              style={{
+                background: 'linear-gradient(135deg, #2f5597 0%, #3b6bc9 100%)',
+              }}
+            >
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Edit dialog (simplified) */}
+      {/* Edit Dialog */}
       <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) { setEditingProject(null); setEditTeamSearch(""); } }}>
-        <DialogContent className="sm:max-w-xl rounded-xl">
-          <DialogHeader><DialogTitle className="text-xl flex items-center gap-2"><Edit size={20} /> Edit Project</DialogTitle></DialogHeader>
+        <DialogContent className="sm:max-w-xl rounded-2xl border-0 bg-white/95 backdrop-blur-sm shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-[#2f5597] to-[#3b6bc9] rounded-xl flex items-center justify-center">
+                <Edit size={20} className="text-white" />
+              </div>
+              Edit Project
+            </DialogTitle>
+          </DialogHeader>
           <div className="space-y-5 py-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Project Name</label>
-              <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Enter project name" maxLength={80} />
+              <Input 
+                value={editName} 
+                onChange={(e) => setEditName(e.target.value)} 
+                placeholder="Enter project name" 
+                maxLength={80}
+                className="rounded-xl border-2 focus:border-[#2f5597] focus:ring-2 focus:ring-blue-100"
+              />
               <div className="text-xs text-gray-400 mt-1">{editName.length}/80</div>
             </div>
             <div>
-              <div className="flex items-center justify-between mb-2"><label className="block text-sm font-medium text-gray-700">Assign Team Members</label><span className="text-xs text-gray-500">{editSelectedAssigneeIds.size} selected</span></div>
-              {isUsersLoading ? <div className="flex items-center justify-center h-20 border rounded-lg bg-gray-50">Loading team members...</div> : (
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">Assign Team Members</label>
+                <span className="text-xs text-gray-500">{editSelectedAssigneeIds.size} selected</span>
+              </div>
+              {isUsersLoading ? (
+                <div className="flex items-center justify-center h-20 border rounded-xl bg-gray-50">Loading team members...</div>
+              ) : (
                 <>
-                  <div className="mb-3 relative"><Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" /><Input placeholder="Search team members" className="pl-9" value={editTeamSearch} onChange={(e) => setEditTeamSearch(e.target.value)} /></div>
+                  <div className="mb-3 relative">
+                    <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <Input 
+                      placeholder="Search team members" 
+                      className="pl-9 rounded-xl border-2 focus:border-[#2f5597] focus:ring-2 focus:ring-blue-100"
+                      value={editTeamSearch} 
+                      onChange={(e) => setEditTeamSearch(e.target.value)} 
+                    />
+                  </div>
                   {(!usersError && filteredUsersForEdit.length > 0) ? (
-                    <div className="max-h-60 overflow-auto border rounded-lg divide-y">{filteredUsersForEdit.map(u => {
-                      const isCreator = editingProject && editingProject.creator_email === u.email;
-                      return (
-                        <label key={u.id} className={`flex items-center gap-3 py-3 px-4 ${isCreator ? 'bg-gray-50 cursor-default' : ''}`}>
-                          <input type="checkbox" checked={editSelectedAssigneeIds.has(u.id)} onChange={() => toggleAssignee(u.id, setEditSelectedAssigneeIds)} disabled={!!isCreator} />
-                          <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">{(u.name || u.email || '?').charAt(0).toUpperCase()}</div>
-                          <div className="flex flex-col"><span className="text-sm font-medium text-gray-900">{u.name || 'Unnamed User'}</span><span className="text-xs text-gray-500">{u.email || 'No email'}</span></div>
-                          {isCreator && <div className="ml-auto"><span className="inline-block bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">Creator</span></div>}
-                        </label>
-                      );
-                    })}</div>
+                    <div className="max-h-60 overflow-auto border rounded-xl divide-y">
+                      {filteredUsersForEdit.map(u => {
+                        const isCreator = editingProject && editingProject.creator_email === u.email;
+                        return (
+                          <label key={u.id} className={`flex items-center gap-3 py-3 px-4 ${isCreator ? 'bg-gray-50 cursor-default' : 'hover:bg-gray-50 cursor-pointer'}`}>
+                            <input 
+                              type="checkbox" 
+                              checked={editSelectedAssigneeIds.has(u.id)} 
+                              onChange={() => toggleAssignee(u.id, setEditSelectedAssigneeIds)} 
+                              disabled={!!isCreator}
+                              className="rounded border-gray-300 text-[#2f5597] focus:ring-[#2f5597]"
+                            />
+                            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#2f5597] to-[#3b6bc9] flex items-center justify-center text-white text-sm font-medium">
+                              {(u.name || u.email || '?').charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium text-gray-900">{u.name || 'Unnamed User'}</span>
+                              <span className="text-xs text-gray-500">{u.email || 'No email'}</span>
+                            </div>
+                            {isCreator && (
+                              <div className="ml-auto">
+                                <span className="inline-block bg-blue-100 text-[#2f5597] text-xs px-2 py-0.5 rounded-full">Creator</span>
+                              </div>
+                            )}
+                          </label>
+                        );
+                      })}
+                    </div>
                   ) : (
-                    <div className="p-4 text-sm text-gray-600 border rounded-lg bg-gray-50">
+                    <div className="p-4 text-sm text-gray-600 border rounded-xl bg-gray-50">
                       {usersError ? 'Unable to load other users. You can still update the project.' : 'No other users available.'}
                     </div>
                   )}
@@ -605,25 +841,73 @@ const HomePage: React.FC = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setIsEditOpen(false); setEditingProject(null); }} disabled={isUpdateLoading}>Cancel</Button>
-            <Button onClick={handleUpdateProject} disabled={!editName.trim() || isUpdateLoading}>{isUpdateLoading ? (<><Loader2 className="animate-spin" /> Saving...</>) : 'Save Changes'}</Button>
+            <Button 
+              variant="outline" 
+              onClick={() => { setIsEditOpen(false); setEditingProject(null); }} 
+              disabled={isUpdateLoading}
+              className="rounded-xl border-gray-300"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleUpdateProject} 
+              disabled={!editName.trim() || isUpdateLoading}
+              className="rounded-xl text-white transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
+              style={{
+                background: 'linear-gradient(135deg, #2f5597 0%, #3b6bc9 100%)',
+              }}
+            >
+              {isUpdateLoading ? (<><Loader2 className="animate-spin mr-2" size={16} /> Saving...</>) : 'Save Changes'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Confirm Delete Dialog */}
+      {/* Delete Confirmation Dialog */}
       <Dialog open={!!deleteCandidate} onOpenChange={(open) => { if (!open) setDeleteCandidate(null); }}>
-        <DialogContent className="sm:max-w-md rounded-xl">
-          <DialogHeader><DialogTitle className="text-xl flex items-center gap-2"><Trash2 size={20} /> Delete Project</DialogTitle></DialogHeader>
+        <DialogContent className="sm:max-w-md rounded-2xl border-0 bg-white/95 backdrop-blur-sm shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-red-600 rounded-xl flex items-center justify-center">
+                <Trash2 size={20} className="text-white" />
+              </div>
+              Delete Project
+            </DialogTitle>
+          </DialogHeader>
           <div className="py-4">
-            <p>Are you sure you want to delete <strong>{deleteCandidate?.name ?? 'this project'}</strong>? This action cannot be undone.</p>
+            <p className="text-gray-700">
+              Are you sure you want to delete <strong className="text-gray-900">{deleteCandidate?.name ?? 'this project'}</strong>? This action cannot be undone.
+            </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteCandidate(null)} disabled={isDeleteLoading}>Cancel</Button>
-            <Button onClick={confirmDeleteProject} disabled={isDeleteLoading}>{isDeleteLoading ? 'Deleting...' : 'Delete'}</Button>
+            <Button 
+              variant="outline" 
+              onClick={() => setDeleteCandidate(null)} 
+              disabled={isDeleteLoading}
+              className="rounded-xl border-gray-300"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={confirmDeleteProject} 
+              disabled={isDeleteLoading}
+              className="rounded-xl bg-red-600 hover:bg-red-700 text-white transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
+            >
+              {isDeleteLoading ? 'Deleting...' : 'Delete Project'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+          animation: fadeIn 0.3s ease-out;
+        }
+      `}</style>
     </main>
   );
 };

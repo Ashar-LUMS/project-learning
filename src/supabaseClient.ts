@@ -8,7 +8,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Supabase URL and anon key must be provided.');
 }
 
-// Configure Supabase client with proper session persistence
+// Configure Supabase client with sessionStorage instead of localStorage
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
@@ -18,8 +18,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     storage: {
       getItem: (key: string) => {
         try {
-          if (typeof window !== 'undefined' && window.localStorage) {
-            return localStorage.getItem(key);
+          if (typeof window !== 'undefined' && window.sessionStorage) {
+            return sessionStorage.getItem(key);
           }
           return null;
         } catch {
@@ -28,20 +28,20 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       },
       setItem: (key: string, value: string) => {
         try {
-          if (typeof window !== 'undefined' && window.localStorage) {
-            localStorage.setItem(key, value);
+          if (typeof window !== 'undefined' && window.sessionStorage) {
+            sessionStorage.setItem(key, value);
           }
         } catch {
-          // Silent fail if localStorage is not available
+          // Silent fail if sessionStorage is not available
         }
       },
       removeItem: (key: string) => {
         try {
-          if (typeof window !== 'undefined' && window.localStorage) {
-            localStorage.removeItem(key);
+          if (typeof window !== 'undefined' && window.sessionStorage) {
+            sessionStorage.removeItem(key);
           }
         } catch {
-          // Silent fail if localStorage is not available
+          // Silent fail if sessionStorage is not available
         }
       },
     },
