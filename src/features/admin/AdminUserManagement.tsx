@@ -512,7 +512,7 @@ const UserManagement = () => {
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-2 p-2">
       {/* Messages */}
       {errorMessage && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
@@ -544,7 +544,7 @@ const UserManagement = () => {
 
       {/* Filters Card */}
       <Card>
-        <CardContent className="p-4">
+        <CardContent className="">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />

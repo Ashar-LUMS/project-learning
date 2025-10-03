@@ -14,6 +14,7 @@ import AdminPanel from "./features/admin/AdminPanel";
 import UserManagement from "./features/admin/AdminUserManagement";
 import AdminDashboard from "./features/admin/AdminStats";
 import RoleManagement from "./features/admin/AdminRoleManagement";
+import { UserProfile } from "./features/profile/Profile";
 
 const router = createBrowserRouter([
   {
@@ -59,6 +60,10 @@ const router = createBrowserRouter([
       {
         path: "settings",
         element: <SettingsPage />,
+      },
+      {
+        path: "user-profile",
+        element:<UserProfile />
       },
       {
         path: "admin",
