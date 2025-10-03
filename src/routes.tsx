@@ -10,9 +10,10 @@ import UserLocked from './components/user-locked';
 import HomePage from './features/home/HomePage';
 import ServicesPage from './features/services/ServicesPage';
 import SettingsPage from './features/settings/SettingsPage';
-import AdminPanel from "./features/admin/AdminPanel"; // Import AdminPanel (the layout)
-import UserManagement from "./features/admin/AdminUserManagement"; // Your existing user management
+import AdminPanel from "./features/admin/AdminPanel";
+import UserManagement from "./features/admin/AdminUserManagement";
 import AdminDashboard from "./features/admin/AdminStats";
+import RoleManagement from "./features/admin/AdminRoleManagement";
 
 const router = createBrowserRouter([
   {
@@ -74,6 +75,10 @@ const router = createBrowserRouter([
           {
             path: "users",
             element: <UserManagement />,
+          },
+          {
+            path: "role-management",
+            element: <RoleManagement />,
           },
         ],
       },

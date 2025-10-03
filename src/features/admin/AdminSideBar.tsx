@@ -8,7 +8,8 @@ import {
   BarChart3,
   Shield,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  UserCog
 } from 'lucide-react';
 
 interface AdminSidebarProps {
@@ -31,6 +32,12 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ collapsed = false, onToggle
       label: 'Users',
       icon: Users,
       path: '/app/admin/users'
+    },
+    {
+      id: 'role',
+      label: 'Roles',
+      icon: UserCog,
+      path: '/app/admin/role-management'
     },
     {
       id: 'reports',
