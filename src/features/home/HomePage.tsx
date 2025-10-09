@@ -319,6 +319,25 @@ const HomePage: React.FC = () => {
     return list;
   }, [projects, isAdmin, adminView, currentUserId, searchTerm, sortBy]);
 
+  const createdByMe = useMemo(() => {
+    const meId = currentUserId;
+    const meEmail = (currentUserEmail || '').toLowerCase();
+    return displayedProjects.filter(p => {
+      if (meId && p.created_by) return p.created_by === meId;
+      if (p.creator_email && meEmail) return p.creator_email.toLowerCase() === meEmail;
+      return false;
+    });
+  }, [displayedProjects, currentUserId, currentUserEmail]);
+
+  const createdByOthers = useMemo(() => {
+    const meId = currentUserId;
+    const meEmail = (currentUserEmail || '').toLowerCase();
+    return displayedProjects.filter(p => {
+      const byMe = (meId && p.created_by === meId) || (p.creator_email && meEmail && p.creator_email.toLowerCase() === meEmail);
+      return !byMe;
+    });
+  }, [displayedProjects, currentUserId, currentUserEmail]);
+
   const filteredUsersForCreate = useMemo(() => {
     const q = createTeamSearch.trim().toLowerCase();
     if (!q) return users;
@@ -450,130 +469,267 @@ const HomePage: React.FC = () => {
               </Button>
             </CardContent>
           </Card>
-        ) : displayedProjects && displayedProjects.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {displayedProjects.map(project => (
-              <Card 
-                key={project.id}
-                className="group rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm overflow-hidden transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 hover:border-blue-200/60 shadow-lg"
-              >
-                <CardContent className="p-6">
-                  {/* Header */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#b1ceff] to-[#003db6] flex items-center justify-center text-white shadow-lg">
-                        <Folder size={24} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-lg font-semibold text-gray-900 truncate">
-                          {project.name || 'Untitled Project'}
-                        </h3>
-                        {project.created_at && (
-                          <div className="flex items-center text-[#6b7280] text-sm mt-1">
-                            <Calendar size={14} className="mr-1.5" />
-                            {new Date(project.created_at).toLocaleDateString()}
+        ) : (createdByMe.length + createdByOthers.length) > 0 ? (
+          <>
+            {createdByMe.length > 0 && (
+              <>
+                <h2 className="text-lg font-semibold text-gray-900 mb-3">Created by you</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
+                  {createdByMe.map(project => (
+                    <Card 
+                      key={project.id}
+                      className="group rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm overflow-hidden transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 hover:border-blue-200/60 shadow-lg"
+                    >
+                      <CardContent className="p-6">
+                        {/* Header */}
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#b1ceff] to-[#003db6] flex items-center justify-center text-white shadow-lg">
+                              <Folder size={24} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h3 className="text-lg font-semibold text-gray-900 truncate">
+                                {project.name || 'Untitled Project'}
+                              </h3>
+                              {project.created_at && (
+                                <div className="flex items-center text-[#6b7280] text-sm mt-1">
+                                  <Calendar size={14} className="mr-1.5" />
+                                  {new Date(project.created_at).toLocaleDateString()}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* Actions */}
-                    {(isAdmin || (currentUserId && project.assignees?.includes(currentUserId))) && (
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
-                          className="p-2 text-gray-400 hover:text-[#2f5597] hover:bg-blue-50 rounded-lg transition-all"
-                          onClick={() => openEditDialog(project)}
-                        >
-                          <Edit size={16} />
-                        </button>
-                        <button 
-                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                          onClick={() => setDeleteCandidate(project)}
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Creator Info */}
-                  {(project.created_by || project.creator_email) && (
-                    <div className="mb-4 text-sm text-[#6b7280]">
-                      Created by: {(() => {
-                        const creator = project.created_by ? userIdToUser[project.created_by] : users.find(u => u.email === project.creator_email);
-                        const label = creator?.name || creator?.email || (project.creator_email ? emailToName[project.creator_email] : '') || project.creator_email || 'Unknown';
-                        return (
-                          <span className="font-medium text-gray-700" title={creator?.email || project.creator_email || undefined}>
-                            {label}
-                          </span>
-                        );
-                      })()}
-                    </div>
-                  )}
-
-                  {/* Assignees */}
-                  <div className="mb-6">
-                    <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent my-4" />
-                    {project.assignees && project.assignees.length > 0 ? (
-                      <div className="flex items-center justify-between">
-                        <button 
-                          type="button" 
-                          className="flex -space-x-2 group/avatars"
-                          onClick={() => openAssigneesDialog(project)}
-                        >
-                          {project.assignees.slice(0, 4).map(id => {
-                            const isUnknown = !knownUserIds.has(id);
-                            const label = isUnknown ? 'Deleted user' : (userIdToLabel[id] || id);
-                            const initials = isUnknown
-                              ? '?'
-                              : ((label || "").split(/[\s@._-]+/).filter(Boolean).slice(0,2).map(s => s[0]?.toUpperCase()).join("") || "?");
-                            return (
-                              <div 
-                                key={id}
-                                className={`w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-xs font-semibold shadow-lg transition-transform group-hover/avatars:translate-y-[-2px] ${isUnknown ? 'bg-gradient-to-br from-gray-400 to-gray-600 text-white' : 'bg-gradient-to-br from-[#2f5597] to-[#3b6bc9] text-white'}`}
-                                title={label}
+                          
+                          {/* Actions: creators can edit/delete their own projects; admins can edit all */}
+                          {(
+                            true
+                          ) && (
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button 
+                                className="p-2 text-gray-400 hover:text-[#2f5597] hover:bg-blue-50 rounded-lg transition-all"
+                                onClick={() => openEditDialog(project)}
                               >
-                                {initials}
-                              </div>
-                            );
-                          })}
-                          {project.assignees.length > 4 && (
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-500 to-gray-600 border-2 border-white flex items-center justify-center text-xs font-semibold text-white shadow-lg">
-                              +{project.assignees.length - 4}
+                                <Edit size={16} />
+                              </button>
+                              <button 
+                                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                onClick={() => setDeleteCandidate(project)}
+                              >
+                                <Trash2 size={16} />
+                              </button>
                             </div>
                           )}
-                        </button>
-                        <Badge 
-                          variant="secondary" 
-                          className="bg-blue-50 text-[#2f5597] border-blue-200 rounded-lg"
-                        >
-                          <UserCheck size={12} className="mr-1" />
-                          {project.assignees.length}
-                        </Badge>
-                      </div>
-                    ) : (
-                      <div className="text-sm text-[#6b7280] flex items-center justify-center py-2">
-                        <Users size={16} className="mr-2" />
-                        No assignees yet
-                      </div>
-                    )}
-                  </div>
+                        </div>
 
-                  {/* Action Button */}
-                  <Button 
-                    onClick={() => setVisualizeProjectId(project.id)}
-                    className="w-full rounded-xl py-3 font-semibold transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
-                    style={{
-                      background: 'linear-gradient(135deg, #2f5597 0%, #3b6bc9 100%)',
-                    }}
-                  >
-                    <Eye size={18} className="mr-2" />
-                    Open Project
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                        {/* Creator Info */}
+                        {(project.created_by || project.creator_email) && (
+                          <div className="mb-4 text-sm text-[#6b7280]">
+                            Created by: {(() => {
+                              const creator = project.created_by ? userIdToUser[project.created_by] : users.find(u => u.email === project.creator_email);
+                              const label = creator?.name || creator?.email || (project.creator_email ? emailToName[project.creator_email] : '') || project.creator_email || 'Unknown';
+                              return (
+                                <span className="font-medium text-gray-700" title={creator?.email || project.creator_email || undefined}>
+                                  {label}
+                                </span>
+                              );
+                            })()}
+                          </div>
+                        )}
+
+                        {/* Assignees */}
+                        <div className="mb-6">
+                          <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent my-4" />
+                          {project.assignees && project.assignees.length > 0 ? (
+                            <div className="flex items-center justify-between">
+                              <button 
+                                type="button" 
+                                className="flex -space-x-2 group/avatars"
+                                onClick={() => openAssigneesDialog(project)}
+                              >
+                                {project.assignees.slice(0, 4).map(id => {
+                                  const isUnknown = !knownUserIds.has(id);
+                                  const label = isUnknown ? 'Deleted user' : (userIdToLabel[id] || id);
+                                  const initials = isUnknown
+                                    ? '?'
+                                    : ((label || "").split(/[\s@._-]+/).filter(Boolean).slice(0,2).map(s => s[0]?.toUpperCase()).join("") || "?");
+                                  return (
+                                    <div 
+                                      key={id}
+                                      className={`w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-xs font-semibold shadow-lg transition-transform group-hover/avatars:translate-y-[-2px] ${isUnknown ? 'bg-gradient-to-br from-gray-400 to-gray-600 text-white' : 'bg-gradient-to-br from-[#2f5597] to-[#3b6bc9] text-white'}`}
+                                      title={label}
+                                    >
+                                      {initials}
+                                    </div>
+                                  );
+                                })}
+                                {project.assignees.length > 4 && (
+                                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-500 to-gray-600 border-2 border-white flex items-center justify-center text-xs font-semibold text-white shadow-lg">
+                                    +{project.assignees.length - 4}
+                                  </div>
+                                )}
+                              </button>
+                              <Badge 
+                                variant="secondary" 
+                                className="bg-blue-50 text-[#2f5597] border-blue-200 rounded-lg"
+                              >
+                                <UserCheck size={12} className="mr-1" />
+                                {project.assignees.length}
+                              </Badge>
+                            </div>
+                          ) : (
+                            <div className="text-sm text-[#6b7280] flex items-center justify-center py-2">
+                              <Users size={16} className="mr-2" />
+                              No assignees yet
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Action Button */}
+                        <Button 
+                          onClick={() => setVisualizeProjectId(project.id)}
+                          className="w-full rounded-xl py-3 font-semibold transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
+                          style={{
+                            background: 'linear-gradient(135deg, #2f5597 0%, #3b6bc9 100%)',
+                          }}
+                        >
+                          <Eye size={18} className="mr-2" />
+                          Open Project
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </>
+            )}
+            {createdByOthers.length > 0 && (
+              <>
+                <h2 className="text-lg font-semibold text-gray-900 mb-3">Created by others</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {createdByOthers.map(project => (
+                    <Card 
+                      key={project.id}
+                      className="group rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm overflow-hidden transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 hover:border-blue-200/60 shadow-lg"
+                    >
+                      <CardContent className="p-6">
+                        {/* Header */}
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#b1ceff] to-[#003db6] flex items-center justify-center text-white shadow-lg">
+                              <Folder size={24} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h3 className="text-lg font-semibold text-gray-900 truncate">
+                                {project.name || 'Untitled Project'}
+                              </h3>
+                              {project.created_at && (
+                                <div className="flex items-center text-[#6b7280] text-sm mt-1">
+                                  <Calendar size={14} className="mr-1.5" />
+                                  {new Date(project.created_at).toLocaleDateString()}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Actions: only admins can edit/delete projects created by others */}
+                          {(isAdmin) && (
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button 
+                                className="p-2 text-gray-400 hover:text-[#2f5597] hover:bg-blue-50 rounded-lg transition-all"
+                                onClick={() => openEditDialog(project)}
+                              >
+                                <Edit size={16} />
+                              </button>
+                              <button 
+                                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                onClick={() => setDeleteCandidate(project)}
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Creator Info */}
+                        {(project.created_by || project.creator_email) && (
+                          <div className="mb-4 text-sm text-[#6b7280]">
+                            Created by: {(() => {
+                              const creator = project.created_by ? userIdToUser[project.created_by] : users.find(u => u.email === project.creator_email);
+                              const label = creator?.name || creator?.email || (project.creator_email ? emailToName[project.creator_email] : '') || project.creator_email || 'Unknown';
+                              return (
+                                <span className="font-medium text-gray-700" title={creator?.email || project.creator_email || undefined}>
+                                  {label}
+                                </span>
+                              );
+                            })()}
+                          </div>
+                        )}
+
+                        {/* Assignees */}
+                        <div className="mb-6">
+                          <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent my-4" />
+                          {project.assignees && project.assignees.length > 0 ? (
+                            <div className="flex items-center justify-between">
+                              <button 
+                                type="button" 
+                                className="flex -space-x-2 group/avatars"
+                                onClick={() => openAssigneesDialog(project)}
+                              >
+                                {project.assignees.slice(0, 4).map(id => {
+                                  const isUnknown = !knownUserIds.has(id);
+                                  const label = isUnknown ? 'Deleted user' : (userIdToLabel[id] || id);
+                                  const initials = isUnknown
+                                    ? '?'
+                                    : ((label || "").split(/[\s@._-]+/).filter(Boolean).slice(0,2).map(s => s[0]?.toUpperCase()).join("") || "?");
+                                  return (
+                                    <div 
+                                      key={id}
+                                      className={`w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-xs font-semibold shadow-lg transition-transform group-hover/avatars:translate-y-[-2px] ${isUnknown ? 'bg-gradient-to-br from-gray-400 to-gray-600 text-white' : 'bg-gradient-to-br from-[#2f5597] to-[#3b6bc9] text-white'}`}
+                                      title={label}
+                                    >
+                                      {initials}
+                                    </div>
+                                  );
+                                })}
+                                {project.assignees.length > 4 && (
+                                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-500 to-gray-600 border-2 border-white flex items-center justify-center text-xs font-semibold text-white shadow-lg">
+                                    +{project.assignees.length - 4}
+                                  </div>
+                                )}
+                              </button>
+                              <Badge 
+                                variant="secondary" 
+                                className="bg-blue-50 text-[#2f5597] border-blue-200 rounded-lg"
+                              >
+                                <UserCheck size={12} className="mr-1" />
+                                {project.assignees.length}
+                              </Badge>
+                            </div>
+                          ) : (
+                            <div className="text-sm text-[#6b7280] flex items-center justify-center py-2">
+                              <Users size={16} className="mr-2" />
+                              No assignees yet
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Action Button */}
+                        <Button 
+                          onClick={() => setVisualizeProjectId(project.id)}
+                          className="w-full rounded-xl py-3 font-semibold transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
+                          style={{
+                            background: 'linear-gradient(135deg, #2f5597 0%, #3b6bc9 100%)',
+                          }}
+                        >
+                          <Eye size={18} className="mr-2" />
+                          Open Project
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </>
+            )}
+          </>
         ) : (
           <Card className="rounded-2xl border-0 bg-gradient-to-br from-gray-50 to-blue-50/30 backdrop-blur-sm text-center shadow-lg">
             <CardContent className="p-12">
