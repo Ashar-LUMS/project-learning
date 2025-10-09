@@ -4,8 +4,6 @@ import {
   LayoutDashboard, 
   Users, 
   Settings, 
-  FileText, 
-  BarChart3,
   Shield,
   ChevronLeft,
   ChevronRight,
