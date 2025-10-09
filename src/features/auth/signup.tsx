@@ -3,12 +3,11 @@ import { z } from 'zod';
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Loader2, CheckCircle2} from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../supabaseClient.ts';
-import {useAllRoles} from '../../roles';
-import { Skeleton } from "@/components/ui/skeleton";
+// Removed roles UI; default role will be set programmatically
 
 
 
@@ -47,20 +46,12 @@ const Signup = ({
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [roles, setRoles] = useState<string[]>([]);
+  const [roles] = useState<string[]>(['User']);
   const [errors, setErrors] = useState({ name: '', email: '', password: '', roles: '', general: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-
-  const toggleRole = (role: string) => {
-    setRoles(prev =>
-      prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]
-    );
-  };
-
-  const availableRoles = useAllRoles();
-  const rolesLoading = (availableRoles || []).length === 0;
+  // Role selection UI removed; roles are fixed to ['User']
 
   const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -290,50 +281,7 @@ const Signup = ({
                     )}
                   </div>
 
-                  <div className="space-y-2 sm:space-y-3">
-                    <Label className="text-xs sm:text-sm font-medium text-gray-700">
-                      Select Roles
-                    </Label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {rolesLoading ? (
-                        Array.from({ length: 4 }).map((_, i) => (
-                          <Skeleton key={i} className="h-10 rounded-lg" />
-                        ))
-                      ) : (
-                      (availableRoles || []).map(role => {
-                        const isSelected = roles.includes(role);
-                        return (
-                          <button
-                            type="button"
-                            key={role}
-                            onClick={() => toggleRole(role)}
-                            className={`h-10 w-full rounded-lg border-2 px-3 text-sm text-left transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]
-                              ${isSelected 
-                                ? "bg-[#2f5597] text-white border-[#2f5597] shadow-sm" 
-                                : "bg-white text-gray-700 border-gray-200 hover:border-[#2f5597]/50"}`}
-                            disabled={isSubmitting || rolesLoading}
-                          >
-                            {isSelected ? (
-                              <span className="inline-flex items-center gap-2 text-xs">
-                                <CheckCircle2 size={14} /> {role}
-                              </span>
-                            ) : (
-                              <span className="text-xs">{role}</span>
-                            )}
-                          </button>
-                        );
-                      })
-                      )}
-                    </div>
-                    {roles.length > 0 && (
-                      <div className="text-xs text-gray-500 mt-1">Selected: {roles.join(", ")}</div>
-                    )}
-                    {errors.roles && (
-                      <p className="text-red-600 text-xs animate-fade-in flex items-center gap-1">
-                        <span>•</span>{errors.roles}
-                      </p>
-                    )}
-                  </div>
+                  {/* Roles selection hidden; defaulting to ['User'] */}
 
                   <Button 
                     type="submit" 
