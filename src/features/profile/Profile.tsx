@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, User, Lock, Calendar, Shield, CheckCircle, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient.ts';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const profileSchema = z.object({
   full_name: z.string().min(2, {
@@ -35,6 +36,9 @@ export const UserProfile = () => {
   const [showPasswords, setShowPasswords] = useState(false);
   const [isPasswordUpdating, setIsPasswordUpdating] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const {
@@ -150,6 +154,40 @@ export const UserProfile = () => {
       month: 'long',
       day: 'numeric'
     });
+  };
+
+  const handleDeleteAccount = async () => {
+    if (isDeleting) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      // Use RPC to delete current user by their own ID
+      let userId = user?.id as string | undefined;
+      if (!userId) {
+        const { data: { session } } = await supabase.auth.getSession();
+        userId = session?.user?.id;
+      }
+      if (!userId) {
+        navigate('/login', { replace: true });
+        return;
+      }
+
+      const { error } = await supabase.rpc('delete_user_as_admin', { target_user_id: userId });
+      if (error) {
+        setDeleteError(error.message || 'Failed to delete account');
+        setIsDeleting(false);
+        return;
+      }
+
+      // Sign out locally and redirect
+      await supabase.auth.signOut();
+      setDeleteOpen(false);
+      navigate('/signup', { replace: true });
+    } catch (e: any) {
+      setDeleteError(e?.message || 'Unexpected error');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   if (isLoading) {
@@ -417,11 +455,51 @@ export const UserProfile = () => {
                   >
                     Sign Out
                   </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start border-red-300 text-red-700 hover:bg-red-600 hover:text-white"
+                    onClick={() => {
+                      setDeleteError(null);
+                      setDeleteOpen(true);
+                    }}
+                  >
+                    Delete Account
+                  </Button>
                   
                   
                 </div>
               </CardContent>
             </Card>
+            <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Delete Account</DialogTitle>
+                  <DialogDescription>
+                    This action is permanent. All your data and access will be removed. Are you sure you want to continue?
+                  </DialogDescription>
+                </DialogHeader>
+                {deleteError && (
+                  <div className="p-3 rounded-md border border-red-200 bg-red-50 text-red-700 text-sm">
+                    {deleteError}
+                  </div>
+                )}
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={isDeleting}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleDeleteAccount} disabled={isDeleting} className="bg-red-600 hover:bg-red-700 text-white">
+                    {isDeleting ? (
+                      <>
+                        <Loader2 className="animate-spin w-4 h-4 mr-2" />
+                        Deleting...
+                      </>
+                    ) : (
+                      'Delete Account'
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
       </div>

@@ -294,6 +294,9 @@ const HomePage: React.FC = () => {
     return map;
   }, [users]);
 
+  // Known user IDs set to detect deleted users (assignees not present in current users list)
+  const knownUserIds = useMemo(() => new Set(users.map(u => u.id)), [users]);
+
   const displayedProjects = useMemo(() => {
     let list = (projects || []).slice();
     if (isAdmin && adminView === "mine" && currentUserId) {
@@ -519,12 +522,15 @@ const HomePage: React.FC = () => {
                           onClick={() => openAssigneesDialog(project)}
                         >
                           {project.assignees.slice(0, 4).map(id => {
-                            const label = userIdToLabel[id] || id;
-                            const initials = (label || "").split(/[\s@._-]+/).filter(Boolean).slice(0,2).map(s => s[0]?.toUpperCase()).join("") || "?";
+                            const isUnknown = !knownUserIds.has(id);
+                            const label = isUnknown ? 'Deleted user' : (userIdToLabel[id] || id);
+                            const initials = isUnknown
+                              ? '?'
+                              : ((label || "").split(/[\s@._-]+/).filter(Boolean).slice(0,2).map(s => s[0]?.toUpperCase()).join("") || "?");
                             return (
                               <div 
                                 key={id}
-                                className="w-8 h-8 rounded-full bg-gradient-to-br from-[#2f5597] to-[#3b6bc9] border-2 border-white flex items-center justify-center text-xs font-semibold text-white shadow-lg transition-transform group-hover/avatars:translate-y-[-2px]"
+                                className={`w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-xs font-semibold shadow-lg transition-transform group-hover/avatars:translate-y-[-2px] ${isUnknown ? 'bg-gradient-to-br from-gray-400 to-gray-600 text-white' : 'bg-gradient-to-br from-[#2f5597] to-[#3b6bc9] text-white'}`}
                                 title={label}
                               >
                                 {initials}
@@ -725,16 +731,17 @@ const HomePage: React.FC = () => {
               <div className="space-y-3">
                 {assigneesProject.assignees.map(id => {
                   const u = userIdToUser[id];
-                  const label = u?.name || u?.email || id;
-                  const initials = (label || "").split(/[\s@._-]+/).filter(Boolean).slice(0,2).map(s => s[0]?.toUpperCase()).join("") || "?";
+                  const isUnknown = !u;
+                  const label = isUnknown ? 'Deleted user' : (u.name || u.email || id);
+                  const initials = isUnknown ? '?' : ((label || "").split(/[\s@._-]+/).filter(Boolean).slice(0,2).map(s => s[0]?.toUpperCase()).join("") || "?");
                   return (
                     <div key={id} className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#2f5597] to-[#3b6bc9] flex items-center justify-center text-white text-sm font-medium">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium ${isUnknown ? 'bg-gradient-to-br from-gray-400 to-gray-600' : 'bg-gradient-to-br from-[#2f5597] to-[#3b6bc9]'}`}>
                         {initials}
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-sm font-medium text-gray-900">{u?.name || 'Unnamed User'}</span>
-                        <span className="text-xs text-gray-500">{u?.email || 'No email'}</span>
+                        <span className="text-sm font-medium text-gray-900">{isUnknown ? 'Deleted user' : (u?.name || 'Unnamed User')}</span>
+                        <span className="text-xs text-gray-500">{isUnknown ? '(email unavailable)' : (u?.email || 'No email')}</span>
                       </div>
                     </div>
                   );
@@ -836,6 +843,40 @@ const HomePage: React.FC = () => {
                       {usersError ? 'Unable to load other users. You can still update the project.' : 'No other users available.'}
                     </div>
                   )}
+                  {/* Cleanup for deleted assignees */}
+                  {(() => {
+                    const unknownIds = Array.from(editSelectedAssigneeIds).filter(id => !knownUserIds.has(id));
+                    if (unknownIds.length === 0) return null;
+                    return (
+                      <div className="mt-3 p-3 rounded-xl border border-amber-200 bg-amber-50">
+                        <div className="text-sm font-medium text-amber-800 mb-2">Deleted users in assignees</div>
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {unknownIds.map(id => (
+                            <span key={id} className="inline-flex items-center gap-1 text-xs bg-white border border-amber-200 text-amber-800 px-2 py-1 rounded-full">
+                              Deleted user
+                              <span className="opacity-60">(email unavailable)</span>
+                              <button
+                                type="button"
+                                className="ml-1 text-amber-700 hover:text-amber-900"
+                                onClick={() => setEditSelectedAssigneeIds(prev => { const next = new Set(prev); next.delete(id); return next; })}
+                                aria-label="Remove deleted user from assignees"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="border-amber-300 text-amber-800 hover:bg-amber-100"
+                          onClick={() => setEditSelectedAssigneeIds(prev => new Set(Array.from(prev).filter(id => knownUserIds.has(id))))}
+                        >
+                          Remove all deleted users
+                        </Button>
+                      </div>
+                    );
+                  })()}
                 </>
               )}
             </div>
