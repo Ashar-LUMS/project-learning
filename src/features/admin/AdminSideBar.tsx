@@ -39,24 +39,24 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ collapsed = false, onToggle
       icon: UserCog,
       path: '/app/admin/role-management'
     },
-    {
-      id: 'reports',
-      label: 'Reports',
-      icon: BarChart3,
-      path: '/app/admin/reports'
-    },
-    {
-      id: 'content',
-      label: 'Content',
-      icon: FileText,
-      path: '/app/admin/content'
-    },
-    {
-      id: 'security',
-      label: 'Security',
-      icon: Shield,
-      path: '/app/admin/security'
-    },
+    // {
+    //   id: 'reports',
+    //   label: 'Reports',
+    //   icon: BarChart3,
+    //   path: '/app/admin/reports'
+    // },
+    // {
+    //   id: 'content',
+    //   label: 'Content',
+    //   icon: FileText,
+    //   path: '/app/admin/content'
+    // },
+    // {
+    //   id: 'security',
+    //   label: 'Security',
+    //   icon: Shield,
+    //   path: '/app/admin/security'
+    // },
     {
       id: 'settings',
       label: 'Settings',
