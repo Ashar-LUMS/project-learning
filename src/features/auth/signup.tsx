@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { z } from 'zod';
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -7,7 +7,7 @@ import { Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../supabaseClient.ts';
-// Removed roles UI; default role will be set programmatically
+//
 
 
 
@@ -46,12 +46,41 @@ const Signup = ({
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [roles] = useState<string[]>(['User']);
+  const [roles, setRoles] = useState<string[]>([]);
+  const [policy, setPolicy] = useState({
+    inviteOnly: false,
+    allowedDomains: [] as string[],
+    defaultRoles: ['User'] as string[],
+    autoLockNewUsers: false,
+  });
   const [errors, setErrors] = useState({ name: '', email: '', password: '', roles: '', general: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  // Role selection UI removed; roles are fixed to ['User']
+
+  // Read policies from root attributes injected by AppLayout
+  useEffect(() => {
+    const root = document.getElementById('app-root') || document.documentElement;
+    const inviteOnly = root.hasAttribute('data-invite-only');
+    const allowedDomainsAttr = root.getAttribute('data-allowed-domains') || '';
+    const allowedDomains = allowedDomainsAttr ? allowedDomainsAttr.split(',').map(s => s.trim()).filter(Boolean) : [];
+    const defaultRolesAttr = root.getAttribute('data-default-roles') || '';
+    const defaultRoles = defaultRolesAttr ? defaultRolesAttr.split(',').map(s => s.trim()).filter(Boolean) : ['User'];
+    const autoLockNewUsers = root.hasAttribute('data-policy-auto-lock-new-users');
+    setPolicy({ inviteOnly, allowedDomains, defaultRoles, autoLockNewUsers });
+    setRoles(defaultRoles);
+    // Apply general settings if present in local storage (for routes outside AppLayout)
+    try {
+      const raw = localStorage.getItem('admin_settings');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const lang = parsed?.general?.language;
+        const tz = parsed?.general?.timezone;
+        if (lang) root.setAttribute('lang', lang);
+        if (tz) root.setAttribute('data-timezone', tz);
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -85,11 +114,27 @@ const Signup = ({
   }
 
   try {
+    // Enforce invite-only
+    if (policy.inviteOnly) {
+      setErrors(prev => ({ ...prev, general: "Signup is currently invite-only. Please contact an administrator." }));
+      setIsSubmitting(false);
+      return;
+    }
+    // Enforce allowed domains
+    if (policy.allowedDomains.length > 0) {
+      const emailDomain = (email.split('@')[1] || '').toLowerCase();
+      const ok = policy.allowedDomains.some(d => emailDomain === d.toLowerCase());
+      if (!ok) {
+        setErrors(prev => ({ ...prev, general: `Signup is restricted to: ${policy.allowedDomains.join(', ')}` }));
+        setIsSubmitting(false);
+        return;
+      }
+    }
     const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { name, roles, isLocked: false, redirectTo: "" }
+        data: { name, roles, isLocked: policy.autoLockNewUsers, redirectTo: "" }
       }
     });
 
@@ -118,7 +163,12 @@ const Signup = ({
     // 🟢 CASE 2: Signup successful with session (auto-login enabled)
     if (signUpData?.user && signUpData.session) {
       console.log("Signup successful. User ID:", signUpData.user.id);
-      navigate('/app');
+      if (policy.autoLockNewUsers) {
+        // If locked, redirect to locked page
+        navigate('/app/locked');
+      } else {
+        navigate('/app');
+      }
       setIsSubmitting(false);
       return;
     } 
@@ -281,7 +331,13 @@ const Signup = ({
                     )}
                   </div>
 
-                  {/* Roles selection hidden; defaulting to ['User'] */}
+                  {/* Roles UI hidden; roles are set from admin policy defaultRoles */}
+                  <input type="hidden" name="roles" value={roles.join(',')} />
+                  {policy.inviteOnly && (
+                    <div className="p-2 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+                      Invite-only mode is enabled. Public signup may be disabled.
+                    </div>
+                  )}
 
                   <Button 
                     type="submit" 

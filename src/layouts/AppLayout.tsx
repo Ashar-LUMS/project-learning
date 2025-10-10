@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AuthDebug } from "../components/auth-debug";
+import { loadAdminSettings } from "../config/adminSettings";
 
 const AppLayout = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -23,6 +24,7 @@ const AppLayout = () => {
   const location = useLocation();
   const [isLocked, setIsLocked] = useState<boolean | null>(null);
   const [checkingLock, setCheckingLock] = useState(true);
+  const [adminSettings, setAdminSettings] = useState<any | null>(null);
 
   // State to manage the currently selected/active role
   const [activeRole, setActiveRole] = useState<string | null>(null);
@@ -82,6 +84,54 @@ const AppLayout = () => {
     return () => { cancelled = true; subscription.unsubscribe(); };
   }, [navigate, location.pathname]);
 
+  // Load admin settings once and expose as global data-* attributes
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const settings = await loadAdminSettings();
+        if (!mounted) return;
+        setAdminSettings(settings);
+        const root = document.documentElement;
+
+        // Clear previous attributes we manage
+        const attrsToClear = [
+          'data-invite-only', 'data-allowed-domains', 'data-default-roles', 'data-policy-auto-lock-new-users',
+          'data-projects-only-admins-create', 'data-projects-auto-add-creator', 'data-projects-auto-remove-deleted-assignees',
+          'data-projects-max-assignees', 'data-projects-prevent-duplicate-names', 'data-projects-only-admins-edit-assignees',
+          'data-projects-disallow-empty-assignees'
+        ];
+        for (const a of attrsToClear) root.removeAttribute(a);
+
+        // Policies
+        if (settings.policies?.inviteOnly) root.setAttribute('data-invite-only', '');
+        const allowed = (settings.policies?.allowedDomains || []).join(',');
+        if (allowed) root.setAttribute('data-allowed-domains', allowed);
+        const defaultRoles = (settings.policies?.defaultRoles || []).join(',');
+        if (defaultRoles) root.setAttribute('data-default-roles', defaultRoles);
+        if (settings.policies?.autoLockNewUsers) root.setAttribute('data-policy-auto-lock-new-users', '');
+
+        // Projects
+        if (settings.projects?.onlyAdminsCreate) root.setAttribute('data-projects-only-admins-create', '');
+        if (settings.projects?.autoAddCreator) root.setAttribute('data-projects-auto-add-creator', '');
+        if (settings.projects?.autoRemoveDeletedAssignees) root.setAttribute('data-projects-auto-remove-deleted-assignees', '');
+        if (typeof settings.projects?.maxAssignees === 'number') root.setAttribute('data-projects-max-assignees', String(settings.projects.maxAssignees));
+        if (settings.projects?.preventDuplicateNames) root.setAttribute('data-projects-prevent-duplicate-names', '');
+        if (settings.projects?.onlyAdminsEditAssignees) root.setAttribute('data-projects-only-admins-edit-assignees', '');
+        if (settings.projects?.disallowEmptyAssignees) root.setAttribute('data-projects-disallow-empty-assignees', '');
+
+        // General (language & timezone)
+        const lang = (settings as any)?.general?.language || 'en';
+        const tz = (settings as any)?.general?.timezone || 'UTC';
+        root.setAttribute('lang', lang);
+        root.setAttribute('data-timezone', tz);
+      } catch {
+        // ignore
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate("/");
@@ -139,6 +189,22 @@ const AppLayout = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 text-gray-800 font-sans antialiased">
+      {/* Global Banner from Admin Settings */}
+      {adminSettings?.banner?.enabled && adminSettings?.banner?.text ? (
+        <div
+          role="status"
+          className={
+            `w-full px-4 py-2 text-sm text-center ${
+              adminSettings.banner.type === 'success' ? 'bg-green-50 text-green-800 border-b border-green-200' :
+              adminSettings.banner.type === 'warn' ? 'bg-amber-50 text-amber-800 border-b border-amber-200' :
+              adminSettings.banner.type === 'error' ? 'bg-red-50 text-red-800 border-b border-red-200' :
+              'bg-blue-50 text-blue-800 border-b border-blue-200'
+            }`
+          }
+        >
+          {adminSettings.banner.text}
+        </div>
+      ) : null}
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100">
         <div className="container mx-auto px-4 py-3 flex justify-between items-center">

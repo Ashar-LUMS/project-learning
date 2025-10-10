@@ -2,18 +2,21 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 
 // Shared application-wide settings persisted in the database.
-// Keep this minimal and focused on cross-feature toggles.
 export type AdminSettings = {
   policies: {
     inviteOnly: boolean;
-    allowedDomains: string[]; // e.g. ['org.edu']
-    defaultRoles: string[]; // e.g. ['User']
+    allowedDomains: string[];
+    defaultRoles: string[];
+    autoLockNewUsers?: boolean; // lock new users on signup
   };
   projects: {
     onlyAdminsCreate: boolean;
     autoAddCreator: boolean;
     autoRemoveDeletedAssignees: boolean;
     maxAssignees: number | null;
+    preventDuplicateNames?: boolean;
+    onlyAdminsEditAssignees?: boolean;
+    disallowEmptyAssignees?: boolean;
   };
   banner: {
     enabled: boolean;
@@ -27,12 +30,16 @@ export const defaultAdminSettings: AdminSettings = {
     inviteOnly: false,
     allowedDomains: [],
     defaultRoles: ['User'],
+    autoLockNewUsers: false,
   },
   projects: {
     onlyAdminsCreate: false,
     autoAddCreator: true,
     autoRemoveDeletedAssignees: true,
     maxAssignees: null,
+    preventDuplicateNames: true,
+    onlyAdminsEditAssignees: false,
+    disallowEmptyAssignees: false,
   },
   banner: {
     enabled: false,

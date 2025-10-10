@@ -154,6 +154,17 @@ const HomePage: React.FC = () => {
 
   const [createTeamSearch, setCreateTeamSearch] = useState("");
   const [editTeamSearch, setEditTeamSearch] = useState("");
+  const [policyAttrs, setPolicyAttrs] = useState({
+    onlyAdminsCreate: false,
+    autoAddCreator: true,
+    autoRemoveDeletedAssignees: true,
+    maxAssignees: null as number | null,
+    preventDuplicateNames: false,
+    onlyAdminsEditAssignees: false,
+    disallowEmptyAssignees: false,
+  });
+
+  const [generalAttrs, setGeneralAttrs] = useState<{ language: string; timezone: string }>({ language: 'en', timezone: 'UTC' });
 
   const { users, isLoading: isUsersLoading, error: usersError } = useUsers(true);
 
@@ -163,6 +174,32 @@ const HomePage: React.FC = () => {
       setCurrentUserId(data.user?.id ?? null);
       setCurrentUserEmail(data.user?.email ?? null);
     })();
+  }, []);
+
+  // Read admin policy attributes from root set by AppLayout
+  useEffect(() => {
+    const root = document.getElementById('app-root') || document.documentElement;
+    const onlyAdminsCreate = root.hasAttribute('data-projects-only-admins-create');
+    const autoAddCreator = root.hasAttribute('data-projects-auto-add-creator');
+    const autoRemoveDeletedAssignees = root.hasAttribute('data-projects-auto-remove-deleted-assignees');
+    const maxAssigneesAttr = root.getAttribute('data-projects-max-assignees');
+    const maxAssignees = maxAssigneesAttr != null ? Number(maxAssigneesAttr) : null;
+    const preventDuplicateNames = root.hasAttribute('data-projects-prevent-duplicate-names');
+    const onlyAdminsEditAssignees = root.hasAttribute('data-projects-only-admins-edit-assignees');
+    const disallowEmptyAssignees = root.hasAttribute('data-projects-disallow-empty-assignees');
+    setPolicyAttrs({
+      onlyAdminsCreate,
+      autoAddCreator,
+      autoRemoveDeletedAssignees,
+      maxAssignees: Number.isFinite(maxAssignees) ? maxAssignees : null,
+      preventDuplicateNames,
+      onlyAdminsEditAssignees,
+      disallowEmptyAssignees,
+    });
+    // General
+    const language = root.getAttribute('lang') || 'en';
+    const timezone = root.getAttribute('data-timezone') || 'UTC';
+    setGeneralAttrs({ language, timezone });
   }, []);
 
   const { projects, isLoading: isProjectsLoading, error: projectsError, refetch: refetchProjects } = useProjects(isAdmin, currentUserId);
@@ -178,12 +215,13 @@ const HomePage: React.FC = () => {
   useEffect(() => {
     if (!isCreateOpen) return;
     if (!currentUserId) return;
+    if (!policyAttrs.autoAddCreator) return;
     setSelectedAssigneeIds((prev) => {
       const next = new Set(prev);
       next.add(currentUserId);
       return next;
     });
-  }, [isCreateOpen, currentUserId]);
+  }, [isCreateOpen, currentUserId, policyAttrs.autoAddCreator]);
 
   const resetCreateForm = useCallback(() => {
     setNewProjectName("");
@@ -195,8 +233,20 @@ const HomePage: React.FC = () => {
 
     try {
       setIsCreateLoading(true);
+      // Duplicate name check
+      if (policyAttrs.preventDuplicateNames) {
+        const name = newProjectName.trim().toLowerCase();
+        const exists = (projects || []).some(p => (p.name || '').trim().toLowerCase() === name);
+        if (exists) throw new Error('A project with this name already exists.');
+      }
       const assigneesSet = new Set(selectedAssigneeIds);
-      if (currentUserId) assigneesSet.add(currentUserId);
+      if (policyAttrs.autoAddCreator && currentUserId) assigneesSet.add(currentUserId);
+      if (policyAttrs.maxAssignees != null && assigneesSet.size > policyAttrs.maxAssignees) {
+        throw new Error(`Too many assignees (max ${policyAttrs.maxAssignees}).`);
+      }
+      if (policyAttrs.disallowEmptyAssignees && assigneesSet.size === 0) {
+        throw new Error('At least one assignee is required.');
+      }
       const assigneesArray = Array.from(assigneesSet);
 
       const { error } = await supabase.from("projects").insert([{
@@ -219,7 +269,7 @@ const HomePage: React.FC = () => {
     finally {
       setIsCreateLoading(false);
     }
-  }, [newProjectName, selectedAssigneeIds, currentUserId, currentUserEmail, resetCreateForm, refetchProjects]);
+  }, [newProjectName, selectedAssigneeIds, currentUserId, currentUserEmail, resetCreateForm, refetchProjects, policyAttrs.autoAddCreator, policyAttrs.maxAssignees]);
 
   const openEditDialog = useCallback((project: Project) => {
     setEditingProject(project);
@@ -241,7 +291,27 @@ const HomePage: React.FC = () => {
     if (!editName.trim()) return;
     try {
       setIsUpdateLoading(true);
-      const assigneesArray = Array.from(editSelectedAssigneeIds);
+      // Duplicate name check (exclude current project)
+      if (policyAttrs.preventDuplicateNames) {
+        const name = editName.trim().toLowerCase();
+        const exists = (projects || []).some(p => p.id !== editingProject.id && (p.name || '').trim().toLowerCase() === name);
+        if (exists) throw new Error('A project with this name already exists.');
+      }
+      // Optionally remove deleted assignees per policy
+      const cleaned = new Set(editSelectedAssigneeIds);
+      const known = new Set(users.map(u => u.id));
+      if (policyAttrs.autoRemoveDeletedAssignees) {
+        for (const id of Array.from(cleaned)) {
+          if (!known.has(id)) cleaned.delete(id);
+        }
+      }
+      if (policyAttrs.maxAssignees != null && cleaned.size > policyAttrs.maxAssignees) {
+        throw new Error(`Too many assignees (max ${policyAttrs.maxAssignees}).`);
+      }
+      if (policyAttrs.disallowEmptyAssignees && cleaned.size === 0) {
+        throw new Error('At least one assignee is required.');
+      }
+      const assigneesArray = Array.from(cleaned);
       const { error } = await supabase.from("projects").update({ name: editName.trim(), assignees: assigneesArray }).eq("id", editingProject.id);
       if (error) throw error;
       setIsEditOpen(false);
@@ -253,7 +323,7 @@ const HomePage: React.FC = () => {
     } finally {
       setIsUpdateLoading(false);
     }
-  }, [editingProject, editName, editSelectedAssigneeIds, refetchProjects]);
+  }, [editingProject, editName, editSelectedAssigneeIds, refetchProjects, policyAttrs.autoRemoveDeletedAssignees, policyAttrs.maxAssignees, policyAttrs.preventDuplicateNames, policyAttrs.disallowEmptyAssignees, users, projects]);
 
   const confirmDeleteProject = useCallback(async () => {
     if (!deleteCandidate) return;
@@ -318,6 +388,27 @@ const HomePage: React.FC = () => {
     }
     return list;
   }, [projects, isAdmin, adminView, currentUserId, searchTerm, sortBy]);
+
+  const formatDate = useCallback((iso: string | null | undefined) => {
+    if (!iso) return '';
+    try {
+      const tzMap: Record<string, string> = {
+        UTC: 'UTC',
+        EST: 'America/New_York',
+        PST: 'America/Los_Angeles',
+        CET: 'Europe/Paris',
+        PKT: 'Asia/Karachi',
+      };
+      const tz = tzMap[generalAttrs.timezone] || generalAttrs.timezone;
+      return new Date(iso).toLocaleDateString(generalAttrs.language || undefined, { timeZone: tz || undefined });
+    } catch {
+      try {
+        return new Date(iso).toLocaleDateString(generalAttrs.language || undefined);
+      } catch {
+        return new Date(iso).toLocaleDateString();
+      }
+    }
+  }, [generalAttrs.language, generalAttrs.timezone]);
 
   const createdByMe = useMemo(() => {
     const meId = currentUserId;
@@ -421,14 +512,15 @@ const HomePage: React.FC = () => {
           </div>
 
           <Button 
-            onClick={() => setIsCreateOpen(true)}
+            onClick={() => { if (!(policyAttrs.onlyAdminsCreate && !isAdmin)) setIsCreateOpen(true); }}
             className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
             style={{
               background: 'linear-gradient(135deg, #2f5597 0%, #3b6bc9 100%)',
             }}
+            disabled={policyAttrs.onlyAdminsCreate && !isAdmin}
           >
             <Plus size={20} />
-            New Project
+            {policyAttrs.onlyAdminsCreate && !isAdmin ? 'Admins Only' : 'New Project'}
           </Button>
         </div>
       </section>
@@ -494,7 +586,7 @@ const HomePage: React.FC = () => {
                               {project.created_at && (
                                 <div className="flex items-center text-[#6b7280] text-sm mt-1">
                                   <Calendar size={14} className="mr-1.5" />
-                                  {new Date(project.created_at).toLocaleDateString()}
+                                  {formatDate(project.created_at)}
                                 </div>
                               )}
                             </div>
@@ -624,7 +716,7 @@ const HomePage: React.FC = () => {
                               {project.created_at && (
                                 <div className="flex items-center text-[#6b7280] text-sm mt-1">
                                   <Calendar size={14} className="mr-1.5" />
-                                  {new Date(project.created_at).toLocaleDateString()}
+                                  {formatDate(project.created_at)}
                                 </div>
                               )}
                             </div>
@@ -741,14 +833,15 @@ const HomePage: React.FC = () => {
                 Create your first project to start collaborating with your team and organizing your work.
               </p>
               <Button 
-                onClick={() => setIsCreateOpen(true)}
+                onClick={() => { if (!(policyAttrs.onlyAdminsCreate && !isAdmin)) setIsCreateOpen(true); }}
                 className="px-8 py-3 rounded-xl font-semibold text-white transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
                 style={{
                   background: 'linear-gradient(135deg, #2f5597 0%, #3b6bc9 100%)',
                 }}
+                disabled={policyAttrs.onlyAdminsCreate && !isAdmin}
               >
                 <Plus size={20} className="mr-2" />
-                Create Your First Project
+                {policyAttrs.onlyAdminsCreate && !isAdmin ? 'Admins Only' : 'Create Your First Project'}
               </Button>
             </CardContent>
           </Card>
@@ -969,13 +1062,14 @@ const HomePage: React.FC = () => {
                     <div className="max-h-60 overflow-auto border rounded-xl divide-y">
                       {filteredUsersForEdit.map(u => {
                         const isCreator = editingProject && editingProject.creator_email === u.email;
+                        const assigneeEditDisabled = policyAttrs.onlyAdminsEditAssignees && !isAdmin;
                         return (
-                          <label key={u.id} className={`flex items-center gap-3 py-3 px-4 ${isCreator ? 'bg-gray-50 cursor-default' : 'hover:bg-gray-50 cursor-pointer'}`}>
+                          <label key={u.id} className={`flex items-center gap-3 py-3 px-4 ${isCreator ? 'bg-gray-50 cursor-default' : assigneeEditDisabled ? 'bg-gray-50 cursor-not-allowed opacity-60' : 'hover:bg-gray-50 cursor-pointer'}`}>
                             <input 
                               type="checkbox" 
                               checked={editSelectedAssigneeIds.has(u.id)} 
                               onChange={() => toggleAssignee(u.id, setEditSelectedAssigneeIds)} 
-                              disabled={!!isCreator}
+                              disabled={!!isCreator || assigneeEditDisabled}
                               className="rounded border-gray-300 text-[#2f5597] focus:ring-[#2f5597]"
                             />
                             <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#2f5597] to-[#3b6bc9] flex items-center justify-center text-white text-sm font-medium">
@@ -1015,6 +1109,7 @@ const HomePage: React.FC = () => {
                                 type="button"
                                 className="ml-1 text-amber-700 hover:text-amber-900"
                                 onClick={() => setEditSelectedAssigneeIds(prev => { const next = new Set(prev); next.delete(id); return next; })}
+                                disabled={policyAttrs.onlyAdminsEditAssignees && !isAdmin}
                                 aria-label="Remove deleted user from assignees"
                               >
                                 ×
@@ -1027,6 +1122,7 @@ const HomePage: React.FC = () => {
                           variant="outline"
                           className="border-amber-300 text-amber-800 hover:bg-amber-100"
                           onClick={() => setEditSelectedAssigneeIds(prev => new Set(Array.from(prev).filter(id => knownUserIds.has(id))))}
+                          disabled={policyAttrs.onlyAdminsEditAssignees && !isAdmin}
                         >
                           Remove all deleted users
                         </Button>

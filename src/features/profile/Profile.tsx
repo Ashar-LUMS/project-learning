@@ -9,10 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, User, Lock, Calendar, Shield, CheckCircle, AlertCircle, Eye, EyeOff } from "lucide-react";
+import { Loader2, User, Lock, Calendar, Shield, CheckCircle, AlertCircle } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient.ts';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const profileSchema = z.object({
   full_name: z.string().min(2, {
@@ -30,15 +29,6 @@ export const UserProfile = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [user, setUser] = useState<any>(null);
-  // Password update state
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPasswords, setShowPasswords] = useState(false);
-  const [isPasswordUpdating, setIsPasswordUpdating] = useState(false);
-  const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const {
@@ -62,10 +52,9 @@ export const UserProfile = () => {
           return;
         }
 
-  setUser(session.user);
-  setValue('email', session.user.email || '');
-  const meta = session.user.user_metadata || {};
-  setValue('full_name', meta.name);
+        setUser(session.user);
+        setValue('email', session.user.email || '');
+        setValue('full_name', session.user.user_metadata.name || '');
       } catch (error) {
         console.error('Error fetching session:', error);
         setMessage({ type: 'error', text: 'Failed to load user data' });
@@ -96,46 +85,11 @@ export const UserProfile = () => {
 
       showMessage('success', 'Profile updated successfully!');
       reset(data); // Reset form state after successful update
-      // Update local user metadata to reflect changes without extra API calls
-      setUser((prev: any) => {
-        if (!prev) return prev;
-        return { ...prev, user_metadata: { ...prev.user_metadata, name: data.full_name } };
-      });
     } catch (error: any) {
       console.error('Error updating profile:', error);
       showMessage('error', error.message || 'Failed to update profile');
     } finally {
       setIsUpdating(false);
-    }
-  };
-
-  const handlePasswordChange = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isPasswordUpdating) return;
-    if (newPassword !== confirmPassword) {
-      setPasswordMessage({ type: 'error', text: 'Passwords do not match' });
-      return;
-    }
-    if (newPassword.length < 6) {
-      setPasswordMessage({ type: 'error', text: 'Password must be at least 6 characters long' });
-      return;
-    }
-
-    setIsPasswordUpdating(true);
-    setPasswordMessage(null);
-    try {
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) {
-        setPasswordMessage({ type: 'error', text: error.message });
-      } else {
-        setPasswordMessage({ type: 'success', text: 'Password updated successfully!' });
-        setNewPassword("");
-        setConfirmPassword("");
-      }
-    } catch (err) {
-      setPasswordMessage({ type: 'error', text: 'An unexpected error occurred' });
-    } finally {
-      setIsPasswordUpdating(false);
     }
   };
 
@@ -149,44 +103,26 @@ export const UserProfile = () => {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
-  const handleDeleteAccount = async () => {
-    if (isDeleting) return;
-    setIsDeleting(true);
-    setDeleteError(null);
+    const root = document.documentElement;
+    const lang = root.getAttribute('lang') || 'en';
+    const tzAttr = root.getAttribute('data-timezone') || 'UTC';
+    const tzMap: Record<string, string> = {
+      UTC: 'UTC',
+      EST: 'America/New_York',
+      PST: 'America/Los_Angeles',
+      CET: 'Europe/Paris',
+      PKT: 'Asia/Karachi',
+    };
+    const timeZone = tzMap[tzAttr] || tzAttr;
     try {
-      // Use RPC to delete current user by their own ID
-      let userId = user?.id as string | undefined;
-      if (!userId) {
-        const { data: { session } } = await supabase.auth.getSession();
-        userId = session?.user?.id;
-      }
-      if (!userId) {
-        navigate('/login', { replace: true });
-        return;
-      }
-
-      const { error } = await supabase.rpc('delete_user_as_admin', { target_user_id: userId });
-      if (error) {
-        setDeleteError(error.message || 'Failed to delete account');
-        setIsDeleting(false);
-        return;
-      }
-
-      // Sign out locally and redirect
-      await supabase.auth.signOut();
-      setDeleteOpen(false);
-      navigate('/signup', { replace: true });
-    } catch (e: any) {
-      setDeleteError(e?.message || 'Unexpected error');
-    } finally {
-      setIsDeleting(false);
+      return new Date(dateString).toLocaleDateString(lang || undefined, {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone,
+      } as Intl.DateTimeFormatOptions);
+    } catch {
+      return new Date(dateString).toLocaleDateString();
     }
   };
 
@@ -206,7 +142,7 @@ export const UserProfile = () => {
       <div className="container max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Account Settings</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Profile</h1>
           <p className="text-gray-600 mt-2">Manage your profile and account preferences</p>
         </div>
 
@@ -219,7 +155,7 @@ export const UserProfile = () => {
                   <Avatar className="h-20 w-20 mb-4 border-4 border-white shadow-lg">
                     <AvatarImage src={user?.user_metadata?.avatar_url} />
                     <AvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-600 text-white text-lg font-semibold">
-                      {getInitials((user?.user_metadata?.name || user?.email || 'User'))}
+                      {getInitials(user?.user_metadata?.name || user?.email || 'User')}
                     </AvatarFallback>
                   </Avatar>
                   
@@ -358,68 +294,34 @@ export const UserProfile = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {passwordMessage && (
-                  <div 
-                    className={`mb-6 p-4 rounded-lg border text-sm ${
-                      passwordMessage.type === 'success' 
-                        ? 'bg-green-50 border-green-200 text-green-700' 
-                        : 'bg-red-50 border-red-200 text-red-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      {passwordMessage.type === 'success' ? (
-                        <CheckCircle className="h-4 w-4" />
-                      ) : (
-                        <AlertCircle className="h-4 w-4" />
-                      )}
-                      <span>{passwordMessage.text}</span>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="space-y-1">
+                      <Label className="text-sm font-medium">Password</Label>
+                      <p className="text-sm text-gray-500">
+                        Last changed 2 months ago
+                      </p>
                     </div>
+                    <Button variant="outline" disabled className="cursor-not-allowed">
+                      Change Password
+                    </Button>
                   </div>
-                )}
 
-                <form onSubmit={handlePasswordChange} className="space-y-4">
-                  <div>
-                    <Label htmlFor="newPassword" className="text-sm font-medium">New Password</Label>
-                    <div className="relative mt-1">
-                      <Input
-                        id="newPassword"
-                        type={showPasswords ? 'text' : 'password'}
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="Enter new password"
-                        required
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPasswords(!showPasswords)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {showPasswords ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
+                  <div className="p-4 border border-amber-200 rounded-lg bg-amber-50">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
+                      <div className="space-y-1">
+                        <Label className="text-sm font-medium text-amber-800">
+                          Password Management
+                        </Label>
+                        <p className="text-sm text-amber-700">
+                          Password changes are currently not available in this application. 
+                          Please contact support if you need to reset your password.
+                        </p>
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <Label htmlFor="confirmPassword" className="text-sm font-medium">Confirm Password</Label>
-                    <Input
-                      id="confirmPassword"
-                      type={showPasswords ? 'text' : 'password'}
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Confirm new password"
-                      required
-                    />
-                  </div>
-                  <Button type="submit" disabled={isPasswordUpdating} className="bg-blue-600 hover:bg-blue-700 text-white w-full">
-                    {isPasswordUpdating ? (
-                      <>
-                        <Loader2 className="animate-spin w-4 h-4 mr-2" />
-                        Updating...
-                      </>
-                    ) : (
-                      'Update Password'
-                    )}
-                  </Button>
-                </form>
+                </div>
               </CardContent>
             </Card>
 
@@ -455,51 +357,9 @@ export const UserProfile = () => {
                   >
                     Sign Out
                   </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start border-red-300 text-red-700 hover:bg-red-600 hover:text-white"
-                    onClick={() => {
-                      setDeleteError(null);
-                      setDeleteOpen(true);
-                    }}
-                  >
-                    Delete Account
-                  </Button>
-                  
-                  
                 </div>
               </CardContent>
             </Card>
-            <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Delete Account</DialogTitle>
-                  <DialogDescription>
-                    This action is permanent. All your data and access will be removed. Are you sure you want to continue?
-                  </DialogDescription>
-                </DialogHeader>
-                {deleteError && (
-                  <div className="p-3 rounded-md border border-red-200 bg-red-50 text-red-700 text-sm">
-                    {deleteError}
-                  </div>
-                )}
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={isDeleting}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleDeleteAccount} disabled={isDeleting} className="bg-red-600 hover:bg-red-700 text-white">
-                    {isDeleting ? (
-                      <>
-                        <Loader2 className="animate-spin w-4 h-4 mr-2" />
-                        Deleting...
-                      </>
-                    ) : (
-                      'Delete Account'
-                    )}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
           </div>
         </div>
       </div>

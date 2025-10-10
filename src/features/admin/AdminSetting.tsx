@@ -16,7 +16,6 @@ import { supabase } from "../../supabaseClient"
 import { defaultAdminSettings } from "../../config/adminSettings"
 import type { AdminSettings as AdminSettingsType } from "../../config/adminSettings"
 
-// Using shared AdminSettings type (includes policies/projects/banner). We'll extend with local general/appearance defaults.
 type LocalAdminSettings = AdminSettingsType & {
   general: {
     siteName: string
@@ -39,7 +38,6 @@ type LocalAdminSettings = AdminSettingsType & {
 export function AdminSettings() {
   const [settings, setSettings] = useState<LocalAdminSettings>({
     ...defaultAdminSettings,
-    // Local UI defaults
     general: {
       siteName: "My Admin Panel",
       siteUrl: "https://admin.example.com",
@@ -58,9 +56,7 @@ export function AdminSettings() {
     }
   })
 
-  // Useful app-specific settings (policies, projects, banner)
   useEffect(() => {
-    // On first load, ensure keys exist
     setSettings((prev) => ({
       ...defaultAdminSettings,
       ...prev,
@@ -71,42 +67,34 @@ export function AdminSettings() {
   }, [])
 
   const [isSaving, setIsSaving] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const [banner, setBanner] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null)
+  const [bannerMsg, setBannerMsg] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null)
 
-  // Load settings: Supabase first, then localStorage fallback
   useEffect(() => {
-    let mounted = true;
-    (async () => {
+    let mounted = true
+    ;(async () => {
       try {
         const { data, error } = await supabase
           .from('admin_settings')
           .select('value')
           .eq('key', 'admin_settings')
           .single()
-
-        if (mounted) {
-          if (!error && data?.value) {
-            setSettings((prev) => ({ ...prev, ...(data.value as Partial<LocalAdminSettings>) }))
-            setBanner({ type: 'info', text: 'Loaded admin settings' })
-          } else {
-            const raw = typeof window !== 'undefined' ? localStorage.getItem('admin_settings') : null
-            if (raw) {
-              try {
-                const parsed = JSON.parse(raw)
-                setSettings((prev) => ({ ...prev, ...(parsed as Partial<LocalAdminSettings>) }))
-                setBanner({ type: 'info', text: 'Loaded settings from local' })
-              } catch {
-                // ignore parse errors
-              }
-            }
+        if (!mounted) return
+        if (!error && data?.value) {
+          setSettings((prev) => ({ ...prev, ...(data.value as Partial<LocalAdminSettings>) }))
+          setBannerMsg({ type: 'info', text: 'Loaded admin settings' })
+        } else {
+          const raw = typeof window !== 'undefined' ? localStorage.getItem('admin_settings') : null
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw)
+              setSettings((prev) => ({ ...prev, ...(parsed as Partial<LocalAdminSettings>) }))
+              setBannerMsg({ type: 'info', text: 'Loaded settings from local' })
+            } catch { /* ignore */ }
           }
         }
       } catch {
         // ignore
-      } finally {
-        if (mounted) setIsLoading(false)
-      }
+      } finally { /* nothing */ }
     })()
     return () => { mounted = false }
   }, [])
@@ -120,32 +108,41 @@ export function AdminSettings() {
       if (typeof window !== 'undefined') {
         localStorage.setItem('admin_settings', JSON.stringify(settings))
       }
-      setBanner({ type: 'success', text: 'Settings saved' })
+      // Apply general settings immediately to the document
+      try {
+        const root = document.documentElement
+        const lang = (settings as any)?.general?.language || 'en'
+        const tz = (settings as any)?.general?.timezone || 'UTC'
+        root.setAttribute('lang', lang)
+        root.setAttribute('data-timezone', tz)
+        // Apply policy attributes immediately
+        const pol = (settings as any)?.policies || {}
+        // clear first
+        root.removeAttribute('data-invite-only')
+        root.removeAttribute('data-allowed-domains')
+        root.removeAttribute('data-default-roles')
+        root.removeAttribute('data-policy-auto-lock-new-users')
+        if (pol.inviteOnly) root.setAttribute('data-invite-only', '')
+        const allowed = Array.isArray(pol.allowedDomains) ? pol.allowedDomains.join(',') : ''
+        if (allowed) root.setAttribute('data-allowed-domains', allowed)
+        const defaultRoles = Array.isArray(pol.defaultRoles) ? pol.defaultRoles.join(',') : ''
+        if (defaultRoles) root.setAttribute('data-default-roles', defaultRoles)
+        if (pol.autoLockNewUsers) root.setAttribute('data-policy-auto-lock-new-users', '')
+      } catch { /* ignore */ }
+      setBannerMsg({ type: 'success', text: 'Settings saved' })
     } catch (e: any) {
-      // Fallback to local storage when table/RLS not ready
       if (typeof window !== 'undefined') {
         localStorage.setItem('admin_settings', JSON.stringify(settings))
       }
-      setBanner({ type: 'error', text: e?.message || 'Saved locally (offline mode)' })
+      setBannerMsg({ type: 'error', text: e?.message || 'Saved locally (offline mode)' })
     } finally {
       setIsSaving(false)
-      setTimeout(() => setBanner(null), 3000)
+      setTimeout(() => setBannerMsg(null), 3000)
     }
   }
 
-  // Security/Notifications/Advanced pages removed per request; related handlers removed.
-
   return (
     <div className="container mx-auto p-6 space-y-6">
-      {banner && (
-        <div className={`p-3 rounded-lg text-sm border ${
-          banner.type === 'success' ? 'bg-green-50 text-green-700 border-green-200' :
-          banner.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' :
-          'bg-blue-50 text-blue-700 border-blue-200'
-        }`}>
-          {banner.text}
-        </div>
-      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Admin Settings</h1>
@@ -153,13 +150,22 @@ export function AdminSettings() {
             Manage your application settings and preferences
           </p>
         </div>
-        <Button onClick={handleSave} disabled={isSaving || isLoading}>
+        <Button onClick={handleSave} disabled={isSaving}>
           <Save className="w-4 h-4 mr-2" />
-          {isSaving ? "Saving..." : (isLoading ? 'Loading...' : 'Save Changes')}
+          {isSaving ? "Saving..." : "Save Changes"}
         </Button>
       </div>
 
       <Tabs defaultValue="general" className="space-y-6">
+        {bannerMsg && (
+          <div className={`p-3 rounded-lg text-sm border ${
+            bannerMsg.type === 'success' ? 'bg-green-50 text-green-700 border-green-200' :
+            bannerMsg.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' :
+            'bg-blue-50 text-blue-700 border-blue-200'
+          }`}>
+            {bannerMsg.text}
+          </div>
+        )}
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="general" className="flex items-center gap-2">
             <Settings className="w-4 h-4" />
@@ -187,7 +193,7 @@ export function AdminSettings() {
                 Configure basic application settings and preferences
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">              
+            <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="timezone">Timezone</Label>
@@ -206,6 +212,7 @@ export function AdminSettings() {
                       <SelectItem value="EST">Eastern Time</SelectItem>
                       <SelectItem value="PST">Pacific Time</SelectItem>
                       <SelectItem value="CET">Central European Time</SelectItem>
+                      <SelectItem value="PKT">Pakistan Time</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -223,9 +230,8 @@ export function AdminSettings() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="en">English</SelectItem>
-                      <SelectItem value="es">Spanish</SelectItem>
                       <SelectItem value="fr">French</SelectItem>
-                      <SelectItem value="de">German</SelectItem>
+                      
                     </SelectContent>
                   </Select>
                 </div>
@@ -234,9 +240,76 @@ export function AdminSettings() {
           </Card>
         </TabsContent>
 
-        {/* Security, Notifications pages removed */}
+        {/* Security/Notifications/Advanced removed */}
 
-        {/* Policies & Projects (useful app preferences) */}
+        {/* Appearance Settings */}
+        <TabsContent value="appearance">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Eye className="w-5 h-5" />
+                Appearance Settings
+              </CardTitle>
+              <CardDescription>UI options for BIRL Admins</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="colorBlindMode">Color‑blind Friendly</Label>
+                  <div className="text-sm text-muted-foreground">Use palettes with safer contrasts</div>
+                </div>
+                <Switch
+                  id="colorBlindMode"
+                  checked={settings.appearance.colorBlindMode}
+                  onCheckedChange={(checked: any) => setSettings(prev => ({
+                    ...prev,
+                    appearance: { ...prev.appearance, colorBlindMode: checked }
+                  }))}
+                />
+              </div>
+
+              
+
+              <div className="space-y-2">
+                <Label htmlFor="graphLabelVisibility">Graph Label Visibility</Label>
+                <Select
+                  value={settings.appearance.graphLabelVisibility}
+                  onValueChange={(value: "all" | "hover" | "none") => setSettings(prev => ({
+                    ...prev,
+                    appearance: { ...prev.appearance, graphLabelVisibility: value }
+                  }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Show all labels</SelectItem>
+                    <SelectItem value="hover">Show on hover</SelectItem>
+                    <SelectItem value="none">Hide labels</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div> 
+              {/*
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="showEdgeArrows">Show Edge Arrows</Label>
+                  <div className="text-sm text-muted-foreground">Useful for directionality in pathways</div>
+                </div>
+                <Switch
+                  id="showEdgeArrows"
+                  checked={settings.appearance.showEdgeArrows}
+                  onCheckedChange={(checked: any) => setSettings(prev => ({
+                    ...prev,
+                    appearance: { ...prev.appearance, showEdgeArrows: checked }
+                  }))}
+                />
+              </div>*/}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Policies & Projects */}
         <TabsContent value="policies">
           <div className="grid md:grid-cols-2 gap-6">
             <Card>
@@ -260,13 +333,20 @@ export function AdminSettings() {
                   <Label>Default roles for new users</Label>
                   <Input value={(settings as any).policies?.defaultRoles?.join(', ') || ''} onChange={(e) => setSettings(prev => ({ ...prev, policies: { ...(prev as any).policies, defaultRoles: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } }))} />
                 </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Auto-lock new users</Label>
+                    <p className="text-sm text-muted-foreground">Require admin to unlock after signup</p>
+                  </div>
+                  <Switch checked={!!(settings as any).policies?.autoLockNewUsers} onCheckedChange={(v: any) => setSettings(prev => ({ ...prev, policies: { ...(prev as any).policies, autoLockNewUsers: v } }))} />
+                </div>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
                 <CardTitle>Projects</CardTitle>
-                <CardDescription>Creation and cleanup</CardDescription>
+                <CardDescription>Creation and collaboration</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -286,6 +366,24 @@ export function AdminSettings() {
                     <Label>Auto-remove deleted assignees on edit</Label>
                   </div>
                   <Switch checked={!!(settings as any).projects?.autoRemoveDeletedAssignees} onCheckedChange={(v: any) => setSettings(prev => ({ ...prev, projects: { ...(prev as any).projects, autoRemoveDeletedAssignees: v } }))} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Prevent duplicate project names</Label>
+                  </div>
+                  <Switch checked={!!(settings as any).projects?.preventDuplicateNames} onCheckedChange={(v: any) => setSettings(prev => ({ ...prev, projects: { ...(prev as any).projects, preventDuplicateNames: v } }))} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Only Admins can edit assignees</Label>
+                  </div>
+                  <Switch checked={!!(settings as any).projects?.onlyAdminsEditAssignees} onCheckedChange={(v: any) => setSettings(prev => ({ ...prev, projects: { ...(prev as any).projects, onlyAdminsEditAssignees: v } }))} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Disallow empty assignees</Label>
+                  </div>
+                  <Switch checked={!!(settings as any).projects?.disallowEmptyAssignees} onCheckedChange={(v: any) => setSettings(prev => ({ ...prev, projects: { ...(prev as any).projects, disallowEmptyAssignees: v } }))} />
                 </div>
                 <div className="space-y-2">
                   <Label>Max assignees per project (blank = no limit)</Label>
@@ -328,144 +426,6 @@ export function AdminSettings() {
             </Card>
           </div>
         </TabsContent>
-
-        {/* Appearance Settings */}
-        <TabsContent value="appearance">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Eye className="w-5 h-5" />
-                Appearance Settings
-              </CardTitle>
-              <CardDescription>
-                Minimal, lab-friendly UI options
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="theme">Theme</Label>
-                <Select
-                  value={settings.appearance.theme}
-                  onValueChange={(value: "light" | "dark" | "system") => setSettings(prev => ({
-                    ...prev,
-                    appearance: { ...prev.appearance, theme: value }
-                  }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="light">Light</SelectItem>
-                    <SelectItem value="dark">Dark</SelectItem>
-                    <SelectItem value="system">System</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="uiDensity">UI Density</Label>
-                <Select
-                  value={settings.appearance.uiDensity}
-                  onValueChange={(value: "comfortable" | "compact") => setSettings(prev => ({
-                    ...prev,
-                    appearance: { ...prev.appearance, uiDensity: value }
-                  }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="comfortable">Comfortable</SelectItem>
-                    <SelectItem value="compact">Compact</SelectItem>
-                  </SelectContent>
-                </Select>
-                <div className="text-sm text-muted-foreground">Choose larger spacing or fit more on screen.</div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="disableAnimations">Reduce Motion</Label>
-                  <div className="text-sm text-muted-foreground">Disable non-essential animations</div>
-                </div>
-                <Switch
-                  id="disableAnimations"
-                  checked={settings.appearance.disableAnimations}
-                  onCheckedChange={(checked: any) => setSettings(prev => ({
-                    ...prev,
-                    appearance: { ...prev.appearance, disableAnimations: checked }
-                  }))}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="colorBlindMode">Color‑blind Friendly</Label>
-                  <div className="text-sm text-muted-foreground">Use palettes with safer contrasts</div>
-                </div>
-                <Switch
-                  id="colorBlindMode"
-                  checked={settings.appearance.colorBlindMode}
-                  onCheckedChange={(checked: any) => setSettings(prev => ({
-                    ...prev,
-                    appearance: { ...prev.appearance, colorBlindMode: checked }
-                  }))}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="highContrast">High Contrast</Label>
-                  <div className="text-sm text-muted-foreground">Increase legibility for diagrams</div>
-                </div>
-                <Switch
-                  id="highContrast"
-                  checked={settings.appearance.highContrast}
-                  onCheckedChange={(checked: any) => setSettings(prev => ({
-                    ...prev,
-                    appearance: { ...prev.appearance, highContrast: checked }
-                  }))}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="graphLabelVisibility">Graph Label Visibility</Label>
-                <Select
-                  value={settings.appearance.graphLabelVisibility}
-                  onValueChange={(value: "all" | "hover" | "none") => setSettings(prev => ({
-                    ...prev,
-                    appearance: { ...prev.appearance, graphLabelVisibility: value }
-                  }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Show all labels</SelectItem>
-                    <SelectItem value="hover">Show on hover</SelectItem>
-                    <SelectItem value="none">Hide labels</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="showEdgeArrows">Show Edge Arrows</Label>
-                  <div className="text-sm text-muted-foreground">Useful for directionality in pathways</div>
-                </div>
-                <Switch
-                  id="showEdgeArrows"
-                  checked={settings.appearance.showEdgeArrows}
-                  onCheckedChange={(checked: any) => setSettings(prev => ({
-                    ...prev,
-                    appearance: { ...prev.appearance, showEdgeArrows: checked }
-                  }))}
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Advanced page removed */}
       </Tabs>
     </div>
   )
