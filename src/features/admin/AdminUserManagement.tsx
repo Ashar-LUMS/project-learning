@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Label } from "../../components/ui/label";
 import { Checkbox } from "../../components/ui/checkbox";
 import { Skeleton } from "../../components/ui/skeleton";
-import { Lock, Unlock, ShieldCheck, Loader2, Search, MoreVertical, User, Mail, Trash2, Edit3, Send, Plus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { Lock, Unlock, ShieldCheck, Loader2, Search, MoreVertical, User, Mail, Trash2, Edit3, Send, Plus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Settings } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import { useAllRoles } from "../../roles";
 
@@ -27,143 +27,175 @@ interface UserData {
   email_confirmed_at?: string;
 }
 
-// Enhanced RoleDropdown with shadcn components
-const RoleDropdown = ({
+// Role Selection Dialog Component
+const RoleSelectionDialog = ({
   user,
-  onUpdate,
-  isOpen,
+  open,
   onOpenChange,
+  onSave,
   availableRoles,
+  loading,
 }: {
   user: UserData;
-  onUpdate: (id: string, roles: string[]) => void;
-  isOpen: boolean;
+  open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSave: (roles: string[]) => void;
   availableRoles: string[];
+  loading: boolean;
 }) => {
-  const [draftRoles, setDraftRoles] = useState<string[]>(user.raw_user_meta_data?.roles || []);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>(user.raw_user_meta_data?.roles || []);
 
+  // Reset selected roles when dialog opens or user changes
   useEffect(() => {
-    setDraftRoles(user.raw_user_meta_data?.roles || []);
-  }, [user.raw_user_meta_data]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && 
-          !dropdownRef.current.contains(event.target as Node) &&
-          triggerRef.current &&
-          !triggerRef.current.contains(event.target as Node)) {
-        onOpenChange(false);
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      const handleEscape = (event: KeyboardEvent) => {
-        if (event.key === 'Escape') {
-          onOpenChange(false);
-        }
-      };
-      document.addEventListener('keydown', handleEscape);
-      
-      return () => {
-        document.removeEventListener('keydown', handleEscape);
-      };
+    if (open) {
+      setSelectedRoles(user.raw_user_meta_data?.roles || []);
     }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isOpen, onOpenChange]);
+  }, [open, user]);
 
   const toggleRole = (role: string) => {
-    setDraftRoles(prev => prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]);
+    setSelectedRoles(prev => 
+      prev.includes(role) 
+        ? prev.filter(r => r !== role) 
+        : [...prev, role]
+    );
   };
 
   const handleSave = () => {
-    if (draftRoles.length === 0) return;
-    onUpdate(user.id, draftRoles.slice().sort((a, b) => a.localeCompare(b)));
+    if (selectedRoles.length === 0) return;
+    onSave(selectedRoles.slice().sort((a, b) => a.localeCompare(b)));
     onOpenChange(false);
   };
 
   const handleCancel = () => {
-    setDraftRoles(user.raw_user_meta_data?.roles || []);
+    setSelectedRoles(user.raw_user_meta_data?.roles || []);
     onOpenChange(false);
   };
 
   const displayRoles = (user.raw_user_meta_data?.roles || []).slice().sort((a, b) => a.localeCompare(b));
 
   return (
-    <div className="relative">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Manage Roles for {user.raw_user_meta_data?.name || user.email}
+          </DialogTitle>
+          <DialogDescription>
+            Select the roles for this user. At least one role must be selected.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="space-y-4">
+          <div>
+            <Label className="text-sm font-medium">Current Roles</Label>
+            <div className="mt-2">
+              {displayRoles.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {displayRoles.map(role => (
+                    <Badge key={role} variant="secondary" className="px-2 py-1">
+                      {role}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">No roles assigned</p>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Available Roles</Label>
+            <div className="max-h-60 overflow-y-auto border rounded-lg p-4">
+              {loading ? (
+                Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="h-8 rounded-md my-1" />
+                ))
+              ) : (
+                <div className="space-y-2">
+                  {availableRoles.map((role) => (
+                    <div
+                      key={role}
+                      className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      <Checkbox
+                        id={`role-${user.id}-${role}`}
+                        checked={selectedRoles.includes(role)}
+                        onCheckedChange={() => toggleRole(role)}
+                      />
+                      <Label 
+                        htmlFor={`role-${user.id}-${role}`} 
+                        className="text-sm font-normal flex-1 cursor-pointer"
+                      >
+                        {role}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {selectedRoles.length === 0 && (
+            <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
+              Please select at least one role
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={handleCancel}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={selectedRoles.length === 0}>
+            Save Roles
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// Enhanced RoleDropdown with popup trigger
+const RoleDropdown = ({
+  user,
+  onUpdate,
+  availableRoles,
+}: {
+  user: UserData;
+  onUpdate: (id: string, roles: string[]) => void;
+  availableRoles: string[];
+}) => {
+  const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
+
+  const handleSaveRoles = (roles: string[]) => {
+    onUpdate(user.id, roles);
+  };
+
+  const displayRoles = (user.raw_user_meta_data?.roles || []).slice().sort((a, b) => a.localeCompare(b));
+
+  return (
+    <>
       <Button
-        ref={triggerRef}
         variant="outline"
         className="flex items-center justify-between w-full px-3 py-2 text-sm"
-        onClick={() => onOpenChange(!isOpen)}
+        onClick={() => setIsRoleDialogOpen(true)}
       >
         <span className={`truncate ${displayRoles.length === 0 ? 'text-gray-400' : ''}`}>
           {displayRoles.length > 0 ? displayRoles.join(', ') : "Select roles..."}
         </span>
-        <svg className="w-4 h-4 ml-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
+        <Settings className="w-4 h-4 ml-2 text-gray-400" />
       </Button>
 
-      {isOpen && (
-        <div 
-          ref={dropdownRef}
-          className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-3"
-          style={{
-            maxHeight: 'calc(100vh - 200px)',
-            overflow: 'hidden',
-          }}
-        >
-          <div className="max-h-48 overflow-y-auto mb-3">
-            {availableRoles.length === 0 ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-8 rounded-md my-1" />
-              ))
-            ) : (
-            availableRoles.map((role: string) => (
-              <label
-                key={role}
-                className="flex items-center px-3 py-2 rounded-md hover:bg-gray-50 cursor-pointer transition-colors"
-              >
-                <Checkbox
-                  checked={draftRoles.includes(role)}
-                  onCheckedChange={() => toggleRole(role)}
-                />
-                <span className="ml-3 text-sm font-medium text-gray-700">{role}</span>
-              </label>
-            ))
-            )}
-          </div>
-
-          {draftRoles.length === 0 && (
-            <div className="text-xs text-red-600 mb-2 px-2">Select at least one role</div>
-          )}
-
-          <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCancel}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleSave}
-              disabled={draftRoles.length === 0}
-            >
-              Save
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
+      <RoleSelectionDialog
+        user={user}
+        open={isRoleDialogOpen}
+        onOpenChange={setIsRoleDialogOpen}
+        onSave={handleSaveRoles}
+        availableRoles={availableRoles}
+        loading={availableRoles.length === 0}
+      />
+    </>
   );
 };
 
@@ -182,6 +214,7 @@ const Pagination = ({
   totalPages, 
   onPageChange, 
   pageSize, 
+  totalItems,
   onPageSizeChange 
 }: PaginationProps) => {
   return (
@@ -262,7 +295,6 @@ const UserManagement = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [openDropdownUserId, setOpenDropdownUserId] = useState<string | null>(null);
   const [lockingUserId, setLockingUserId] = useState<string | null>(null);
   const [resettingUserId, setResettingUserId] = useState<string | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
@@ -414,10 +446,10 @@ const UserManagement = () => {
       }
 
       setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, raw_user_meta_data: updatedMeta } : u)));
-      setSuccessMessage("User updated successfully");
+      setSuccessMessage("User roles updated successfully");
     } catch (err) {
       console.error("Error updating user:", err);
-      setErrorMessage("Failed to update user");
+      setErrorMessage("Failed to update user roles");
     }
   }, [users]);
 
@@ -752,9 +784,7 @@ const UserManagement = () => {
                       <TableCell>
                         <RoleDropdown
                           user={user}
-                          onUpdate={(id, roles) => handleUpdateUserMeta(id, { roles })}
-                          isOpen={openDropdownUserId === user.id}
-                          onOpenChange={(open) => setOpenDropdownUserId(open ? user.id : null)}
+                          onUpdate={handleUpdateUserMeta}
                           availableRoles={AVAILABLE_ROLES}
                         />
                       </TableCell>
