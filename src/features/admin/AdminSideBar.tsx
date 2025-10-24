@@ -7,7 +7,8 @@ import {
   Shield,
   ChevronLeft,
   ChevronRight,
-  UserCog
+  UserCog,
+  FolderKanban
 } from 'lucide-react';
 
 interface AdminSidebarProps {
@@ -37,12 +38,12 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ collapsed = false, onToggle
       icon: UserCog,
       path: '/app/admin/role-management'
     },
-    // {
-    //   id: 'reports',
-    //   label: 'Reports',
-    //   icon: BarChart3,
-    //   path: '/app/admin/reports'
-    // },
+    {
+      id: 'project',
+      label: 'Projects',
+      icon: FolderKanban,
+      path: '/app/admin/project-management'
+    },
     // {
     //   id: 'content',
     //   label: 'Content',

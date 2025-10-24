@@ -3,12 +3,17 @@ import { supabase } from "../../supabaseClient";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
-import { Card, CardContent } from "../../components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog";
-import { Lock, Unlock, ShieldCheck, Loader2, Search, MoreVertical, User, Mail, Trash2, Edit3, Send, Plus } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
+import { Label } from "../../components/ui/label";
+import { Checkbox } from "../../components/ui/checkbox";
+import { Skeleton } from "../../components/ui/skeleton";
+import { Lock, Unlock, ShieldCheck, Loader2, Search, MoreVertical, User, Mail, Trash2, Edit3, Send, Plus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import { useAllRoles } from "../../roles";
-import { Skeleton } from "../../components/ui/skeleton";
+
 interface UserData {
   id: string;
   email: string;
@@ -22,8 +27,7 @@ interface UserData {
   email_confirmed_at?: string;
 }
 
-
-// Enhanced RoleDropdown with proper positioning
+// Enhanced RoleDropdown with shadcn components
 const RoleDropdown = ({
   user,
   onUpdate,
@@ -57,7 +61,6 @@ const RoleDropdown = ({
 
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
-      // Close on escape key
       const handleEscape = (event: KeyboardEvent) => {
         if (event.key === 'Escape') {
           onOpenChange(false);
@@ -94,9 +97,10 @@ const RoleDropdown = ({
 
   return (
     <div className="relative">
-      <button
+      <Button
         ref={triggerRef}
-        className="flex items-center justify-between w-full px-3 py-2 text-sm border border-gray-300 rounded-lg hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition-colors"
+        variant="outline"
+        className="flex items-center justify-between w-full px-3 py-2 text-sm"
         onClick={() => onOpenChange(!isOpen)}
       >
         <span className={`truncate ${displayRoles.length === 0 ? 'text-gray-400' : ''}`}>
@@ -105,14 +109,13 @@ const RoleDropdown = ({
         <svg className="w-4 h-4 ml-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
-      </button>
+      </Button>
 
       {isOpen && (
         <div 
           ref={dropdownRef}
           className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-3"
           style={{
-            // Ensure dropdown stays within viewport
             maxHeight: 'calc(100vh - 200px)',
             overflow: 'hidden',
           }}
@@ -128,11 +131,9 @@ const RoleDropdown = ({
                 key={role}
                 className="flex items-center px-3 py-2 rounded-md hover:bg-gray-50 cursor-pointer transition-colors"
               >
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                <Checkbox
                   checked={draftRoles.includes(role)}
-                  onChange={() => toggleRole(role)}
+                  onCheckedChange={() => toggleRole(role)}
                 />
                 <span className="ml-3 text-sm font-medium text-gray-700">{role}</span>
               </label>
@@ -145,23 +146,20 @@ const RoleDropdown = ({
           )}
 
           <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
-            <button
-              className="px-3 py-1.5 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 transition-colors"
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleCancel}
             >
               Cancel
-            </button>
-            <button
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                draftRoles.length === 0 
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                  : 'bg-blue-600 text-white hover:bg-blue-700'
-              }`}
+            </Button>
+            <Button
+              size="sm"
               onClick={handleSave}
               disabled={draftRoles.length === 0}
             >
               Save
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -169,9 +167,94 @@ const RoleDropdown = ({
   );
 };
 
+// Pagination Component
+interface PaginationProps {
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  pageSize: number;
+  totalItems: number;
+  onPageSizeChange: (size: number) => void;
+}
+
+const Pagination = ({ 
+  currentPage, 
+  totalPages, 
+  onPageChange, 
+  pageSize, 
+  onPageSizeChange 
+}: PaginationProps) => {
+  return (
+    <div className="flex items-center justify-between px-6 py-4 border-t">
+      <div className="flex items-center space-x-2">
+        <Label htmlFor="page-size" className="text-sm text-gray-600">
+          Rows per page
+        </Label>
+        <Select
+          value={pageSize.toString()}
+          onValueChange={(value) => onPageSizeChange(Number(value))}
+        >
+          <SelectTrigger className="h-8 w-[70px]">
+            <SelectValue placeholder={pageSize} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="10">10</SelectItem>
+            <SelectItem value="20">20</SelectItem>
+            <SelectItem value="50">50</SelectItem>
+            <SelectItem value="100">100</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      
+      <div className="flex items-center space-x-6 lg:space-x-8">
+        <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+          Page {currentPage} of {totalPages}
+        </div>
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            className="hidden h-8 w-8 p-0 lg:flex"
+            onClick={() => onPageChange(1)}
+            disabled={currentPage === 1}
+          >
+            <span className="sr-only">Go to first page</span>
+            <ChevronsLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            className="h-8 w-8 p-0"
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+          >
+            <span className="sr-only">Go to previous page</span>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            className="h-8 w-8 p-0"
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+          >
+            <span className="sr-only">Go to next page</span>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            className="hidden h-8 w-8 p-0 lg:flex"
+            onClick={() => onPageChange(totalPages)}
+            disabled={currentPage === totalPages}
+          >
+            <span className="sr-only">Go to last page</span>
+            <ChevronsRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const UserManagement = () => {
   const [users, setUsers] = useState<UserData[]>([]);
-  // All possible roles from backend roles table for dropdowns and filters
   const AVAILABLE_ROLES = useAllRoles();
   const rolesLoading = AVAILABLE_ROLES.length === 0;
   const [filteredUsers, setFilteredUsers] = useState<UserData[]>([]);
@@ -187,6 +270,10 @@ const UserManagement = () => {
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "locked">("all");
   const [emailStatusFilter, setEmailStatusFilter] = useState<"all" | "confirmed" | "pending">("all");
   const [roleFilter, setRoleFilter] = useState<string>("all");
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Dialog states
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -205,6 +292,18 @@ const UserManagement = () => {
     name: "",
     roles: [] as string[],
   });
+
+  // Calculate pagination
+  const totalItems = filteredUsers.length;
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const currentUsers = filteredUsers.slice(startIndex, endIndex);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, emailStatusFilter, roleFilter, pageSize]);
 
   // Clear messages after timeout
   useEffect(() => {
@@ -397,11 +496,6 @@ const UserManagement = () => {
 
       if (error) throw error;
 
-      // Refresh users list
-      const { data: usersData } = await supabase.rpc("get_users_as_admin");
-      const filteredUsers = usersData?.filter((user: UserData) => user.id !== currentUserId) || [];
-      setUsers(filteredUsers);
-
       setSuccessMessage(`User created successfully. ${data.user?.email_confirmed_at ? 'User can now sign in.' : 'Confirmation email sent to ' + newUser.email}`);
       setIsCreateDialogOpen(false);
       setNewUser({ email: "", name: "", roles: ["User"], password: "" });
@@ -511,8 +605,17 @@ const UserManagement = () => {
     setIsDeleteDialogOpen(true);
   };
 
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
+
   return (
-    <div className="space-y-2 p-2">
+    <div className="space-y-6 p-6">
       {/* Messages */}
       {errorMessage && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
@@ -533,7 +636,7 @@ const UserManagement = () => {
         </div>
         <div className="flex items-center gap-4 mt-4 sm:mt-0">
           <Badge variant="secondary" className="px-3 py-1">
-            {filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'}
+            {totalItems} {totalItems === 1 ? 'user' : 'users'}
           </Badge>
           <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
             <Plus className="w-4 h-4" />
@@ -544,7 +647,7 @@ const UserManagement = () => {
 
       {/* Filters Card */}
       <Card>
-        <CardContent className="">
+        <CardContent className="pt-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -557,38 +660,43 @@ const UserManagement = () => {
               />
             </div>
             <div className="flex gap-2">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as any)}
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="locked">Locked</option>
-              </select>
-              <select
-                value={emailStatusFilter}
-                onChange={(e) => setEmailStatusFilter(e.target.value as any)}
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Email Status</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="pending">Pending</option>
-              </select>
-              <select
-                value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Roles</option>
-                {rolesLoading ? (
-                  <option disabled>Loading roles...</option>
-                ) : (
-                  AVAILABLE_ROLES.map(role => (
-                    <option key={role} value={role}>{role}</option>
-                  ))
-                )}
-              </select>
+              <Select value={statusFilter} onValueChange={(value: "all" | "active" | "locked") => setStatusFilter(value)}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="locked">Locked</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={emailStatusFilter} onValueChange={(value: "all" | "confirmed" | "pending") => setEmailStatusFilter(value)}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="Email Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Email Status</SelectItem>
+                  <SelectItem value="confirmed">Confirmed</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={roleFilter} onValueChange={setRoleFilter}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="All Roles" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Roles</SelectItem>
+                  {rolesLoading ? (
+                    <SelectItem value="loading" disabled>Loading roles...</SelectItem>
+                  ) : (
+                    AVAILABLE_ROLES.map(role => (
+                      <SelectItem key={role} value={role}>{role}</SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>
@@ -603,35 +711,29 @@ const UserManagement = () => {
         </Card>
       ) : (
         <Card>
+          <CardHeader>
+            <CardTitle>Users</CardTitle>
+            <CardDescription>
+              Showing {Math.min(totalItems, startIndex + 1)}-{Math.min(endIndex, totalItems)} of {totalItems} users
+            </CardDescription>
+          </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      User
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Roles
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Email Status
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Last Sign In
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-100">
-                  {filteredUsers.map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Roles</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Email Status</TableHead>
+                    <TableHead>Last Sign In</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {currentUsers.map((user) => (
+                    <TableRow key={user.id} className="hover:bg-gray-50/50">
+                      <TableCell>
                         <div className="flex items-center">
                           <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
                             <User className="w-5 h-5 text-white" />
@@ -646,8 +748,8 @@ const UserManagement = () => {
                             </div>
                           </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
+                      </TableCell>
+                      <TableCell>
                         <RoleDropdown
                           user={user}
                           onUpdate={(id, roles) => handleUpdateUserMeta(id, { roles })}
@@ -655,8 +757,8 @@ const UserManagement = () => {
                           onOpenChange={(open) => setOpenDropdownUserId(open ? user.id : null)}
                           availableRoles={AVAILABLE_ROLES}
                         />
-                      </td>
-                      <td className="px-6 py-4">
+                      </TableCell>
+                      <TableCell>
                         {user.raw_user_meta_data?.isLocked ? (
                           <Badge variant="destructive" className="gap-1.5">
                             <Lock className="w-3 h-3" /> Locked
@@ -666,8 +768,8 @@ const UserManagement = () => {
                             <ShieldCheck className="w-3 h-3" /> Active
                           </Badge>
                         )}
-                      </td>
-                      <td className="px-6 py-4">
+                      </TableCell>
+                      <TableCell>
                         {user.email_confirmed_at ? (
                           <Badge variant="default" className="bg-blue-100 text-blue-800 hover:bg-blue-100 gap-1.5">
                             <Mail className="w-3 h-3" /> Confirmed
@@ -677,15 +779,15 @@ const UserManagement = () => {
                             <Mail className="w-3 h-3" /> Pending
                           </Badge>
                         )}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-500">
                         {user.last_sign_in_at 
                           ? new Date(user.last_sign_in_at).toLocaleDateString()
                           : 'Never'
                         }
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="sm">
@@ -759,11 +861,11 @@ const UserManagement = () => {
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
             
             {filteredUsers.length === 0 && (
@@ -772,13 +874,25 @@ const UserManagement = () => {
                 <p className="text-gray-500 text-sm">Try adjusting your search or filters</p>
               </div>
             )}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+                pageSize={pageSize}
+                totalItems={totalItems}
+                onPageSizeChange={handlePageSizeChange}
+              />
+            )}
           </CardContent>
         </Card>
       )}
 
       {/* Create User Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Create New User</DialogTitle>
             <DialogDescription>
@@ -786,60 +900,61 @@ const UserManagement = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium text-gray-700">Email *</label>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email *</Label>
               <Input
+                id="email"
                 type="email"
                 value={newUser.email}
                 onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
                 placeholder="user@example.com"
-                className="mt-1"
               />
             </div>
-            <div>
-              <label className="text-sm font-medium text-gray-700">Full Name</label>
+            <div className="space-y-2">
+              <Label htmlFor="name">Full Name</Label>
               <Input
+                id="name"
                 type="text"
                 value={newUser.name}
                 onChange={(e) => setNewUser(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="John Doe"
-                className="mt-1"
               />
             </div>
-            <div>
-              <label className="text-sm font-medium text-gray-700">Password *</label>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password *</Label>
               <Input
+                id="password"
                 type="password"
                 value={newUser.password}
                 onChange={(e) => setNewUser(prev => ({ ...prev, password: e.target.value }))}
                 placeholder="Enter temporary password"
-                className="mt-1"
               />
             </div>
-            <div>
-              <label className="text-sm font-medium text-gray-700">Roles</label>
-              <div className="mt-2 space-y-2">
+            <div className="space-y-2">
+              <Label>Roles</Label>
+              <div className="space-y-2">
                 {rolesLoading ? (
                   Array.from({ length: 4 }).map((_, i) => (
                     <Skeleton key={i} className="h-6 rounded-md" />
                   ))
                 ) : (
                 AVAILABLE_ROLES.map((role) => (
-                  <label key={role} className="flex items-center">
-                    <input
-                      type="checkbox"
+                  <div key={role} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`role-${role}`}
                       checked={newUser.roles.includes(role)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
+                      onCheckedChange={(checked) => {
+                        if (checked) {
                           setNewUser(prev => ({ ...prev, roles: [...prev.roles, role] }));
                         } else {
                           setNewUser(prev => ({ ...prev, roles: prev.roles.filter(r => r !== role) }));
                         }
                       }}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
-                    <span className="ml-2 text-sm text-gray-700">{role}</span>
-                  </label>
+                    <Label htmlFor={`role-${role}`} className="text-sm font-normal">
+                      {role}
+                    </Label>
+                  </div>
                 ))
                 )}
               </div>
@@ -858,7 +973,7 @@ const UserManagement = () => {
 
       {/* Edit User Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
             <DialogDescription>
@@ -866,39 +981,40 @@ const UserManagement = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium text-gray-700">Full Name</label>
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Full Name</Label>
               <Input
+                id="edit-name"
                 type="text"
                 value={editUser.name}
                 onChange={(e) => setEditUser(prev => ({ ...prev, name: e.target.value }))}
-                className="mt-1"
               />
             </div>
-            <div>
-              <label className="text-sm font-medium text-gray-700">Roles</label>
-              <div className="mt-2 space-y-2">
+            <div className="space-y-2">
+              <Label>Roles</Label>
+              <div className="space-y-2">
                 {rolesLoading ? (
                   Array.from({ length: 4 }).map((_, i) => (
                     <Skeleton key={i} className="h-6 rounded-md" />
                   ))
                 ) : (
                 AVAILABLE_ROLES.map((role) => (
-                  <label key={role} className="flex items-center">
-                    <input
-                      type="checkbox"
+                  <div key={role} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`edit-role-${role}`}
                       checked={editUser.roles.includes(role)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
+                      onCheckedChange={(checked) => {
+                        if (checked) {
                           setEditUser(prev => ({ ...prev, roles: [...prev.roles, role] }));
                         } else {
                           setEditUser(prev => ({ ...prev, roles: prev.roles.filter(r => r !== role) }));
                         }
                       }}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
-                    <span className="ml-2 text-sm text-gray-700">{role}</span>
-                  </label>
+                    <Label htmlFor={`edit-role-${role}`} className="text-sm font-normal">
+                      {role}
+                    </Label>
+                  </div>
                 ))
                 )}
               </div>
@@ -917,7 +1033,7 @@ const UserManagement = () => {
 
       {/* Delete User Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Delete User</DialogTitle>
             <DialogDescription>

@@ -9,13 +9,13 @@ import AccessDenied from './components/access-denied';
 import UserLocked from './components/user-locked';
 import HomePage from './features/home/HomePage';
 import ServicesPage from './features/services/ServicesPage';
-import SettingsPage from './features/settings/SettingsPage';
 import AdminPanel from "./features/admin/AdminPanel";
 import UserManagement from "./features/admin/AdminUserManagement";
 import AdminDashboard from "./features/admin/AdminStats";
 import RoleManagement from "./features/admin/AdminRoleManagement";
 import { UserProfile } from "./features/profile/Profile";
 import { AdminSettings } from "./features/admin/AdminSetting";
+import ProjectManagement from "./features/admin/AdminProjectManagement";
 
 const router = createBrowserRouter([
   {
@@ -59,10 +59,6 @@ const router = createBrowserRouter([
         element: <UserLocked />,
       },
       {
-        path: "settings",
-        element: <SettingsPage />,
-      },
-      {
         path: "user-profile",
         element:<UserProfile />
       },
@@ -89,7 +85,11 @@ const router = createBrowserRouter([
           {
             path: "settings",
             element:<AdminSettings />
-          }
+          },
+          {
+            path:"project-management",
+            element:<ProjectManagement />
+          },
         ],
       },
     ],

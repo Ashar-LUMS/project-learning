@@ -9,7 +9,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, User, Lock, Calendar, Shield, CheckCircle, AlertCircle } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Loader2, User, Lock, Calendar, Shield, CheckCircle, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient.ts';
 
@@ -30,6 +37,14 @@ export const UserProfile = () => {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [user, setUser] = useState<any>(null);
   const navigate = useNavigate();
+
+  // Password change states
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPasswords, setShowPasswords] = useState(false);
+  const [isPasswordLoading, setIsPasswordLoading] = useState(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [lastPasswordChange, setLastPasswordChange] = useState<string | null>(null);
 
   const {
     register,
@@ -55,6 +70,12 @@ export const UserProfile = () => {
         setUser(session.user);
         setValue('email', session.user.email || '');
         setValue('full_name', session.user.user_metadata.name || '');
+        
+        // Get last password change time from user metadata
+        const lastChange = session.user.user_metadata.last_password_change;
+        if (lastChange) {
+          setLastPasswordChange(lastChange);
+        }
       } catch (error) {
         console.error('Error fetching session:', error);
         setMessage({ type: 'error', text: 'Failed to load user data' });
@@ -93,6 +114,62 @@ export const UserProfile = () => {
     }
   };
 
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (newPassword !== confirmPassword) {
+      showMessage('error', "Passwords do not match");
+      return;
+    }
+    
+    if (newPassword.length < 6) {
+      showMessage('error', "Password must be at least 6 characters long");
+      return;
+    }
+
+    setIsPasswordLoading(true);
+    setMessage(null);
+
+    try {
+      const { error } = await supabase.auth.updateUser({ 
+        password: newPassword 
+      });
+      
+      if (error) {
+        showMessage('error', error.message);
+      } else {
+        showMessage('success', "Password updated successfully!");
+        setNewPassword("");
+        setConfirmPassword("");
+        setIsPasswordModalOpen(false);
+        
+        // Update last password change time
+        const now = new Date().toISOString();
+        setLastPasswordChange(now);
+        
+        // Store in user metadata
+        await supabase.auth.updateUser({
+          data: { last_password_change: now }
+        });
+      }
+    } catch {
+      showMessage('error', "An unexpected error occurred");
+    } finally {
+      setIsPasswordLoading(false);
+    }
+  };
+
+  const openPasswordModal = () => {
+    setNewPassword("");
+    setConfirmPassword("");
+    setShowPasswords(false);
+    setIsPasswordModalOpen(true);
+  };
+
+  const closePasswordModal = () => {
+    setIsPasswordModalOpen(false);
+  };
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -124,6 +201,20 @@ export const UserProfile = () => {
     } catch {
       return new Date(dateString).toLocaleDateString();
     }
+  };
+
+  const formatRelativeTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+    
+    if (diffInDays === 0) return 'Today';
+    if (diffInDays === 1) return 'Yesterday';
+    if (diffInDays < 7) return `${diffInDays} days ago`;
+    if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} weeks ago`;
+    if (diffInDays < 365) return `${Math.floor(diffInDays / 30)} months ago`;
+    return `${Math.floor(diffInDays / 365)} years ago`;
   };
 
   if (isLoading) {
@@ -299,27 +390,18 @@ export const UserProfile = () => {
                     <div className="space-y-1">
                       <Label className="text-sm font-medium">Password</Label>
                       <p className="text-sm text-gray-500">
-                        Last changed 2 months ago
+                        {lastPasswordChange 
+                          ? `Last changed ${formatRelativeTime(lastPasswordChange)}`
+                          : 'Never changed'
+                        }
                       </p>
                     </div>
-                    <Button variant="outline" disabled className="cursor-not-allowed">
+                    <Button 
+                      onClick={openPasswordModal}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
                       Change Password
                     </Button>
-                  </div>
-
-                  <div className="p-4 border border-amber-200 rounded-lg bg-amber-50">
-                    <div className="flex items-start gap-3">
-                      <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
-                      <div className="space-y-1">
-                        <Label className="text-sm font-medium text-amber-800">
-                          Password Management
-                        </Label>
-                        <p className="text-sm text-amber-700">
-                          Password changes are currently not available in this application. 
-                          Please contact support if you need to reset your password.
-                        </p>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -363,6 +445,90 @@ export const UserProfile = () => {
           </div>
         </div>
       </div>
+
+      {/* Password Change Dialog */}
+      <Dialog open={isPasswordModalOpen} onOpenChange={setIsPasswordModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-blue-600" />
+              Change Password
+            </DialogTitle>
+            <DialogDescription>
+              Update your account password. Make sure it's at least 6 characters long.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handlePasswordChange} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="newPassword" className="text-sm font-medium">
+                New Password
+              </Label>
+              <div className="relative">
+                <Input
+                  id="newPassword"
+                  type={showPasswords ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Enter new password"
+                  required
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPasswords(!showPasswords)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showPasswords ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword" className="text-sm font-medium">
+                Confirm Password
+              </Label>
+              <Input
+                id="confirmPassword"
+                type={showPasswords ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm new password"
+                required
+              />
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closePasswordModal}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={isPasswordLoading}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {isPasswordLoading ? (
+                  <>
+                    <Loader2 className="animate-spin w-4 h-4 mr-2" />
+                    Updating...
+                  </>
+                ) : (
+                  'Update Password'
+                )}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

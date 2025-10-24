@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "../components/ui/button";
-import { Home, Menu, Users, Settings, LogOut, Shield, UserRoundPen } from "lucide-react";
+import { Home, Menu, Users, LogOut, Shield, UserRoundPen } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import { useRole } from "../getRole";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -290,12 +290,6 @@ const AppLayout = () => {
                   </Link>
                 </DropdownMenuItem>
 
-                <DropdownMenuItem asChild className="p-2 cursor-pointer rounded-lg m-1 focus:bg-blue-50">
-                  <Link to="/app/settings" className="flex items-center gap-3 w-full text-gray-700">
-                    <Settings size={16} className="text-gray-600" />
-                    <span className="text-sm">Settings</span>
-                  </Link>
-                </DropdownMenuItem>
 
                 <DropdownMenuSeparator className="bg-gray-100" />
                 <DropdownMenuItem
@@ -348,12 +342,7 @@ const AppLayout = () => {
                   </>
                 )}
 
-                <DropdownMenuItem asChild className="p-2 cursor-pointer rounded-lg m-1 focus:bg-blue-50">
-                  <Link to="/app/settings" className="flex items-center gap-3 w-full text-gray-700">
-                    <Settings size={16} className="text-gray-600" />
-                    <span className="text-sm">Settings</span>
-                  </Link>
-                </DropdownMenuItem>
+          
 
                 <DropdownMenuSeparator className="bg-gray-100" />
                 <DropdownMenuItem
@@ -393,14 +382,7 @@ const AppLayout = () => {
                 Projects
               </Link>
 
-              <Link
-                to="/app/settings"
-                className="flex items-center gap-3 text-gray-700 hover:bg-blue-50 p-3 rounded-lg transition-colors font-medium"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <Settings size={18} className="text-gray-600" />
-                Settings
-              </Link>
+              
 
               {activeRole === "Admin" && userRolesArray?.includes("Admin") && (
                 <Link
