@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "../../supabaseClient";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
@@ -213,8 +213,7 @@ const Pagination = ({
   currentPage, 
   totalPages, 
   onPageChange, 
-  pageSize, 
-  totalItems,
+  pageSize,
   onPageSizeChange 
 }: PaginationProps) => {
   return (
@@ -784,7 +783,9 @@ const UserManagement = () => {
                       <TableCell>
                         <RoleDropdown
                           user={user}
-                          onUpdate={handleUpdateUserMeta}
+                          onUpdate={(id, roles) => {
+                            void handleUpdateUserMeta(id, { roles });
+                          }}
                           availableRoles={AVAILABLE_ROLES}
                         />
                       </TableCell>
