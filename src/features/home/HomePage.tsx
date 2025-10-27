@@ -1,16 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "../../components/ui/card";
 import { useRole } from "../../getRole";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Badge } from "../../components/ui/badge";
 import { Skeleton } from "../../components/ui/skeleton";
-import sampleNetwork from "../../sampleNetwork.js";
 import { Search, Plus, Folder, Edit, Trash2, Users, AlertCircle, FileText, Calendar, UserCheck, Loader2, Filter, X, Eye } from "lucide-react";
-import NetworkGraph from "./NetworkGraph"; 
 
 type Project = {
   id: string;
@@ -118,6 +116,7 @@ const useProjects = (isAdmin: boolean | null, currentUserId: string | null) => {
 const HomePage: React.FC = () => {
   const { roles: userRolesArray, isLoading: areRolesLoading } = useRole();
   const { activeRole } = useOutletContext<{ activeRole: string | null }>();
+  const navigate = useNavigate();
 
   const isAdmin = useMemo(() => {
     if (areRolesLoading) return false;
@@ -138,7 +137,6 @@ const HomePage: React.FC = () => {
 
   const [isAssigneesOpen, setIsAssigneesOpen] = useState(false);
   const [assigneesProject, setAssigneesProject] = useState<Project | null>(null);
-  const [visualizeProjectId, setVisualizeProjectId] = useState<string | null>(null);
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
@@ -254,7 +252,7 @@ const HomePage: React.FC = () => {
         assignees: assigneesArray,
         creator_email: currentUserEmail,
         created_by: currentUserId,
-        network_data: sampleNetwork,
+        network_data: { nodes: [], edges: [], rules: [] },
       }]);
 
       if (error) throw error;
@@ -678,7 +676,7 @@ const HomePage: React.FC = () => {
 
                         {/* Action Button */}
                         <Button 
-                          onClick={() => setVisualizeProjectId(project.id)}
+                          onClick={() => navigate(`/app/projects/${project.id}`)}
                           className="w-full rounded-xl py-3 font-semibold transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
                           style={{
                             background: 'linear-gradient(135deg, #2f5597 0%, #3b6bc9 100%)',
@@ -806,7 +804,7 @@ const HomePage: React.FC = () => {
 
                         {/* Action Button */}
                         <Button 
-                          onClick={() => setVisualizeProjectId(project.id)}
+                          onClick={() => navigate(`/app/projects/${project.id}`)}
                           className="w-full rounded-xl py-3 font-semibold transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
                           style={{
                             background: 'linear-gradient(135deg, #2f5597 0%, #3b6bc9 100%)',
@@ -944,26 +942,6 @@ const HomePage: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Visualization Dialog */}
-      <Dialog open={!!visualizeProjectId} onOpenChange={(open) => { if (!open) setVisualizeProjectId(null); }}>
-        <DialogContent className="sm:max-w-6xl w-[95vw] max-h-[85vh] rounded-2xl p-0 overflow-hidden border-0 shadow-2xl">
-          <div className="flex flex-col h-full">
-            <DialogHeader className="px-6 pt-6">
-              <DialogTitle className="text-xl flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-[#2f5597] to-[#3b6bc9] rounded-xl flex items-center justify-center">
-                  <Folder size={20} className="text-white" />
-                </div>
-                Project Visualization
-              </DialogTitle>
-            </DialogHeader>
-            <div className="flex-1 min-h-[360px] overflow-hidden px-6 pb-6">
-              {visualizeProjectId ? <NetworkGraph projectId={visualizeProjectId} height="100%" /> : <p>No project selected.</p>}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
       {/* Assignees Dialog */}
       <Dialog open={isAssigneesOpen} onOpenChange={(open) => { setIsAssigneesOpen(open); if (!open) setAssigneesProject(null); }}>
         <DialogContent className="sm:max-w-md rounded-2xl border-0 bg-white/95 backdrop-blur-sm shadow-2xl">

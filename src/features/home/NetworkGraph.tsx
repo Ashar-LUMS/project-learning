@@ -17,6 +17,7 @@ type Edge = {
 type NetworkData = {
   nodes: Node[];
   edges: Edge[];
+  rules?: string[] | null;
   metadata?: {
     dataset?: string;
     version?: string;
@@ -24,7 +25,7 @@ type NetworkData = {
   };
 };
 
-export function useNetworkData(projectId?: string) {
+export function useNetworkData(projectId?: string, refreshToken: number = 0) {
   const [data, setData] = useState<NetworkData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +72,7 @@ export function useNetworkData(projectId?: string) {
       isMounted = false;
       controller.abort();
     };
-  }, [projectId]);
+  }, [projectId, refreshToken]);
 
   return { data, isLoading, error } as const;
 }
@@ -79,10 +80,11 @@ export function useNetworkData(projectId?: string) {
 type Props = {
   projectId?: string | null;
   height?: number | string;
+  refreshToken?: number;
 };
 
-const NetworkGraph: React.FC<Props> = ({ projectId, height = 600 }) => {
-  const { data: network, isLoading, error } = useNetworkData(projectId ?? undefined);
+const NetworkGraph: React.FC<Props> = ({ projectId, height = 600, refreshToken = 0 }) => {
+  const { data: network, isLoading, error } = useNetworkData(projectId ?? undefined, refreshToken);
   const fgRef = useRef<ForceGraphMethods<any, { [others: string]: any; source?: any; target?: any; }> | undefined>(undefined);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [size, setSize] = useState<{ width: number; height: number }>({ width: 800, height: 600 });
@@ -137,8 +139,6 @@ const NetworkGraph: React.FC<Props> = ({ projectId, height = 600 }) => {
 
   if (isLoading) return <div role="status" aria-live="polite">Loading network visualization...</div>;
   if (error) return <div role="alert" className="text-red-600">Failed to load network: {error}</div>;
-  if (!network || (!network.nodes?.length && !network.edges?.length)) return <div className="text-gray-600">No network data available for this project.</div>;
-
   return (
     <div ref={containerRef} style={{ width: "100%", height }} aria-label="Project network visualization">
       <ForceGraph2D
@@ -165,21 +165,6 @@ const NetworkGraph: React.FC<Props> = ({ projectId, height = 600 }) => {
           ctx.fill();
         }}
       />
-
-      {/* Legend */}
-      <div style={{ position: "absolute", right: 12, top: 12, background: "rgba(255,255,255,0.9)", borderRadius: 8, padding: "8px 10px", boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
-        <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Legend</div>
-        {nodeTypes.length === 0 ? (
-          <div style={{ fontSize: 12, color: "#666" }}>—</div>
-        ) : (
-          nodeTypes.map((t) => (
-            <div key={t} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
-              <div style={{ width: 12, height: 12, borderRadius: 3, background: colorMap.get(t) || "#999" }} aria-hidden />
-              <div style={{ fontSize: 12 }}>{t}</div>
-            </div>
-          ))
-        )}
-      </div>
     </div>
   );
 };

@@ -16,6 +16,7 @@ import RoleManagement from "./features/admin/AdminRoleManagement";
 import { UserProfile } from "./features/profile/Profile";
 import { AdminSettings } from "./features/admin/AdminSetting";
 import ProjectManagement from "./features/admin/AdminProjectManagement";
+import ProjectVisualizationPage from "./features/home/ProjectVisualizationPage";
 
 const router = createBrowserRouter([
   {
@@ -45,6 +46,10 @@ const router = createBrowserRouter([
       {
         index: true,
         element: <HomePage />,
+      },
+      {
+        path: "projects/:projectId",
+        element: <ProjectVisualizationPage />,
       },
       {
         path: "services",
