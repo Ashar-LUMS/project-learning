@@ -249,7 +249,7 @@ const HomePage: React.FC = () => {
 
       const { error } = await supabase.from("projects").insert([{
         name: newProjectName.trim(),
-        assignees: assigneesArray,
+        assignees:[...assigneesArray, currentUserId],
         creator_email: currentUserEmail,
         created_by: currentUserId,
         network_data: { nodes: [], edges: [], rules: [] },
