@@ -140,7 +140,11 @@ const NetworkGraph: React.FC<Props> = ({ projectId, height = 600, refreshToken =
   if (isLoading) return <div role="status" aria-live="polite">Loading network visualization...</div>;
   if (error) return <div role="alert" className="text-red-600">Failed to load network: {error}</div>;
   return (
-    <div ref={containerRef} style={{ width: "100%", height }} aria-label="Project network visualization">
+    <div ref={containerRef} 
+    style={{ width: "100%", height: typeof height === 'string' ? height : `${height}px`,
+        position: 'relative' }} 
+    aria-label="Project network visualization" 
+    className="overflow-hidden rounded-2xl">
       <ForceGraph2D
         ref={fgRef}
         graphData={graphData}

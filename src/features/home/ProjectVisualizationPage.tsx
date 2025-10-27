@@ -9,6 +9,7 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog";
 import { inferRulesFromBiomolecules } from "../../lib/openRouter";
+import { performDeterministicAnalysis, type DeterministicAnalysisResult } from "../../lib/deterministicAnalysis";
 
 type ProjectRecord = {
   id: string;
@@ -44,6 +45,9 @@ const ProjectVisualizationPage: React.FC = () => {
   const [editRulesFileKey, setEditRulesFileKey] = useState(0);
   const [editNodesFileName, setEditNodesFileName] = useState<string | null>(null);
   const [editRulesFileName, setEditRulesFileName] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<DeterministicAnalysisResult | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   const { data: networkData, isLoading: isNetworkLoading, error: networkError } = useNetworkData(projectId ?? undefined, networkRefreshToken);
 
@@ -104,7 +108,6 @@ const ProjectVisualizationPage: React.FC = () => {
   }, [project?.created_at]);
 
   const assigneeCount = project?.assignees?.length ?? 0;
-  const isInferDisabled = !selectedFile;
 
   const parseNodesList = useCallback((input: string) => {
     return input
@@ -113,6 +116,13 @@ const ProjectVisualizationPage: React.FC = () => {
       .map((entry) => entry.trim())
       .filter(Boolean);
   }, []);
+
+  const manualBiomoleculeEntries = useMemo(
+    () => parseNodesList(manualBiomolecules),
+    [manualBiomolecules, parseNodesList],
+  );
+  const hasManualBiomolecules = manualBiomoleculeEntries.length > 0;
+  const isInferDisabled = !selectedFile && !hasManualBiomolecules;
 
   const parseRulesList = useCallback((input: string) => {
     const normalized = input.replace(/\r\n/g, "\n").trim();
@@ -169,6 +179,11 @@ const ProjectVisualizationPage: React.FC = () => {
     setEditNodesFileName(null);
     setEditRulesFileName(null);
   }, [existingNodesText, existingRulesText, isEditDialogOpen]);
+
+  useEffect(() => {
+    setAnalysisResult(null);
+    setAnalysisError(null);
+  }, [networkData]);
 
   const resetEditDialog = useCallback(() => {
     setEditError(null);
@@ -458,7 +473,7 @@ const ProjectVisualizationPage: React.FC = () => {
 
   const handleInferRules = useCallback(async () => {
     if (isInferDisabled) {
-      setInferMessage("Upload a biomolecules file before inferring rules.");
+      setInferMessage("Provide biomolecules by uploading a file or pasting them before inferring rules.");
       return;
     }
 
@@ -472,7 +487,11 @@ const ProjectVisualizationPage: React.FC = () => {
       setIsInferring(true);
 
       let biomolecules: string[] = [];
-      if (selectedFile) {
+      if (hasManualBiomolecules) {
+        biomolecules = [...manualBiomoleculeEntries];
+      }
+
+      if (!biomolecules.length && selectedFile) {
         const fileText = await selectedFile.text();
         biomolecules = parseNodesList(fileText);
       }
@@ -481,6 +500,8 @@ const ProjectVisualizationPage: React.FC = () => {
         setInferMessage("The uploaded file did not contain any biomolecules. Ensure it lists entries like a, b, c, d.");
         return;
       }
+
+      biomolecules = Array.from(new Set(biomolecules.map((entry) => entry.trim()).filter(Boolean)));
 
       const rules = await inferRulesFromBiomolecules(biomolecules);
       if (!rules.length) {
@@ -527,108 +548,269 @@ const ProjectVisualizationPage: React.FC = () => {
     selectedFile,
   ]);
 
+  const handlePerformAnalysis = useCallback(async () => {
+    if (!networkData) {
+      setAnalysisError("No network available for analysis.");
+      setAnalysisResult(null);
+      return;
+    }
+
+    const rawNodes = Array.isArray((networkData as any)?.nodes) ? (networkData as any).nodes : [];
+
+    if (!rawNodes.length) {
+      setAnalysisError("Add nodes and rules before running analysis.");
+      setAnalysisResult(null);
+      return;
+    }
+
+    const analysisRules = existingRulesList;
+    if (!analysisRules.length) {
+      setAnalysisError("No rules available to analyze. Infer or add rules first.");
+      setAnalysisResult(null);
+      return;
+    }
+
+    const nodesForAnalysis = rawNodes.map((node: any, index: number) => {
+      const idSource = node?.id ?? node?.label ?? `node-${index}`;
+      return {
+        id: String(idSource),
+        label: typeof node?.label === "string" ? node.label : String(node?.label ?? idSource),
+      };
+    });
+
+    try {
+      setIsAnalyzing(true);
+      setAnalysisError(null);
+      const result = performDeterministicAnalysis({
+        nodes: nodesForAnalysis,
+        rules: analysisRules,
+      });
+      setAnalysisResult(result);
+      setNetworkBanner({
+        type: "success",
+        message: `Analysis completed: ${result.attractors.length} attractor${result.attractors.length === 1 ? "" : "s"} detected`,
+      });
+    } catch (err: any) {
+      const message = err?.message || "Failed to run deterministic analysis.";
+      setAnalysisError(message);
+      setAnalysisResult(null);
+      setNetworkBanner({ type: "error", message });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [existingRulesList, networkData]);
+
   return (
-    <main className="flex flex-1 flex-col gap-6 px-6 py-8 w-full">
-      <div className="w-full max-w-7xl mx-auto flex flex-col gap-6 flex-1">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            onClick={() => navigate(-1)}
-            className="rounded-xl border-gray-300"
-          >
-            <ArrowLeft size={16} className="mr-2" />
-            Back
-          </Button>
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#b1ceff] to-[#003db6] flex items-center justify-center text-white shadow-lg">
-              <Folder size={22} />
+    <main className="flex min-h-screen w-full bg-slate-50">
+      <div className="flex w-full flex-1 overflow-hidden">
+        <aside className="flex w-full max-w-sm flex-col gap-6 border-r border-slate-200 bg-white/95 p-6 lg:p-8">
+          <div className="flex flex-col gap-6">
+            <Button
+              variant="outline"
+              onClick={() => navigate(-1)}
+              className="w-fit rounded-xl border-gray-300"
+            >
+              <ArrowLeft size={16} className="mr-2" />
+              Back
+            </Button>
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#b1ceff] to-[#003db6] text-white shadow-lg">
+                <Folder size={22} />
+              </div>
+              <div>
+                <h1 className="text-2xl font-semibold text-gray-900 break-words">
+                  {project?.name || "Project"}
+                </h1>
+                {formattedDate && (
+                  <div className="mt-1 flex items-center text-sm text-gray-500">
+                    <Calendar size={14} className="mr-1.5" />
+                    {formattedDate}
+                  </div>
+                )}
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-900">
-                {project?.name || "Project"}
-              </h1>
-              {formattedDate && (
-                <div className="flex items-center text-sm text-gray-500 mt-1">
-                  <Calendar size={14} className="mr-1.5" />
-                  {formattedDate}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Badge variant="secondary" className="rounded-lg border-blue-200 bg-blue-50 text-[#2f5597]">
+              <Users size={14} className="mr-1" />
+              {assigneeCount} assignee{assigneeCount === 1 ? "" : "s"}
+            </Badge>
+            {project?.creator_email && (
+              <div className="text-xs text-gray-500">
+                Created by
+                <div className="font-medium text-gray-700">{project.creator_email}</div>
+              </div>
+            )}
+          </div>
+
+          <div className="h-px bg-slate-200" />
+
+          <div className="flex flex-col gap-3">
+            <Button
+              onClick={() => setIsCreateDialogOpen(true)}
+              disabled={isLoading}
+              className="w-full rounded-xl px-5 py-2 font-semibold text-white shadow-lg transition-transform duration-300 hover:scale-[1.02] active:scale-[0.98]"
+              style={{ background: "linear-gradient(135deg, #2f5597 0%, #3b6bc9 100%)" }}
+            >
+              Create Network
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setIsEditDialogOpen(true)}
+              disabled={isLoading || isNetworkLoading}
+              className="w-full rounded-xl border-gray-300"
+            >
+              <FilePenLine size={16} className="mr-2" />
+              Edit Network
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={handlePerformAnalysis}
+              disabled={isLoading || isNetworkLoading || isAnalyzing}
+              className="w-full rounded-xl border border-slate-200 bg-slate-100 text-slate-900 shadow-sm transition-transform duration-200 hover:scale-[1.01] hover:bg-slate-200 disabled:opacity-70"
+            >
+              {isAnalyzing ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 size={16} className="animate-spin" />
+                  Analyzing...
+                </span>
+              ) : (
+                "Perform Analysis"
+              )}
+            </Button>
+          </div>
+        </aside>
+
+        <section className="flex-1 overflow-hidden min-w-0 min-h-0">
+          <div className="flex h-full flex-col gap-4 px-6 py-6">
+            {networkBanner && (
+              <div
+                className={`flex items-start justify-between rounded-2xl border p-4 backdrop-blur-sm ${
+                  networkBanner.type === "success"
+                    ? "border-green-200 bg-green-50/80 text-green-800"
+                    : "border-red-200 bg-red-50/80 text-red-800"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`mt-0.5 rounded-full p-2 ${
+                      networkBanner.type === "success" ? "bg-green-100" : "bg-red-100"
+                    }`}
+                  >
+                    {networkBanner.type === "success" ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                  </div>
+                  <p className="text-sm font-medium">{networkBanner.message}</p>
+                </div>
+                <button
+                  type="button"
+                  className="text-sm opacity-70 transition-opacity hover:opacity-100"
+                  onClick={() => setNetworkBanner(null)}
+                  aria-label="Dismiss network banner"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+
+            <div className="flex-1 min-h-0 min-w-0">
+              {isLoading ? (
+                <div className="flex h-full items-center justify-center rounded-2xl border border-gray-200 bg-white shadow-inner">
+                  <Loader2 className="animate-spin text-[#2f5597]" size={32} />
+                </div>
+              ) : !project || error ? (
+                <div className="flex h-full items-center justify-center rounded-2xl border border-red-200 bg-red-50/70 text-red-700">
+                  {error || "Project details unavailable."}
+                </div>
+              ) : (
+                <div className="relative h-full w-full rounded-2xl border border-gray-200 bg-white shadow-lg">
+                  <NetworkGraph projectId={projectId || undefined} height="100%" refreshToken={networkRefreshToken} />
                 </div>
               )}
             </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <Badge variant="secondary" className="bg-blue-50 text-[#2f5597] border-blue-200 rounded-lg">
-            <Users size={14} className="mr-1" />
-            {assigneeCount} assignee{assigneeCount === 1 ? "" : "s"}
-          </Badge>
-          <Button
-            onClick={() => setIsCreateDialogOpen(true)}
-            disabled={isLoading}
-            className="flex items-center gap-2 px-5 py-2 rounded-xl font-semibold text-white shadow-lg transition-transform duration-300 hover:scale-105 active:scale-95"
-            style={{ background: "linear-gradient(135deg, #2f5597 0%, #3b6bc9 100%)" }}
-          >
-            Create Network
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setIsEditDialogOpen(true)}
-            disabled={isLoading || isNetworkLoading}
-            className="flex items-center gap-2 rounded-xl border-gray-300"
-          >
-            <FilePenLine size={16} />
-            Edit Network
-          </Button>
-        </div>
-        </div>
 
-        {networkBanner && (
-          <div
-            className={`rounded-2xl border p-4 flex items-start justify-between backdrop-blur-sm ${
-              networkBanner.type === "success"
-                ? "bg-green-50/80 border-green-200 text-green-800"
-                : "bg-red-50/80 border-red-200 text-red-800"
-            }`}
-          >
-            <div className="flex items-start gap-3">
-              <div
-                className={`mt-0.5 rounded-full p-2 ${
-                  networkBanner.type === "success" ? "bg-green-100" : "bg-red-100"
-                }`}
-              >
-                {networkBanner.type === "success" ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+            {(analysisError || analysisResult) && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-lg">
+                {analysisError ? (
+                  <div className="text-sm text-red-700">{analysisError}</div>
+                ) : analysisResult ? (
+                  <div className="space-y-5">
+                    <div className="flex flex-wrap gap-4 text-sm text-slate-600">
+                      <span>
+                        <strong className="text-slate-800">Nodes:</strong> {analysisResult.nodeOrder.length}
+                      </span>
+                      <span>
+                        <strong className="text-slate-800">Explored states:</strong> {analysisResult.exploredStateCount}
+                      </span>
+                      <span>
+                        <strong className="text-slate-800">Total space:</strong> {analysisResult.totalStateSpace}
+                      </span>
+                      <span>
+                        <strong className="text-slate-800">Attractors:</strong> {analysisResult.attractors.length}
+                      </span>
+                      {analysisResult.truncated && (
+                        <span className="text-orange-600">State space truncated</span>
+                      )}
+                    </div>
+
+                    {analysisResult.warnings.length > 0 && (
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                        <p className="font-semibold">Warnings</p>
+                        <ul className="mt-2 list-disc space-y-1 pl-5">
+                          {analysisResult.warnings.map((warning, index) => (
+                            <li key={index}>{warning}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {analysisResult.attractors.length === 0 ? (
+                      <div className="text-sm text-slate-600">No attractors detected in the analyzed subset.</div>
+                    ) : (
+                      <div className="space-y-4">
+                        {analysisResult.attractors.map((attractor) => (
+                          <div
+                            key={attractor.id}
+                            className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                              <div className="font-semibold text-slate-800">
+                                Attractor {attractor.id + 1} · {attractor.type === "fixed-point" ? "Fixed point" : `Limit cycle (period ${attractor.period})`}
+                              </div>
+                              <div className="text-xs text-slate-600">
+                                Basin size: {attractor.basinSize} · Share: {(attractor.basinShare * 100).toFixed(1)}%
+                              </div>
+                            </div>
+                            <div className="mt-3 space-y-3 text-sm">
+                              {attractor.states.map((state, stateIndex) => (
+                                <div key={stateIndex} className="rounded-lg border border-slate-200 bg-white p-3">
+                                  <div className="flex flex-wrap items-center gap-3">
+                                    <span className="font-medium text-slate-700">State {stateIndex + 1}</span>
+                                    <span className="font-mono text-xs text-slate-500">{state.binary}</span>
+                                  </div>
+                                  <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-600">
+                                    {analysisResult.nodeOrder.map((nodeId) => (
+                                      <span
+                                        key={nodeId}
+                                        className="rounded-md bg-slate-100 px-2 py-1"
+                                      >
+                                        {analysisResult.nodeLabels[nodeId]}: {state.values[nodeId] ?? 0}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
               </div>
-              <p className="text-sm font-medium">{networkBanner.message}</p>
-            </div>
-            <button
-              type="button"
-              className="text-sm opacity-70 hover:opacity-100 transition-opacity"
-              onClick={() => setNetworkBanner(null)}
-              aria-label="Dismiss network banner"
-            >
-              <X size={16} />
-            </button>
+            )}
           </div>
-        )}
-
-        {isLoading ? (
-          <div className="flex flex-1 items-center justify-center rounded-2xl border border-gray-200 bg-white/80 shadow-inner min-h-[420px]">
-            <Loader2 className="animate-spin text-[#2f5597]" size={32} />
-          </div>
-        ) : !project || error ? (
-          <div className="flex flex-1 items-center justify-center rounded-2xl border border-red-200 bg-red-50/70 text-red-700 min-h-[420px]">
-            {error || "Project details unavailable."}
-          </div>
-        ) : (
-          <div
-            className="relative flex-1 rounded-2xl border border-gray-200 bg-white/90 shadow-lg p-3"
-            style={{ minHeight: "480px", height: "calc(100vh - 220px)" }}
-          >
-            <div className="h-full w-full">
-              <NetworkGraph projectId={projectId || undefined} height="100%" refreshToken={networkRefreshToken} />
-            </div>
-          </div>
-        )}
+        </section>
       </div>
 
       <Dialog
