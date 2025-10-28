@@ -214,7 +214,6 @@ const Pagination = ({
   totalPages, 
   onPageChange, 
   pageSize,
-  totalItems,
   onPageSizeChange 
 }: PaginationProps) => {
   // Use a ref to prevent unnecessary re-renders
