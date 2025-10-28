@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { AlertCircle, ArrowLeft, Calendar, CheckCircle2, FilePenLine, Folder, Loader2, RefreshCcw, Users, X } from "lucide-react";
+import { AlertCircle, ArrowLeft, Calendar, CheckCircle2, Download, FilePenLine, Folder, Loader2, RefreshCcw, Users, X } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import NetworkGraph, { useNetworkData } from "./NetworkGraph";
 import { supabase } from "../../supabaseClient";
@@ -17,6 +17,65 @@ type ProjectRecord = {
   assignees?: string[] | null;
   created_at?: string | null;
   creator_email?: string | null;
+};
+
+const csvEscape = (value: string | number | boolean | null | undefined): string => {
+  const stringValue = value === null || value === undefined ? "" : String(value);
+  if (stringValue.includes('"') || stringValue.includes(",") || stringValue.includes("\n")) {
+    return '"' + stringValue.replace(/"/g, '""') + '"';
+  }
+  return stringValue;
+};
+
+const buildAnalysisCsv = (result: DeterministicAnalysisResult): string => {
+  const lines: string[] = [];
+  const newline = "\r\n";
+
+  lines.push(["Summary"].map(csvEscape).join(","));
+  lines.push(["Nodes", result.nodeOrder.length].map(csvEscape).join(","));
+  lines.push(["Explored states", result.exploredStateCount].map(csvEscape).join(","));
+  lines.push(["Total state space", result.totalStateSpace].map(csvEscape).join(","));
+  lines.push(["Attractors", result.attractors.length].map(csvEscape).join(","));
+  lines.push(["Truncated", result.truncated ? "yes" : "no"].map(csvEscape).join(","));
+
+  if (result.warnings.length > 0) {
+    lines.push("");
+    lines.push(["Warnings"].map(csvEscape).join(","));
+    result.warnings.forEach((warning) => {
+      lines.push([warning].map(csvEscape).join(","));
+    });
+  }
+
+  lines.push("");
+  const nodeHeaders = result.nodeOrder.map((nodeId) => result.nodeLabels[nodeId] ?? nodeId);
+  lines.push([
+    "Attractor",
+    "Type",
+    "Period",
+    "State",
+    "Binary",
+    ...nodeHeaders,
+    "Basin size",
+    "Basin share",
+  ].map(csvEscape).join(","));
+
+  result.attractors.forEach((attractor, attractorIndex) => {
+    attractor.states.forEach((state, stateIndex) => {
+      const row = [
+        `Attractor ${attractorIndex + 1}`,
+        attractor.type,
+        attractor.period,
+        stateIndex + 1,
+        state.binary,
+        ...result.nodeOrder.map((nodeId) => state.values[nodeId] ?? 0),
+        attractor.basinSize,
+        attractor.basinShare,
+      ];
+      lines.push(row.map(csvEscape).join(","));
+    });
+  });
+
+  return lines.join(newline);
 };
 
 const ProjectVisualizationPage: React.FC = () => {
@@ -183,6 +242,14 @@ const ProjectVisualizationPage: React.FC = () => {
   useEffect(() => {
     setAnalysisResult(null);
     setAnalysisError(null);
+  }, [networkData]);
+
+  const hasNetworkData = useMemo(() => {
+    if (!networkData) return false;
+    const nodes = Array.isArray((networkData as any)?.nodes) ? (networkData as any).nodes : [];
+    const edges = Array.isArray((networkData as any)?.edges) ? (networkData as any).edges : [];
+    const rules = Array.isArray((networkData as any)?.rules) ? (networkData as any).rules : [];
+    return nodes.length > 0 || edges.length > 0 || rules.length > 0;
   }, [networkData]);
 
   const resetEditDialog = useCallback(() => {
@@ -527,8 +594,8 @@ const ProjectVisualizationPage: React.FC = () => {
 
       setManualBiomolecules(nodes.map((node) => node.label).join(", "));
       setManualRules(rules.join("\n"));
-      setInferMessage(`Generated ${rules.length} rule${rules.length === 1 ? "" : "s"} from ${biomolecules.length} biomolecule${biomolecules.length === 1 ? "" : "s"}.`);
-  setHasInferred(true);
+    setInferMessage(`Generated ${rules.length} rule${rules.length === 1 ? "" : "s"} from ${biomolecules.length} biomolecule${biomolecules.length === 1 ? "" : "s"}.`);
+    setHasInferred(true);
       setNetworkBanner({ type: "success", message: "Network updated from inferred rules." });
       setNetworkRefreshToken((prev) => prev + 1);
     } catch (err: any) {
@@ -599,6 +666,24 @@ const ProjectVisualizationPage: React.FC = () => {
       setIsAnalyzing(false);
     }
   }, [existingRulesList, networkData]);
+
+  const handleDownloadAnalysisCsv = useCallback(() => {
+    if (!analysisResult) return;
+    const csv = buildAnalysisCsv(analysisResult);
+    const defaultName = project?.name || projectId || "analysis";
+    const safeName = defaultName.replace(/[^a-z0-9-_]+/gi, "_").replace(/_+/g, "_");
+    const timestamp = new Date().toISOString().replace(/[:T]/g, "-").split(".")[0];
+    const fileName = `${safeName || "analysis"}-${timestamp}.csv`;
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [analysisResult, project?.name, projectId]);
 
   return (
     <main className="flex min-h-screen w-full bg-slate-50">
@@ -679,6 +764,15 @@ const ProjectVisualizationPage: React.FC = () => {
                 "Perform Analysis"
               )}
             </Button>
+            <Button
+              variant="outline"
+              onClick={handleDownloadAnalysisCsv}
+              disabled={!analysisResult}
+              className="w-full rounded-xl border-gray-300"
+            >
+              <Download size={16} className="mr-2" />
+              Download Results
+            </Button>
           </div>
         </aside>
 
@@ -723,9 +817,21 @@ const ProjectVisualizationPage: React.FC = () => {
                   {error || "Project details unavailable."}
                 </div>
               ) : (
-                <div className="relative h-full w-full rounded-2xl border border-gray-200 bg-white shadow-lg">
-                  <NetworkGraph projectId={projectId || undefined} height="100%" refreshToken={networkRefreshToken} />
-                </div>
+                <>
+                  {isNetworkLoading ? (
+                    <div className="flex h-full items-center justify-center rounded-2xl border border-gray-200 bg-white shadow-inner">
+                      <Loader2 className="animate-spin text-[#2f5597]" size={32} />
+                    </div>
+                  ) : hasNetworkData ? (
+                    <div className="relative h-full w-full rounded-2xl border border-gray-200 bg-white shadow-lg">
+                      <NetworkGraph projectId={projectId || undefined} height="100%" refreshToken={networkRefreshToken} />
+                    </div>
+                  ) : (
+                    <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white text-sm text-gray-500">
+                      No network data yet. Create or infer a network to see it here.
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
