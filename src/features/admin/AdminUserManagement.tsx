@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "../../supabaseClient";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
@@ -10,31 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Label } from "../../components/ui/label";
 import { Checkbox } from "../../components/ui/checkbox";
 import { Skeleton } from "../../components/ui/skeleton";
-import { 
-  Lock, 
-  Unlock, 
-  ShieldCheck, 
-  Loader2, 
-  Search, 
-  MoreVertical, 
-  User, 
-  Mail, 
-  Trash2, 
-  Edit3, 
-  Send, 
-  Plus, 
-  ChevronLeft, 
-  ChevronRight, 
-  ChevronsLeft, 
-  ChevronsRight, 
-  Settings,
-  MessageSquare,
-  Eye
-} from "lucide-react";
+import { Lock, Unlock, ShieldCheck, Loader2, Search, MoreVertical, User, Mail, Trash2, Edit3, Send, Plus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Settings } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import { useAllRoles } from "../../roles";
-import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../components/ui/tooltip";
 
 interface UserData {
   id: string;
@@ -49,226 +27,7 @@ interface UserData {
   email_confirmed_at?: string;
 }
 
-// User Profile Dialog Component
-const UserProfileDialog = ({
-  user,
-  open,
-  onOpenChange,
-}: {
-  user: UserData;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) => {
-  const getInitials = (name?: string, email?: string) => {
-    if (name) {
-      return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-    }
-    return email ? email[0].toUpperCase() : 'U';
-  };
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'Never';
-    return new Date(dateString).toLocaleString();
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
-            User Profile
-          </DialogTitle>
-        </DialogHeader>
-        
-        <div className="space-y-6">
-          {/* Avatar and Basic Info */}
-          <div className="flex items-center gap-4">
-            <Avatar className="h-16 w-16">
-              <AvatarImage src="" />
-              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-lg font-semibold">
-                {getInitials(user.raw_user_meta_data?.name, user.email)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="space-y-1">
-              <h3 className="text-lg font-semibold">
-                {user.raw_user_meta_data?.name || 'No name provided'}
-              </h3>
-              <p className="text-sm text-gray-500 flex items-center gap-1">
-                <Mail className="w-4 h-4" />
-                {user.email}
-              </p>
-            </div>
-          </div>
-
-          {/* Status Badges */}
-          <div className="flex gap-2">
-            {user.raw_user_meta_data?.isLocked ? (
-              <Badge variant="destructive" className="gap-1.5">
-                <Lock className="w-3 h-3" /> Locked
-              </Badge>
-            ) : (
-              <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-100 gap-1.5">
-                <ShieldCheck className="w-3 h-3" /> Active
-              </Badge>
-            )}
-            {user.email_confirmed_at ? (
-              <Badge variant="default" className="bg-blue-100 text-blue-800 hover:bg-blue-100 gap-1.5">
-                <Mail className="w-3 h-3" /> Confirmed
-              </Badge>
-            ) : (
-              <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100 gap-1.5">
-                <Mail className="w-3 h-3" /> Pending
-              </Badge>
-            )}
-          </div>
-
-          {/* User Details */}
-          <div className="space-y-4">
-            <div>
-              <Label className="text-sm font-medium text-gray-700">Roles</Label>
-              <div className="mt-2">
-                {user.raw_user_meta_data?.roles && user.raw_user_meta_data.roles.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {user.raw_user_meta_data.roles.slice().sort((a, b) => a.localeCompare(b)).map(role => (
-                      <Badge key={role} variant="secondary" className="px-2 py-1">
-                        {role}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-500">No roles assigned</p>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <Label className="text-gray-600">Account Created</Label>
-                <p className="font-medium mt-1">{formatDate(user.created_at)}</p>
-              </div>
-              <div>
-                <Label className="text-gray-600">Last Sign In</Label>
-                <p className="font-medium mt-1">{formatDate(user.last_sign_in_at)}</p>
-              </div>
-            </div>
-
-            {user.email_confirmed_at && (
-              <div>
-                <Label className="text-gray-600">Email Confirmed</Label>
-                <p className="font-medium mt-1">{formatDate(user.email_confirmed_at)}</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button onClick={() => onOpenChange(false)}>
-            Close
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
-// Email User Dialog Component
-const EmailUserDialog = ({
-  user,
-  open,
-  onOpenChange,
-  onSendEmail,
-  loading,
-}: {
-  user: UserData;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSendEmail: (subject: string, message: string) => void;
-  loading: boolean;
-}) => {
-  const [subject, setSubject] = useState("");
-  const [message, setMessage] = useState("");
-
-  const handleSend = () => {
-    if (subject.trim() && message.trim()) {
-      onSendEmail(subject.trim(), message.trim());
-      setSubject("");
-      setMessage("");
-    }
-  };
-
-  const handleCancel = () => {
-    setSubject("");
-    setMessage("");
-    onOpenChange(false);
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5" />
-            Send Email to {user.raw_user_meta_data?.name || user.email}
-          </DialogTitle>
-          <DialogDescription>
-            Send an email message to this user. They will receive it at {user.email}
-          </DialogDescription>
-        </DialogHeader>
-        
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email-subject">Subject</Label>
-            <Input
-              id="email-subject"
-              placeholder="Enter email subject..."
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="email-message">Message</Label>
-            <textarea
-              id="email-message"
-              rows={6}
-              placeholder="Type your message here..."
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
-            />
-          </div>
-
-          {(!subject.trim() || !message.trim()) && (
-            <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
-              Please fill in both subject and message fields
-            </div>
-          )}
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={handleCancel}>
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleSend} 
-            disabled={!subject.trim() || !message.trim() || loading}
-            className="gap-2"
-          >
-            {loading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Send className="w-4 h-4" />
-            )}
-            Send Email
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
-// Role Selection Dialog Component (keep your existing one)
+// Role Selection Dialog Component
 const RoleSelectionDialog = ({
   user,
   open,
@@ -286,6 +45,7 @@ const RoleSelectionDialog = ({
 }) => {
   const [selectedRoles, setSelectedRoles] = useState<string[]>(user.raw_user_meta_data?.roles || []);
 
+  // Reset selected roles when dialog opens or user changes
   useEffect(() => {
     if (open) {
       setSelectedRoles(user.raw_user_meta_data?.roles || []);
@@ -439,7 +199,7 @@ const RoleDropdown = ({
   );
 };
 
-// Pagination Component (keep your existing one)
+// Fixed Pagination Component
 interface PaginationProps {
   currentPage: number;
   totalPages: number;
@@ -454,8 +214,21 @@ const Pagination = ({
   totalPages, 
   onPageChange, 
   pageSize,
+  totalItems,
   onPageSizeChange 
 }: PaginationProps) => {
+  // Use a ref to prevent unnecessary re-renders
+  const pageSizeRef = useRef(pageSize);
+  
+  useEffect(() => {
+    pageSizeRef.current = pageSize;
+  }, [pageSize]);
+
+  const handlePageSizeChange = (value: string) => {
+    const newSize = Number(value);
+    onPageSizeChange(newSize);
+  };
+
   return (
     <div className="flex items-center justify-between px-6 py-4 border-t">
       <div className="flex items-center space-x-2">
@@ -464,10 +237,12 @@ const Pagination = ({
         </Label>
         <Select
           value={pageSize.toString()}
-          onValueChange={(value) => onPageSizeChange(Number(value))}
+          onValueChange={handlePageSizeChange}
         >
           <SelectTrigger className="h-8 w-[70px]">
-            <SelectValue placeholder={pageSize} />
+            <SelectValue>
+              <span>{pageSize}</span>
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="10">10</SelectItem>
@@ -537,7 +312,6 @@ const UserManagement = () => {
   const [lockingUserId, setLockingUserId] = useState<string | null>(null);
   const [resettingUserId, setResettingUserId] = useState<string | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
-  const [emailingUserId, setEmailingUserId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "locked">("all");
   const [emailStatusFilter, setEmailStatusFilter] = useState<"all" | "confirmed" | "pending">("all");
@@ -551,8 +325,6 @@ const UserManagement = () => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
-  const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   
   // Form states
@@ -750,22 +522,6 @@ const UserManagement = () => {
     }
   };
 
-  const handleSendEmail = async (userId: string, subject: string, message: string) => {
-    try {
-      setEmailingUserId(userId);
-      // Here you would integrate with your email service
-      // For now, we'll simulate the API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setSuccessMessage(`Email sent successfully to ${users.find(u => u.id === userId)?.email}`);
-      setIsEmailDialogOpen(false);
-    } catch (err: any) {
-      setErrorMessage(err?.message || "Failed to send email");
-    } finally {
-      setEmailingUserId(null);
-    }
-  };
-
   const handleCreateUser = async () => {
     try {
       if (!newUser.email || !newUser.password) {
@@ -895,16 +651,6 @@ const UserManagement = () => {
     setIsDeleteDialogOpen(true);
   };
 
-  const openProfileDialog = (user: UserData) => {
-    setSelectedUser(user);
-    setIsProfileDialogOpen(true);
-  };
-
-  const openEmailDialog = (user: UserData) => {
-    setSelectedUser(user);
-    setIsEmailDialogOpen(true);
-  };
-
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
   };
@@ -914,545 +660,464 @@ const UserManagement = () => {
     setCurrentPage(1);
   };
 
-  const getInitials = (name?: string, email?: string) => {
-    if (name) {
-      return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-    }
-    return email ? email[0].toUpperCase() : 'U';
-  };
-
   return (
-    <TooltipProvider>
-      <div className="space-y-6 p-6">
-        {/* Messages */}
-        {errorMessage && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-            {errorMessage}
-          </div>
-        )}
-        {successMessage && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-700">
-            {successMessage}
-          </div>
-        )}
-
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
-            <p className="text-gray-600 mt-2">Manage user roles, accounts, and permissions</p>
-          </div>
-          <div className="flex items-center gap-4 mt-4 sm:mt-0">
-            <Badge variant="secondary" className="px-3 py-1">
-              {totalItems} {totalItems === 1 ? 'user' : 'users'}
-            </Badge>
-            <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
-              <Plus className="w-4 h-4" />
-              Add User
-            </Button>
-          </div>
+    <div className="space-y-6 p-6">
+      {/* Messages */}
+      {errorMessage && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+          {errorMessage}
         </div>
+      )}
+      {successMessage && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-700">
+          {successMessage}
+        </div>
+      )}
 
-        {/* Filters Card */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  type="text"
-                  placeholder="Search users by name, email, or role..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <div className="flex gap-2">
-                <Select value={statusFilter} onValueChange={(value: "all" | "active" | "locked") => setStatusFilter(value)}>
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="locked">Locked</SelectItem>
-                  </SelectContent>
-                </Select>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
+          <p className="text-gray-600 mt-2">Manage user roles, accounts, and permissions</p>
+        </div>
+        <div className="flex items-center gap-4 mt-4 sm:mt-0">
+          <Badge variant="secondary" className="px-3 py-1">
+            {totalItems} {totalItems === 1 ? 'user' : 'users'}
+          </Badge>
+          <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
+            <Plus className="w-4 h-4" />
+            Add User
+          </Button>
+        </div>
+      </div>
 
-                <Select value={emailStatusFilter} onValueChange={(value: "all" | "confirmed" | "pending") => setEmailStatusFilter(value)}>
-                  <SelectTrigger className="w-[160px]">
-                    <SelectValue placeholder="Email Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Email Status</SelectItem>
-                    <SelectItem value="confirmed">Confirmed</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={roleFilter} onValueChange={setRoleFilter}>
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue placeholder="All Roles" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Roles</SelectItem>
-                    {rolesLoading ? (
-                      <SelectItem value="loading" disabled>Loading roles...</SelectItem>
-                    ) : (
-                      AVAILABLE_ROLES.map(role => (
-                        <SelectItem key={role} value={role}>{role}</SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
+      {/* Filters Card */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                type="text"
+                placeholder="Search users by name, email, or role..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
             </div>
+            <div className="flex gap-2">
+              <Select value={statusFilter} onValueChange={(value: "all" | "active" | "locked") => setStatusFilter(value)}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="locked">Locked</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={emailStatusFilter} onValueChange={(value: "all" | "confirmed" | "pending") => setEmailStatusFilter(value)}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="Email Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Email Status</SelectItem>
+                  <SelectItem value="confirmed">Confirmed</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={roleFilter} onValueChange={setRoleFilter}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="All Roles" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Roles</SelectItem>
+                  {rolesLoading ? (
+                    <SelectItem value="loading" disabled>Loading roles...</SelectItem>
+                  ) : (
+                    AVAILABLE_ROLES.map(role => (
+                      <SelectItem key={role} value={role}>{role}</SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {loading ? (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto text-gray-400" />
+            <p className="text-gray-600 mt-2">Loading users...</p>
           </CardContent>
         </Card>
-
-        {loading ? (
-          <Card>
-            <CardContent className="p-8 text-center">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto text-gray-400" />
-              <p className="text-gray-600 mt-2">Loading users...</p>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle>Users</CardTitle>
-              <CardDescription>
-                Showing {Math.min(totalItems, startIndex + 1)}-{Math.min(endIndex, totalItems)} of {totalItems} users
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>User</TableHead>
-                      <TableHead>Roles</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Email Status</TableHead>
-                      <TableHead>Last Sign In</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {currentUsers.map((user) => (
-                      <TableRow key={user.id} className="hover:bg-gray-50/50">
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-10 w-10 rounded-full p-0 hover:scale-105 transition-transform"
-                                  onClick={() => openProfileDialog(user)}
-                                >
-                                  <Avatar className="h-10 w-10">
-                                    <AvatarImage src="" />
-                                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold">
-                                      {getInitials(user.raw_user_meta_data?.name, user.email)}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>View profile</p>
-                              </TooltipContent>
-                            </Tooltip>
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">
-                                {user.raw_user_meta_data?.name || 'No name'}
-                              </div>
-                              <div className="text-sm text-gray-500 flex items-center">
-                                <Mail className="w-3 h-3 mr-1" />
-                                {user.email}
-                              </div>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle>Users</CardTitle>
+            <CardDescription>
+              Showing {Math.min(totalItems, startIndex + 1)}-{Math.min(endIndex, totalItems)} of {totalItems} users
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Roles</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Email Status</TableHead>
+                    <TableHead>Last Sign In</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {currentUsers.map((user) => (
+                    <TableRow key={user.id} className="hover:bg-gray-50/50">
+                      <TableCell>
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                            <User className="w-5 h-5 text-white" />
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">
+                              {user.raw_user_meta_data?.name || 'No name'}
+                            </div>
+                            <div className="text-sm text-gray-500 flex items-center">
+                              <Mail className="w-3 h-3 mr-1" />
+                              {user.email}
                             </div>
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <RoleDropdown
-                            user={user}
-                            onUpdate={(id, roles) => {
-                              void handleUpdateUserMeta(id, { roles });
-                            }}
-                            availableRoles={AVAILABLE_ROLES}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          {user.raw_user_meta_data?.isLocked ? (
-                            <Badge variant="destructive" className="gap-1.5">
-                              <Lock className="w-3 h-3" /> Locked
-                            </Badge>
-                          ) : (
-                            <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-100 gap-1.5">
-                              <ShieldCheck className="w-3 h-3" /> Active
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {user.email_confirmed_at ? (
-                            <Badge variant="default" className="bg-blue-100 text-blue-800 hover:bg-blue-100 gap-1.5">
-                              <Mail className="w-3 h-3" /> Confirmed
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100 gap-1.5">
-                              <Mail className="w-3 h-3" /> Pending
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-sm text-gray-500">
-                          {user.last_sign_in_at 
-                            ? new Date(user.last_sign_in_at).toLocaleDateString()
-                            : 'Never'
-                          }
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            {/* Quick Email Button */}
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => openEmailDialog(user)}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <MessageSquare className="w-4 h-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Send email</p>
-                              </TooltipContent>
-                            </Tooltip>
-
-                            {/* View Profile Button */}
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => openProfileDialog(user)}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>View profile</p>
-                              </TooltipContent>
-                            </Tooltip>
-
-                            {/* More Options Dropdown */}
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                  <MoreVertical className="w-4 h-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-48">
-                                <DropdownMenuItem onClick={() => openEditDialog(user)}>
-                                  <Edit3 className="w-4 h-4 mr-2" />
-                                  Edit User
-                                </DropdownMenuItem>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <RoleDropdown
+                          user={user}
+                          onUpdate={(id, roles) => {
+                            void handleUpdateUserMeta(id, { roles });
+                          }}
+                          availableRoles={AVAILABLE_ROLES}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {user.raw_user_meta_data?.isLocked ? (
+                          <Badge variant="destructive" className="gap-1.5">
+                            <Lock className="w-3 h-3" /> Locked
+                          </Badge>
+                        ) : (
+                          <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-100 gap-1.5">
+                            <ShieldCheck className="w-3 h-3" /> Active
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {user.email_confirmed_at ? (
+                          <Badge variant="default" className="bg-blue-100 text-blue-800 hover:bg-blue-100 gap-1.5">
+                            <Mail className="w-3 h-3" /> Confirmed
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100 gap-1.5">
+                            <Mail className="w-3 h-3" /> Pending
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-500">
+                        {user.last_sign_in_at 
+                          ? new Date(user.last_sign_in_at).toLocaleDateString()
+                          : 'Never'
+                        }
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreVertical className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuItem onClick={() => openEditDialog(user)}>
+                                <Edit3 className="w-4 h-4 mr-2" />
+                                Edit User
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => handleSendPasswordReset(user.id, user.email)}
+                                disabled={resettingUserId === user.id}
+                              >
+                                {resettingUserId === user.id ? (
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                ) : (
+                                  <Send className="w-4 h-4 mr-2" />
+                                )}
+                                Send Reset Email
+                              </DropdownMenuItem>
+                              {!user.email_confirmed_at && (
                                 <DropdownMenuItem 
-                                  onClick={() => handleSendPasswordReset(user.id, user.email)}
+                                  onClick={() => handleResendConfirmation(user.id, user.email)}
                                   disabled={resettingUserId === user.id}
                                 >
                                   {resettingUserId === user.id ? (
                                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                                   ) : (
-                                    <Send className="w-4 h-4 mr-2" />
+                                    <Mail className="w-4 h-4 mr-2" />
                                   )}
-                                  Send Reset Email
+                                  Resend Confirmation
                                 </DropdownMenuItem>
-                                {!user.email_confirmed_at && (
-                                  <DropdownMenuItem 
-                                    onClick={() => handleResendConfirmation(user.id, user.email)}
-                                    disabled={resettingUserId === user.id}
-                                  >
-                                    {resettingUserId === user.id ? (
-                                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                    ) : (
-                                      <Mail className="w-4 h-4 mr-2" />
-                                    )}
-                                    Resend Confirmation
-                                  </DropdownMenuItem>
-                                )}
-                                <DropdownMenuSeparator />
-                                {user.raw_user_meta_data?.isLocked ? (
-                                  <DropdownMenuItem 
-                                    onClick={() => handleToggleLock(user.id, false)}
-                                    disabled={user.id === currentUserId || lockingUserId === user.id}
-                                  >
-                                    {lockingUserId === user.id ? (
-                                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                    ) : (
-                                      <Unlock className="w-4 h-4 mr-2" />
-                                    )}
-                                    Unlock Account
-                                  </DropdownMenuItem>
-                                ) : (
-                                  <DropdownMenuItem 
-                                    onClick={() => handleToggleLock(user.id, true)}
-                                    disabled={user.id === currentUserId || lockingUserId === user.id}
-                                  >
-                                    {lockingUserId === user.id ? (
-                                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                    ) : (
-                                      <Lock className="w-4 h-4 mr-2" />
-                                    )}
-                                    Lock Account
-                                  </DropdownMenuItem>
-                                )}
-                                <DropdownMenuSeparator />
+                              )}
+                              <DropdownMenuSeparator />
+                              {user.raw_user_meta_data?.isLocked ? (
                                 <DropdownMenuItem 
-                                  onClick={() => openDeleteDialog(user)}
-                                  disabled={user.id === currentUserId}
-                                  className="text-red-600 focus:text-red-600"
+                                  onClick={() => handleToggleLock(user.id, false)}
+                                  disabled={user.id === currentUserId || lockingUserId === user.id}
                                 >
-                                  <Trash2 className="w-4 h-4 mr-2" />
-                                  Delete User
+                                  {lockingUserId === user.id ? (
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  ) : (
+                                    <Unlock className="w-4 h-4 mr-2" />
+                                  )}
+                                  Unlock Account
                                 </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              
-              {filteredUsers.length === 0 && (
-                <div className="text-center py-12">
-                  <div className="text-gray-400 mb-2">No users found</div>
-                  <p className="text-gray-500 text-sm">Try adjusting your search or filters</p>
-                </div>
-              )}
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={handlePageChange}
-                  pageSize={pageSize}
-                  totalItems={totalItems}
-                  onPageSizeChange={handlePageSizeChange}
-                />
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Create User Dialog (keep your existing) */}
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Create New User</DialogTitle>
-              <DialogDescription>
-                Add a new user to the system. They will receive an email to set their password.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={newUser.email}
-                  onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
-                  placeholder="user@example.com"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  type="text"
-                  value={newUser.name}
-                  onChange={(e) => setNewUser(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="John Doe"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password *</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={newUser.password}
-                  onChange={(e) => setNewUser(prev => ({ ...prev, password: e.target.value }))}
-                  placeholder="Enter temporary password"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Roles</Label>
-                <div className="space-y-2">
-                  {rolesLoading ? (
-                    Array.from({ length: 4 }).map((_, i) => (
-                      <Skeleton key={i} className="h-6 rounded-md" />
-                    ))
-                  ) : (
-                  AVAILABLE_ROLES.map((role) => (
-                    <div key={role} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`role-${role}`}
-                        checked={newUser.roles.includes(role)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setNewUser(prev => ({ ...prev, roles: [...prev.roles, role] }));
-                          } else {
-                            setNewUser(prev => ({ ...prev, roles: prev.roles.filter(r => r !== role) }));
-                          }
-                        }}
-                      />
-                      <Label htmlFor={`role-${role}`} className="text-sm font-normal">
-                        {role}
-                      </Label>
-                    </div>
-                  ))
-                  )}
-                </div>
-              </div>
+                              ) : (
+                                <DropdownMenuItem 
+                                  onClick={() => handleToggleLock(user.id, true)}
+                                  disabled={user.id === currentUserId || lockingUserId === user.id}
+                                >
+                                  {lockingUserId === user.id ? (
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  ) : (
+                                    <Lock className="w-4 h-4 mr-2" />
+                                  )}
+                                  Lock Account
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={() => openDeleteDialog(user)}
+                                disabled={user.id === currentUserId}
+                                className="text-red-600 focus:text-red-600"
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete User
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleCreateUser} disabled={!newUser.email || !newUser.password}>
-                Create User
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Edit User Dialog (keep your existing) */}
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Edit User</DialogTitle>
-              <DialogDescription>
-                Update user information and roles.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-name">Full Name</Label>
-                <Input
-                  id="edit-name"
-                  type="text"
-                  value={editUser.name}
-                  onChange={(e) => setEditUser(prev => ({ ...prev, name: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Roles</Label>
-                <div className="space-y-2">
-                  {rolesLoading ? (
-                    Array.from({ length: 4 }).map((_, i) => (
-                      <Skeleton key={i} className="h-6 rounded-md" />
-                    ))
-                  ) : (
-                  AVAILABLE_ROLES.map((role) => (
-                    <div key={role} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`edit-role-${role}`}
-                        checked={editUser.roles.includes(role)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setEditUser(prev => ({ ...prev, roles: [...prev.roles, role] }));
-                          } else {
-                            setEditUser(prev => ({ ...prev, roles: prev.roles.filter(r => r !== role) }));
-                          }
-                        }}
-                      />
-                      <Label htmlFor={`edit-role-${role}`} className="text-sm font-normal">
-                        {role}
-                      </Label>
-                    </div>
-                  ))
-                  )}
-                </div>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleUpdateUser}>
-                Save Changes
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Delete User Dialog (keep your existing) */}
-        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Delete User</DialogTitle>
-              <DialogDescription>
-                Are you sure you want to delete this user? This action cannot be undone and will permanently remove the user account.
-              </DialogDescription>
-            </DialogHeader>
-            {selectedUser && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <div className="text-sm text-red-800">
-                  <strong>User:</strong> {selectedUser.raw_user_meta_data?.name || 'No name'} ({selectedUser.email})
-                </div>
+            
+            {filteredUsers.length === 0 && (
+              <div className="text-center py-12">
+                <div className="text-gray-400 mb-2">No users found</div>
+                <p className="text-gray-500 text-sm">Try adjusting your search or filters</p>
               </div>
             )}
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button 
-                variant="destructive" 
-                onClick={handleDeleteUser}
-                disabled={deletingUserId === selectedUser?.id}
-              >
-                {deletingUserId === selectedUser?.id ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Deleting...
-                  </>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+                pageSize={pageSize}
+                totalItems={totalItems}
+                onPageSizeChange={handlePageSizeChange}
+              />
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Create User Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create New User</DialogTitle>
+            <DialogDescription>
+              Add a new user to the system. They will receive an email to set their password.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email *</Label>
+              <Input
+                id="email"
+                type="email"
+                value={newUser.email}
+                onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="user@example.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="name">Full Name</Label>
+              <Input
+                id="name"
+                type="text"
+                value={newUser.name}
+                onChange={(e) => setNewUser(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="John Doe"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password *</Label>
+              <Input
+                id="password"
+                type="password"
+                value={newUser.password}
+                onChange={(e) => setNewUser(prev => ({ ...prev, password: e.target.value }))}
+                placeholder="Enter temporary password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Roles</Label>
+              <div className="space-y-2">
+                {rolesLoading ? (
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={i} className="h-6 rounded-md" />
+                  ))
                 ) : (
-                  <>
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete User
-                  </>
+                AVAILABLE_ROLES.map((role) => (
+                  <div key={role} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`role-${role}`}
+                      checked={newUser.roles.includes(role)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setNewUser(prev => ({ ...prev, roles: [...prev.roles, role] }));
+                        } else {
+                          setNewUser(prev => ({ ...prev, roles: prev.roles.filter(r => r !== role) }));
+                        }
+                      }}
+                    />
+                    <Label htmlFor={`role-${role}`} className="text-sm font-normal">
+                      {role}
+                    </Label>
+                  </div>
+                ))
                 )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateUser} disabled={!newUser.email || !newUser.password}>
+              Create User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-        {/* User Profile Dialog */}
-        {selectedUser && (
-          <UserProfileDialog
-            user={selectedUser}
-            open={isProfileDialogOpen}
-            onOpenChange={setIsProfileDialogOpen}
-          />
-        )}
+      {/* Edit User Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+            <DialogDescription>
+              Update user information and roles.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Full Name</Label>
+              <Input
+                id="edit-name"
+                type="text"
+                value={editUser.name}
+                onChange={(e) => setEditUser(prev => ({ ...prev, name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Roles</Label>
+              <div className="space-y-2">
+                {rolesLoading ? (
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={i} className="h-6 rounded-md" />
+                  ))
+                ) : (
+                AVAILABLE_ROLES.map((role) => (
+                  <div key={role} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`edit-role-${role}`}
+                      checked={editUser.roles.includes(role)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setEditUser(prev => ({ ...prev, roles: [...prev.roles, role] }));
+                        } else {
+                          setEditUser(prev => ({ ...prev, roles: prev.roles.filter(r => r !== role) }));
+                        }
+                      }}
+                    />
+                    <Label htmlFor={`edit-role-${role}`} className="text-sm font-normal">
+                      {role}
+                    </Label>
+                  </div>
+                ))
+                )}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateUser}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-        {/* Email User Dialog */}
-        {selectedUser && (
-          <EmailUserDialog
-            user={selectedUser}
-            open={isEmailDialogOpen}
-            onOpenChange={setIsEmailDialogOpen}
-            onSendEmail={(subject, message) => handleSendEmail(selectedUser.id, subject, message)}
-            loading={emailingUserId === selectedUser.id}
-          />
-        )}
-      </div>
-    </TooltipProvider>
+      {/* Delete User Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete User</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this user? This action cannot be undone and will permanently remove the user account.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedUser && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="text-sm text-red-800">
+                <strong>User:</strong> {selectedUser.raw_user_meta_data?.name || 'No name'} ({selectedUser.email})
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteUser}
+              disabled={deletingUserId === selectedUser?.id}
+            >
+              {deletingUserId === selectedUser?.id ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete User
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 };
 

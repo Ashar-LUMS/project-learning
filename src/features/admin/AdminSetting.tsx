@@ -11,6 +11,7 @@ import {
   Settings, 
   Shield, 
   Eye,
+  AlertTriangle
 } from "lucide-react"
 import { supabase } from "../../supabaseClient"
 import { defaultAdminSettings } from "../../config/adminSettings"
@@ -290,21 +291,6 @@ export function AdminSettings() {
                   </SelectContent>
                 </Select>
               </div> 
-              {/*
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="showEdgeArrows">Show Edge Arrows</Label>
-                  <div className="text-sm text-muted-foreground">Useful for directionality in pathways</div>
-                </div>
-                <Switch
-                  id="showEdgeArrows"
-                  checked={settings.appearance.showEdgeArrows}
-                  onCheckedChange={(checked: any) => setSettings(prev => ({
-                    ...prev,
-                    appearance: { ...prev.appearance, showEdgeArrows: checked }
-                  }))}
-                />
-              </div>*/}
             </CardContent>
           </Card>
         </TabsContent>
@@ -349,6 +335,22 @@ export function AdminSettings() {
                 <CardDescription>Creation and collaboration</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Warning Banner */}
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-red-800">
+                        System Configuration
+                      </p>
+                      <p className="text-sm text-red-700">
+                        These settings control core application behavior and affect how projects are managed system-wide. 
+                        Changes here will impact all users and project workflows.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>Only Admins can create projects</Label>
