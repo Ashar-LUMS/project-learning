@@ -228,25 +228,6 @@ const AppLayout = () => {
               Projects
             </Link>
 
-            {/* Role Selector Dropdown */}
-            {!areRolesLoading && userRolesArray && userRolesArray.length > 0 && (
-              <div className="relative flex items-center gap-2">
-                <Users className="text-gray-400" size={18} />
-                <select
-                  value={activeRole || ""}
-                  onChange={(e) => setActiveRole(e.target.value)}
-                  className="px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-all cursor-pointer"
-                  aria-label="Select active role"
-                >
-                  {userRolesArray.map((role) => (
-                    <option key={role} value={role}>
-                      {role}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
             {/* User Avatar Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -268,6 +249,31 @@ const AppLayout = () => {
                     </p>
                   </div>
                 </DropdownMenuLabel>
+                {!areRolesLoading && userRolesArray && userRolesArray.length > 0 && (
+                  <>
+                    <DropdownMenuSeparator className="bg-gray-100" />
+                    <div
+                      className="flex items-center gap-3 px-4 py-3"
+                      role="group"
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <Users className="text-gray-400" size={18} />
+                      <select
+                        value={activeRole || ""}
+                        onChange={(e) => setActiveRole(e.target.value)}
+                        className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        aria-label="Select active role"
+                      >
+                        {userRolesArray.map((role) => (
+                          <option key={role} value={role}>
+                            {role}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                )}
                 <DropdownMenuSeparator className="bg-gray-100" />
 
                 {/* Admin Panel Link */}
@@ -397,12 +403,17 @@ const AppLayout = () => {
 
               {/* Mobile Role Selector Dropdown */}
               {!areRolesLoading && userRolesArray && userRolesArray.length > 0 && (
-                <div className="relative flex items-center gap-3 p-3">
+                <div
+                  className="flex items-center gap-3 px-3 py-3"
+                  role="group"
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={(event) => event.stopPropagation()}
+                >
                   <Users className="text-gray-400" size={18} />
                   <select
                     value={activeRole || ""}
                     onChange={(e) => setActiveRole(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-all"
+                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-base text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     aria-label="Select active role"
                   >
                     {userRolesArray.map((role) => (
