@@ -15,9 +15,9 @@ export interface AnalysisNetwork {
 }
 
 export interface DeterministicAnalysisOptions {
-  /** Maximum number of initial states to explore exhaustively (defaults to 32768). */
+  /** Maximum number of initial states to explore exhaustively (defaults to 2^17). */
   stateCap?: number;
-  /** Hard ceiling for per-path traversal steps (defaults to 131072). */
+  /** Hard ceiling for per-path traversal steps (defaults to 2^17). */
   stepCap?: number;
 }
 
@@ -103,7 +103,7 @@ type ParenToken = { kind: "paren"; value: "(" | ")" };
 
 type Token = IdentifierToken | ConstantToken | OperatorToken | ParenToken;
 
-const DEFAULT_STATE_CAP = 32768;
+const DEFAULT_STATE_CAP = 131072;
 const DEFAULT_STEP_CAP = 131072;
 const MAX_SUPPORTED_NODES = 20;
 
