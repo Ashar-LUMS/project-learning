@@ -594,8 +594,8 @@ const ProjectVisualizationPage: React.FC = () => {
 
       setManualBiomolecules(nodes.map((node) => node.label).join(", "));
       setManualRules(rules.join("\n"));
-    setInferMessage(`Generated ${rules.length} rule${rules.length === 1 ? "" : "s"} from ${biomolecules.length} biomolecule${biomolecules.length === 1 ? "" : "s"}.`);
-    setHasInferred(true);
+      setInferMessage(`Generated ${rules.length} rule${rules.length === 1 ? "" : "s"} from ${biomolecules.length} biomolecule${biomolecules.length === 1 ? "" : "s"}.`);
+      setHasInferred(true);
       setNetworkBanner({ type: "success", message: "Network updated from inferred rules." });
       setNetworkRefreshToken((prev) => prev + 1);
     } catch (err: any) {
@@ -776,21 +776,20 @@ const ProjectVisualizationPage: React.FC = () => {
           </div>
         </aside>
 
-        <section className="flex-1 overflow-hidden min-w-0 min-h-0">
-          <div className="flex h-full flex-col gap-4 px-6 py-6">
+        {/* FIXED MAIN SECTION - Better layout for graph */}
+        <section className="flex-1 flex flex-col min-h-0">
+          <div className="flex flex-col h-full px-6 py-6 gap-4">
             {networkBanner && (
               <div
-                className={`flex items-start justify-between rounded-2xl border p-4 backdrop-blur-sm ${
-                  networkBanner.type === "success"
-                    ? "border-green-200 bg-green-50/80 text-green-800"
-                    : "border-red-200 bg-red-50/80 text-red-800"
-                }`}
+                className={`flex items-start justify-between rounded-2xl border p-4 backdrop-blur-sm ${networkBanner.type === "success"
+                  ? "border-green-200 bg-green-50/80 text-green-800"
+                  : "border-red-200 bg-red-50/80 text-red-800"
+                  }`}
               >
                 <div className="flex items-start gap-3">
                   <div
-                    className={`mt-0.5 rounded-full p-2 ${
-                      networkBanner.type === "success" ? "bg-green-100" : "bg-red-100"
-                    }`}
+                    className={`mt-0.5 rounded-full p-2 ${networkBanner.type === "success" ? "bg-green-100" : "bg-red-100"
+                      }`}
                   >
                     {networkBanner.type === "success" ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
                   </div>
@@ -807,27 +806,33 @@ const ProjectVisualizationPage: React.FC = () => {
               </div>
             )}
 
-            <div className="flex-1 min-h-0 min-w-0">
+            {/* MAIN GRAPH AREA - Takes most of the space */}
+            <div className="flex-1 flex flex-col min-h-0">
               {isLoading ? (
-                <div className="flex h-full items-center justify-center rounded-2xl border border-gray-200 bg-white shadow-inner">
+                <div className="flex-1 flex items-center justify-center rounded-2xl border border-gray-200 bg-white shadow-inner">
                   <Loader2 className="animate-spin text-[#2f5597]" size={32} />
                 </div>
               ) : !project || error ? (
-                <div className="flex h-full items-center justify-center rounded-2xl border border-red-200 bg-red-50/70 text-red-700">
+                <div className="flex-1 flex items-center justify-center rounded-2xl border border-red-200 bg-red-50/70 text-red-700">
                   {error || "Project details unavailable."}
                 </div>
               ) : (
                 <>
                   {isNetworkLoading ? (
-                    <div className="flex h-full items-center justify-center rounded-2xl border border-gray-200 bg-white shadow-inner">
+                    <div className="flex-1 flex items-center justify-center rounded-2xl border border-gray-200 bg-white shadow-inner">
                       <Loader2 className="animate-spin text-[#2f5597]" size={32} />
                     </div>
                   ) : hasNetworkData ? (
-                    <div className="relative h-full w-full rounded-2xl border border-gray-200 bg-white shadow-lg">
-                      <NetworkGraph projectId={projectId || undefined} height="100%" refreshToken={networkRefreshToken} />
+                    // FIXED GRAPH CONTAINER - Uses full available space
+                    <div className="flex-1 relative rounded-2xl border border-gray-200 bg-white shadow-lg w-full h-full min-h-[500px]">
+                      <NetworkGraph
+                        projectId={projectId || undefined}
+                        height="100%"
+                        refreshToken={networkRefreshToken}
+                      />
                     </div>
                   ) : (
-                    <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white text-sm text-gray-500">
+                    <div className="flex-1 flex items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white text-sm text-gray-500">
                       No network data yet. Create or infer a network to see it here.
                     </div>
                   )}
@@ -835,8 +840,9 @@ const ProjectVisualizationPage: React.FC = () => {
               )}
             </div>
 
+            {/* ANALYSIS RESULTS - Smaller and scrollable */}
             {(analysisError || analysisResult) && (
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-lg">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-lg max-h-64 overflow-y-auto">
                 {analysisError ? (
                   <div className="text-sm text-red-700">{analysisError}</div>
                 ) : analysisResult ? (
@@ -919,6 +925,7 @@ const ProjectVisualizationPage: React.FC = () => {
         </section>
       </div>
 
+      {/* DIALOGS - Keep as is */}
       <Dialog
         open={isCreateDialogOpen}
         onOpenChange={(open) => {

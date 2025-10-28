@@ -87,20 +87,49 @@ const NetworkGraph: React.FC<Props> = ({ projectId, height = 600, refreshToken =
   const { data: network, isLoading, error } = useNetworkData(projectId ?? undefined, refreshToken);
   const fgRef = useRef<ForceGraphMethods<any, { [others: string]: any; source?: any; target?: any; }> | undefined>(undefined);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [size, setSize] = useState<{ width: number; height: number }>({ width: 800, height: 600 });
+  const [size, setSize] = useState<{ width: number; height: number }>({ width: 1200, height: 800 });
 
-  // Responsive: use ResizeObserver to adjust size
+  // AGGRESSIVE ResizeObserver - Force larger dimensions
   useEffect(() => {
     if (!containerRef.current) return;
+    
     const el = containerRef.current;
+    
+    const updateSize = () => {
+      const rect = el.getBoundingClientRect();
+      console.log("Container rect:", rect); // Debug log
+      
+      // Use the full container size, don't limit to 300px
+      const newWidth = Math.max(800, Math.floor(rect.width));
+      const newHeight = Math.max(600, Math.floor(rect.height));
+      
+      console.log("Setting size to:", newWidth, newHeight); // Debug log
+      setSize({ width: newWidth, height: newHeight });
+    };
+
+    // Multiple attempts to get proper size
+    const timeout1 = setTimeout(updateSize, 50);
+    const timeout2 = setTimeout(updateSize, 200);
+    const timeout3 = setTimeout(updateSize, 500);
+
     const ro = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const cr = entry.contentRect;
-        setSize({ width: Math.max(300, Math.floor(cr.width)), height: Math.max(300, Math.floor(cr.height)) });
-      }
+      requestAnimationFrame(() => {
+        updateSize();
+      });
     });
+    
     ro.observe(el);
-    return () => ro.disconnect();
+    
+    // Force update on window resize
+    window.addEventListener('resize', updateSize);
+    
+    return () => {
+      clearTimeout(timeout1);
+      clearTimeout(timeout2);
+      clearTimeout(timeout3);
+      ro.disconnect();
+      window.removeEventListener('resize', updateSize);
+    };
   }, []);
 
   const graphData = useMemo(() => {
@@ -128,7 +157,6 @@ const NetworkGraph: React.FC<Props> = ({ projectId, height = 600, refreshToken =
   }, [nodeTypes]);
 
   const handleNodeClick = useCallback((node: any) => {
-    // center node and slightly zoom in
     if (!fgRef.current) return;
     const distance = 120;
     const distRatio = 1 + distance / Math.hypot(node.x ?? 1, node.y ?? 1);
@@ -137,14 +165,36 @@ const NetworkGraph: React.FC<Props> = ({ projectId, height = 600, refreshToken =
     fgRef.current.zoom(1.5, 400);
   }, []);
 
+  // Auto-fit when graph data changes
+  useEffect(() => {
+    if (fgRef.current && graphData.nodes.length > 0) {
+      setTimeout(() => {
+        fgRef.current?.zoomToFit(400, 20);
+      }, 1000);
+    }
+  }, [graphData]);
+
   if (isLoading) return <div role="status" aria-live="polite">Loading network visualization...</div>;
   if (error) return <div role="alert" className="text-red-600">Failed to load network: {error}</div>;
+  
   return (
-    <div ref={containerRef} 
-    style={{ width: "100%", height: typeof height === 'string' ? height : `${height}px`,
-        position: 'relative' }} 
-    aria-label="Project network visualization" 
-    className="overflow-hidden rounded-2xl">
+    <div 
+      ref={containerRef} 
+      style={{ 
+        width: "100%", 
+        height: "100%",
+        position: 'relative',
+        minHeight: '600px',
+        border: "2px solid red" // Debug border to see the actual container
+      }} 
+      aria-label="Project network visualization" 
+      className="overflow-hidden rounded-2xl bg-gray-100"
+    >
+      {/* Debug info */}
+      <div className="absolute top-2 left-2 z-10 bg-black/80 text-white text-xs p-2 rounded">
+        Canvas: {size.width} x {size.height}px
+      </div>
+      
       <ForceGraph2D
         ref={fgRef}
         graphData={graphData}
@@ -155,18 +205,34 @@ const NetworkGraph: React.FC<Props> = ({ projectId, height = 600, refreshToken =
         onNodeClick={handleNodeClick}
         linkDirectionalParticles={2}
         linkDirectionalParticleSpeed={0.005}
+        // Force engine settings
+        cooldownTime={Infinity}
+        d3AlphaDecay={0.01}
+        d3VelocityDecay={0.3}
+        // Visual settings - make everything larger
+        nodeRelSize={10}
+        nodeVal={(node: any) => 15}
+        linkWidth={3}
         nodeCanvasObject={(node: any, ctx: CanvasRenderingContext2D) => {
           const color = colorMap.get(node.type) || "#999";
           ctx.fillStyle = color;
           ctx.beginPath();
-          ctx.arc(node.x, node.y, 6, 0, 2 * Math.PI, false);
+          ctx.arc(node.x, node.y, 10, 0, 2 * Math.PI, false); // Larger nodes
           ctx.fill();
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 3;
+          ctx.stroke();
         }}
         nodePointerAreaPaint={(node: any, color: string, ctx: CanvasRenderingContext2D) => {
           ctx.fillStyle = color;
           ctx.beginPath();
-          ctx.arc(node.x, node.y, 8, 0, 2 * Math.PI, false);
+          ctx.arc(node.x, node.y, 15, 0, 2 * Math.PI, false); // Larger hover area
           ctx.fill();
+        }}
+        onEngineStop={() => {
+          setTimeout(() => {
+            fgRef.current?.zoomToFit(400, 20);
+          }, 100);
         }}
       />
     </div>
