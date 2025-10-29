@@ -13,6 +13,7 @@ import { Skeleton } from "../../components/ui/skeleton";
 import { Lock, Unlock, ShieldCheck, Loader2, Search, MoreVertical, User, Mail, Trash2, Edit3, Send, Plus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Settings } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import { useAllRoles } from "../../roles";
+import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
 
 interface UserData {
   id: string;
@@ -26,6 +27,142 @@ interface UserData {
   last_sign_in_at?: string;
   email_confirmed_at?: string;
 }
+
+// User Info Dialog Component
+const UserInfoDialog = ({
+  user,
+  open,
+  onOpenChange,
+}: {
+  user: UserData;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) => {
+  const getUserInitials = (name?: string) => {
+    if (!name) return "U";
+    return name
+      .split(' ')
+      .map((n: string) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'Never';
+    return new Date(dateString).toLocaleString();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <User className="h-5 w-5" />
+            User Details
+          </DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-6">
+          {/* User Avatar and Basic Info */}
+          <div className="flex items-center gap-4">
+            <Avatar className="h-16 w-16">
+              <AvatarImage src="" alt={user.raw_user_meta_data?.name} />
+              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-lg font-medium">
+                {getUserInitials(user.raw_user_meta_data?.name)}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                {user.raw_user_meta_data?.name || 'No name'}
+              </h3>
+              <p className="text-gray-600 flex items-center gap-2">
+                <Mail className="w-4 h-4" />
+                {user.email}
+              </p>
+            </div>
+          </div>
+
+          {/* User Details Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label className="text-sm font-medium text-gray-500">User ID</Label>
+              <p className="text-sm font-mono bg-gray-50 p-2 rounded border break-all">
+                {user.id}
+              </p>
+            </div>
+            
+            <div className="space-y-1">
+              <Label className="text-sm font-medium text-gray-500">Account Status</Label>
+              <div>
+                {user.raw_user_meta_data?.isLocked ? (
+                  <Badge variant="destructive" className="gap-1.5">
+                    <Lock className="w-3 h-3" /> Locked
+                  </Badge>
+                ) : (
+                  <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-100 gap-1.5">
+                    <ShieldCheck className="w-3 h-3" /> Active
+                  </Badge>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-sm font-medium text-gray-500">Email Status</Label>
+              <div>
+                {user.email_confirmed_at ? (
+                  <Badge variant="default" className="bg-blue-100 text-blue-800 hover:bg-blue-100 gap-1.5">
+                    <Mail className="w-3 h-3" /> Confirmed
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100 gap-1.5">
+                    <Mail className="w-3 h-3" /> Pending
+                  </Badge>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-sm font-medium text-gray-500">Roles</Label>
+              <div className="flex flex-wrap gap-1">
+                {(user.raw_user_meta_data?.roles || []).length > 0 ? (
+                  (user.raw_user_meta_data?.roles || []).map(role => (
+                    <Badge key={role} variant="secondary" className="px-2 py-1">
+                      {role}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-sm text-gray-500">No roles assigned</span>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-sm font-medium text-gray-500">Account Created</Label>
+              <p className="text-sm">{formatDate(user.created_at)}</p>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-sm font-medium text-gray-500">Last Sign In</Label>
+              <p className="text-sm">{formatDate(user.last_sign_in_at)}</p>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-sm font-medium text-gray-500">Email Confirmed</Label>
+              <p className="text-sm">{user.email_confirmed_at ? formatDate(user.email_confirmed_at) : 'Not confirmed'}</p>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 // Role Selection Dialog Component
 const RoleSelectionDialog = ({
@@ -53,9 +190,9 @@ const RoleSelectionDialog = ({
   }, [open, user]);
 
   const toggleRole = (role: string) => {
-    setSelectedRoles(prev => 
-      prev.includes(role) 
-        ? prev.filter(r => r !== role) 
+    setSelectedRoles(prev =>
+      prev.includes(role)
+        ? prev.filter(r => r !== role)
         : [...prev, role]
     );
   };
@@ -85,7 +222,7 @@ const RoleSelectionDialog = ({
             Select the roles for this user. At least one role must be selected.
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-4">
           <div>
             <Label className="text-sm font-medium">Current Roles</Label>
@@ -123,8 +260,8 @@ const RoleSelectionDialog = ({
                         checked={selectedRoles.includes(role)}
                         onCheckedChange={() => toggleRole(role)}
                       />
-                      <Label 
-                        htmlFor={`role-${user.id}-${role}`} 
+                      <Label
+                        htmlFor={`role-${user.id}-${role}`}
                         className="text-sm font-normal flex-1 cursor-pointer"
                       >
                         {role}
@@ -209,16 +346,16 @@ interface PaginationProps {
   onPageSizeChange: (size: number) => void;
 }
 
-const Pagination = ({ 
-  currentPage, 
-  totalPages, 
-  onPageChange, 
+const Pagination = ({
+  currentPage,
+  totalPages,
+  onPageChange,
   pageSize,
-  onPageSizeChange 
+  onPageSizeChange
 }: PaginationProps) => {
   // Use a ref to prevent unnecessary re-renders
   const pageSizeRef = useRef(pageSize);
-  
+
   useEffect(() => {
     pageSizeRef.current = pageSize;
   }, [pageSize]);
@@ -251,7 +388,7 @@ const Pagination = ({
           </SelectContent>
         </Select>
       </div>
-      
+
       <div className="flex items-center space-x-6 lg:space-x-8">
         <div className="flex w-[100px] items-center justify-center text-sm font-medium">
           Page {currentPage} of {totalPages}
@@ -311,6 +448,7 @@ const UserManagement = () => {
   const [lockingUserId, setLockingUserId] = useState<string | null>(null);
   const [resettingUserId, setResettingUserId] = useState<string | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [emailingUserId, setEmailingUserId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "locked">("all");
   const [emailStatusFilter, setEmailStatusFilter] = useState<"all" | "confirmed" | "pending">("all");
@@ -324,8 +462,10 @@ const UserManagement = () => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isUserInfoDialogOpen, setIsUserInfoDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
-  
+  const [userForInfo, setUserForInfo] = useState<UserData | null>(null);
+
   // Form states
   const [newUser, setNewUser] = useState({
     email: "",
@@ -405,7 +545,7 @@ const UserManagement = () => {
     // Search filter
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      result = result.filter(user => 
+      result = result.filter(user =>
         user.email.toLowerCase().includes(term) ||
         user.raw_user_meta_data?.name?.toLowerCase().includes(term) ||
         user.raw_user_meta_data?.roles?.some(role => role.toLowerCase().includes(term))
@@ -414,21 +554,21 @@ const UserManagement = () => {
 
     // Status filter
     if (statusFilter !== "all") {
-      result = result.filter(user => 
+      result = result.filter(user =>
         statusFilter === "locked" ? user.raw_user_meta_data?.isLocked : !user.raw_user_meta_data?.isLocked
       );
     }
 
     // Email status filter
     if (emailStatusFilter !== "all") {
-      result = result.filter(user => 
+      result = result.filter(user =>
         emailStatusFilter === "confirmed" ? user.email_confirmed_at : !user.email_confirmed_at
       );
     }
 
     // Role filter
     if (roleFilter !== "all") {
-      result = result.filter(user => 
+      result = result.filter(user =>
         user.raw_user_meta_data?.roles?.includes(roleFilter)
       );
     }
@@ -442,7 +582,7 @@ const UserManagement = () => {
       if (!user) return;
 
       const currentMeta = user.raw_user_meta_data || {};
-      
+
       const payload: Record<string, any> = {
         target_user_id: userId,
         new_roles: updates.roles !== undefined ? updates.roles : currentMeta.roles || [],
@@ -494,7 +634,7 @@ const UserManagement = () => {
       });
 
       if (error) throw error;
-      
+
       setSuccessMessage(`Password reset email sent to ${email}`);
     } catch (err: any) {
       setErrorMessage(err?.message || "Failed to send password reset email");
@@ -512,13 +652,33 @@ const UserManagement = () => {
       });
 
       if (error) throw error;
-      
+
       setSuccessMessage(`Confirmation email resent to ${email}`);
     } catch (err: any) {
       setErrorMessage(err?.message || "Failed to resend confirmation email");
     } finally {
       setResettingUserId(null);
     }
+  };
+
+  const handleEmailUser = async (user: UserData) => {
+    try {
+      setEmailingUserId(user.id);
+      // This will open the user's default email client with the user's email pre-filled
+      const subject = encodeURIComponent(`Message from Admin`);
+      const body = encodeURIComponent(`Hello ${user.raw_user_meta_data?.name || user.email},\n\n`);
+      window.open(`mailto:${user.email}?subject=${subject}&body=${body}`, '_blank');
+      setSuccessMessage(`Email client opened for ${user.email}`);
+    } catch (err: any) {
+      setErrorMessage(err?.message || "Failed to open email client");
+    } finally {
+      setEmailingUserId(null);
+    }
+  };
+
+  const openUserInfoDialog = (user: UserData) => {
+    setUserForInfo(user);
+    setIsUserInfoDialogOpen(true);
   };
 
   const handleCreateUser = async () => {
@@ -555,22 +715,22 @@ const UserManagement = () => {
     try {
       const currentName = selectedUser.raw_user_meta_data?.name || "";
       const currentRoles = selectedUser.raw_user_meta_data?.roles || [];
-      
+
       // Check if roles changed
-      const rolesChanged = 
+      const rolesChanged =
         [...currentRoles].sort().join(",") !== [...editUser.roles].sort().join(",");
-      
+
       // Check if name changed
       const nameChanged = currentName !== editUser.name;
-      
+
       if (!rolesChanged && !nameChanged) {
         setErrorMessage("No changes detected. Please modify the name or roles to update.");
         return;
       }
-      
+
       // Use RPC to update both name and roles in a single call
       const currentMeta = selectedUser.raw_user_meta_data || {};
-      
+
       const payload: Record<string, any> = {
         target_user_id: selectedUser.id,
         new_roles: rolesChanged ? editUser.roles : currentMeta.roles || [],
@@ -585,11 +745,11 @@ const UserManagement = () => {
         setErrorMessage(error.message || "Failed to update user");
         return;
       }
-      
+
       // Update local state with the returned data
       if (data) {
-        setUsers((prev) => prev.map((u) => 
-          u.id === selectedUser.id 
+        setUsers((prev) => prev.map((u) =>
+          u.id === selectedUser.id
             ? { ...u, raw_user_meta_data: data.raw_user_meta_data }
             : u
         ));
@@ -622,7 +782,7 @@ const UserManagement = () => {
       const { error } = await supabase.rpc("delete_user_as_admin", {
         target_user_id: selectedUser.id
       });
-      
+
       if (error) throw error;
 
       setUsers(prev => prev.filter(user => user.id !== selectedUser.id));
@@ -780,9 +940,12 @@ const UserManagement = () => {
                     <TableRow key={user.id} className="hover:bg-gray-50/50">
                       <TableCell>
                         <div className="flex items-center">
-                          <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                          <button
+                            onClick={() => openUserInfoDialog(user)}
+                            className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center hover:opacity-80 transition-opacity cursor-pointer"
+                          >
                             <User className="w-5 h-5 text-white" />
-                          </div>
+                          </button>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
                               {user.raw_user_meta_data?.name || 'No name'}
@@ -826,7 +989,7 @@ const UserManagement = () => {
                         )}
                       </TableCell>
                       <TableCell className="text-sm text-gray-500">
-                        {user.last_sign_in_at 
+                        {user.last_sign_in_at
                           ? new Date(user.last_sign_in_at).toLocaleDateString()
                           : 'Never'
                         }
@@ -840,11 +1003,22 @@ const UserManagement = () => {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuItem 
+                                onClick={() => handleEmailUser(user)}
+                                disabled={emailingUserId === user.id}
+                              >
+                                {emailingUserId === user.id ? (
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                ) : (
+                                  <Mail className="w-4 h-4 mr-2" />
+                                )}
+                                Email User
+                              </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => openEditDialog(user)}>
                                 <Edit3 className="w-4 h-4 mr-2" />
                                 Edit User
                               </DropdownMenuItem>
-                              <DropdownMenuItem 
+                              <DropdownMenuItem
                                 onClick={() => handleSendPasswordReset(user.id, user.email)}
                                 disabled={resettingUserId === user.id}
                               >
@@ -856,7 +1030,7 @@ const UserManagement = () => {
                                 Send Reset Email
                               </DropdownMenuItem>
                               {!user.email_confirmed_at && (
-                                <DropdownMenuItem 
+                                <DropdownMenuItem
                                   onClick={() => handleResendConfirmation(user.id, user.email)}
                                   disabled={resettingUserId === user.id}
                                 >
@@ -870,7 +1044,7 @@ const UserManagement = () => {
                               )}
                               <DropdownMenuSeparator />
                               {user.raw_user_meta_data?.isLocked ? (
-                                <DropdownMenuItem 
+                                <DropdownMenuItem
                                   onClick={() => handleToggleLock(user.id, false)}
                                   disabled={user.id === currentUserId || lockingUserId === user.id}
                                 >
@@ -882,7 +1056,7 @@ const UserManagement = () => {
                                   Unlock Account
                                 </DropdownMenuItem>
                               ) : (
-                                <DropdownMenuItem 
+                                <DropdownMenuItem
                                   onClick={() => handleToggleLock(user.id, true)}
                                   disabled={user.id === currentUserId || lockingUserId === user.id}
                                 >
@@ -895,7 +1069,7 @@ const UserManagement = () => {
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem 
+                              <DropdownMenuItem
                                 onClick={() => openDeleteDialog(user)}
                                 disabled={user.id === currentUserId}
                                 className="text-red-600 focus:text-red-600"
@@ -912,7 +1086,7 @@ const UserManagement = () => {
                 </TableBody>
               </Table>
             </div>
-            
+
             {filteredUsers.length === 0 && (
               <div className="text-center py-12">
                 <div className="text-gray-400 mb-2">No users found</div>
@@ -921,7 +1095,7 @@ const UserManagement = () => {
             )}
 
             {/* Pagination */}
-            {totalPages > 1 && (
+            {filteredUsers.length > 0 && (
               <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}
@@ -983,24 +1157,24 @@ const UserManagement = () => {
                     <Skeleton key={i} className="h-6 rounded-md" />
                   ))
                 ) : (
-                AVAILABLE_ROLES.map((role) => (
-                  <div key={role} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`role-${role}`}
-                      checked={newUser.roles.includes(role)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setNewUser(prev => ({ ...prev, roles: [...prev.roles, role] }));
-                        } else {
-                          setNewUser(prev => ({ ...prev, roles: prev.roles.filter(r => r !== role) }));
-                        }
-                      }}
-                    />
-                    <Label htmlFor={`role-${role}`} className="text-sm font-normal">
-                      {role}
-                    </Label>
-                  </div>
-                ))
+                  AVAILABLE_ROLES.map((role) => (
+                    <div key={role} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`role-${role}`}
+                        checked={newUser.roles.includes(role)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setNewUser(prev => ({ ...prev, roles: [...prev.roles, role] }));
+                          } else {
+                            setNewUser(prev => ({ ...prev, roles: prev.roles.filter(r => r !== role) }));
+                          }
+                        }}
+                      />
+                      <Label htmlFor={`role-${role}`} className="text-sm font-normal">
+                        {role}
+                      </Label>
+                    </div>
+                  ))
                 )}
               </div>
             </div>
@@ -1043,24 +1217,24 @@ const UserManagement = () => {
                     <Skeleton key={i} className="h-6 rounded-md" />
                   ))
                 ) : (
-                AVAILABLE_ROLES.map((role) => (
-                  <div key={role} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`edit-role-${role}`}
-                      checked={editUser.roles.includes(role)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setEditUser(prev => ({ ...prev, roles: [...prev.roles, role] }));
-                        } else {
-                          setEditUser(prev => ({ ...prev, roles: prev.roles.filter(r => r !== role) }));
-                        }
-                      }}
-                    />
-                    <Label htmlFor={`edit-role-${role}`} className="text-sm font-normal">
-                      {role}
-                    </Label>
-                  </div>
-                ))
+                  AVAILABLE_ROLES.map((role) => (
+                    <div key={role} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`edit-role-${role}`}
+                        checked={editUser.roles.includes(role)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setEditUser(prev => ({ ...prev, roles: [...prev.roles, role] }));
+                          } else {
+                            setEditUser(prev => ({ ...prev, roles: prev.roles.filter(r => r !== role) }));
+                          }
+                        }}
+                      />
+                      <Label htmlFor={`edit-role-${role}`} className="text-sm font-normal">
+                        {role}
+                      </Label>
+                    </div>
+                  ))
                 )}
               </div>
             </div>
@@ -1096,8 +1270,8 @@ const UserManagement = () => {
             <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
               Cancel
             </Button>
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               onClick={handleDeleteUser}
               disabled={deletingUserId === selectedUser?.id}
             >
@@ -1116,6 +1290,15 @@ const UserManagement = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* User Info Dialog */}
+      {userForInfo && (
+        <UserInfoDialog
+          user={userForInfo}
+          open={isUserInfoDialogOpen}
+          onOpenChange={setIsUserInfoDialogOpen}
+        />
+      )}
     </div>
   );
 };
