@@ -1,14 +1,13 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { Loader2, Mail, FlaskConical, Microscope, Atom, Brain, ArrowLeft, Lock } from "lucide-react";
+import { Loader2, Mail, FlaskConical, Microscope, Atom, Brain, ArrowLeft } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "../../supabaseClient";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 export function ForgotPasswordForm({}: React.ComponentProps<"div">) {
-  const navigate = useNavigate();
   
   const [email, setEmail] = React.useState("");
   const [loading, setLoading] = React.useState(false);
