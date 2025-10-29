@@ -89,9 +89,11 @@ const ProjectVisualizationPage: React.FC = () => {
   const [manualRules, setManualRules] = useState<string>("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
+  const [rulesFileKey, setRulesFileKey] = useState(0);
+  const [rulesFileName, setRulesFileName] = useState<string | null>(null);
   const [isInferring, setIsInferring] = useState(false);
   const [inferMessage, setInferMessage] = useState<string | null>(null);
-  const [hasInferred, setHasInferred] = useState(false);
+  const [isCreatingNetwork, setIsCreatingNetwork] = useState(false);
   const [isEditInferring, setIsEditInferring] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editNodesText, setEditNodesText] = useState<string>("");
@@ -181,6 +183,7 @@ const ProjectVisualizationPage: React.FC = () => {
     [manualBiomolecules, parseNodesList],
   );
   const hasManualBiomolecules = manualBiomoleculeEntries.length > 0;
+  const canCreateNetwork = manualBiomoleculeEntries.length > 0;
   const isInferDisabled = !selectedFile && !hasManualBiomolecules;
 
   const parseRulesList = useCallback((input: string) => {
@@ -198,7 +201,9 @@ const ProjectVisualizationPage: React.FC = () => {
     setInferMessage(null);
     setIsInferring(false);
     setFileInputKey((prev) => prev + 1);
-    setHasInferred(false);
+    setRulesFileKey((prev) => prev + 1);
+    setRulesFileName(null);
+    setIsCreatingNetwork(false);
   }, []);
 
   useEffect(() => {
@@ -538,6 +543,18 @@ const ProjectVisualizationPage: React.FC = () => {
     }
   }, [parseNodesList]);
 
+  const handleRulesFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    setRulesFileName(file?.name ?? null);
+    if (!file) return;
+    try {
+      const text = await file.text();
+      setManualRules(text.replace(/\r\n/g, "\n").trim());
+    } catch {
+      setInferMessage("Unable to read rules file. Please try a txt or csv formatted list.");
+    }
+  }, []);
+
   const handleInferRules = useCallback(async () => {
     if (isInferDisabled) {
       setInferMessage("Provide biomolecules by uploading a file or pasting them before inferring rules.");
@@ -594,8 +611,7 @@ const ProjectVisualizationPage: React.FC = () => {
 
       setManualBiomolecules(nodes.map((node) => node.label).join(", "));
       setManualRules(rules.join("\n"));
-      setInferMessage(`Generated ${rules.length} rule${rules.length === 1 ? "" : "s"} from ${biomolecules.length} biomolecule${biomolecules.length === 1 ? "" : "s"}.`);
-      setHasInferred(true);
+  setInferMessage(`Generated ${rules.length} rule${rules.length === 1 ? "" : "s"} from ${biomolecules.length} biomolecule${biomolecules.length === 1 ? "" : "s"}.`);
       setNetworkBanner({ type: "success", message: "Network updated from inferred rules." });
       setNetworkRefreshToken((prev) => prev + 1);
     } catch (err: any) {
@@ -613,6 +629,59 @@ const ProjectVisualizationPage: React.FC = () => {
     parseNodesList,
     projectId,
     selectedFile,
+  ]);
+
+  const handleCreateNetwork = useCallback(async () => {
+    if (!projectId) {
+      setInferMessage("Missing project identifier; cannot create network.");
+      return;
+    }
+
+    const biomolecules = manualBiomoleculeEntries.length ? manualBiomoleculeEntries : [];
+    if (!biomolecules.length) {
+      setInferMessage("Add at least one biomolecule before creating a network.");
+      return;
+    }
+
+    const nodes = buildNodesFromNames(biomolecules);
+    const rules = parseRulesList(manualRules);
+    const edges = rules.length ? buildEdgesFromRules(rules, nodes) : sanitizeEdges(nodes);
+    const updatedNetwork = {
+      nodes,
+      edges,
+      rules,
+    };
+
+    try {
+      setIsCreatingNetwork(true);
+      setInferMessage(null);
+      const { error: updateError } = await supabase
+        .from("projects")
+        .update({ network_data: updatedNetwork })
+        .eq("id", projectId);
+
+      if (updateError) throw updateError;
+
+      setNetworkBanner({ type: "success", message: "Network created successfully." });
+      setIsCreateDialogOpen(false);
+      resetCreateNetworkState();
+      setNetworkRefreshToken((prev) => prev + 1);
+    } catch (err: any) {
+      const message = err?.message || "Failed to create network.";
+      setInferMessage(message);
+      setNetworkBanner({ type: "error", message });
+    } finally {
+      setIsCreatingNetwork(false);
+    }
+  }, [
+    buildEdgesFromRules,
+    buildNodesFromNames,
+    manualBiomoleculeEntries,
+    manualRules,
+    parseRulesList,
+    projectId,
+    resetCreateNetworkState,
+    sanitizeEdges,
   ]);
 
   const handlePerformAnalysis = useCallback(async () => {
@@ -781,14 +850,14 @@ const ProjectVisualizationPage: React.FC = () => {
           <div className="flex flex-col h-full px-6 py-6 gap-4">
             {networkBanner && (
               <div
-                className={`flex items-start justify-between rounded-2xl border p-4 backdrop-blur-sm ${networkBanner.type === "success"
+                className={`flex items-center justify-between rounded-2xl border p-4 backdrop-blur-sm ${networkBanner.type === "success"
                   ? "border-green-200 bg-green-50/80 text-green-800"
                   : "border-red-200 bg-red-50/80 text-red-800"
                   }`}
               >
-                <div className="flex items-start gap-3">
+                <div className="flex items-center gap-3">
                   <div
-                    className={`mt-0.5 rounded-full p-2 ${networkBanner.type === "success" ? "bg-green-100" : "bg-red-100"
+                    className={`rounded-full p-2 ${networkBanner.type === "success" ? "bg-green-100" : "bg-red-100"
                       }`}
                   >
                     {networkBanner.type === "success" ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
@@ -841,84 +910,9 @@ const ProjectVisualizationPage: React.FC = () => {
             </div>
 
             {/* ANALYSIS RESULTS - Smaller and scrollable */}
-            {(analysisError || analysisResult) && (
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-lg max-h-64 overflow-y-auto">
-                {analysisError ? (
-                  <div className="text-sm text-red-700">{analysisError}</div>
-                ) : analysisResult ? (
-                  <div className="space-y-5">
-                    <div className="flex flex-wrap gap-4 text-sm text-slate-600">
-                      <span>
-                        <strong className="text-slate-800">Nodes:</strong> {analysisResult.nodeOrder.length}
-                      </span>
-                      <span>
-                        <strong className="text-slate-800">Explored states:</strong> {analysisResult.exploredStateCount}
-                      </span>
-                      <span>
-                        <strong className="text-slate-800">Total space:</strong> {analysisResult.totalStateSpace}
-                      </span>
-                      <span>
-                        <strong className="text-slate-800">Attractors:</strong> {analysisResult.attractors.length}
-                      </span>
-                      {analysisResult.truncated && (
-                        <span className="text-orange-600">State space truncated</span>
-                      )}
-                    </div>
-
-                    {analysisResult.warnings.length > 0 && (
-                      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-                        <p className="font-semibold">Warnings</p>
-                        <ul className="mt-2 list-disc space-y-1 pl-5">
-                          {analysisResult.warnings.map((warning, index) => (
-                            <li key={index}>{warning}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {analysisResult.attractors.length === 0 ? (
-                      <div className="text-sm text-slate-600">No attractors detected in the analyzed subset.</div>
-                    ) : (
-                      <div className="space-y-4">
-                        {analysisResult.attractors.map((attractor) => (
-                          <div
-                            key={attractor.id}
-                            className="rounded-xl border border-slate-200 bg-slate-50 p-4"
-                          >
-                            <div className="flex flex-wrap items-center justify-between gap-3">
-                              <div className="font-semibold text-slate-800">
-                                Attractor {attractor.id + 1} · {attractor.type === "fixed-point" ? "Fixed point" : `Limit cycle (period ${attractor.period})`}
-                              </div>
-                              <div className="text-xs text-slate-600">
-                                Basin size: {attractor.basinSize} · Share: {(attractor.basinShare * 100).toFixed(1)}%
-                              </div>
-                            </div>
-                            <div className="mt-3 space-y-3 text-sm">
-                              {attractor.states.map((state, stateIndex) => (
-                                <div key={stateIndex} className="rounded-lg border border-slate-200 bg-white p-3">
-                                  <div className="flex flex-wrap items-center gap-3">
-                                    <span className="font-medium text-slate-700">State {stateIndex + 1}</span>
-                                    <span className="font-mono text-xs text-slate-500">{state.binary}</span>
-                                  </div>
-                                  <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-600">
-                                    {analysisResult.nodeOrder.map((nodeId) => (
-                                      <span
-                                        key={nodeId}
-                                        className="rounded-md bg-slate-100 px-2 py-1"
-                                      >
-                                        {analysisResult.nodeLabels[nodeId]}: {state.values[nodeId] ?? 0}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ) : null}
+            {analysisError && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-lg">
+                <div className="text-sm text-red-700">{analysisError}</div>
               </div>
             )}
           </div>
@@ -959,6 +953,24 @@ const ProjectVisualizationPage: React.FC = () => {
               />
               {selectedFile && (
                 <p className="text-xs text-gray-500">Selected: {selectedFile.name}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="rules-file" className="text-sm font-medium text-gray-700">
+                Upload rules list (optional)
+              </Label>
+              <Input
+                key={rulesFileKey}
+                id="rules-file"
+                type="file"
+                accept=".csv,.tsv,.txt"
+                onChange={handleRulesFileChange}
+                disabled={isInferring}
+                className="rounded-xl border-2 focus:border-[#2f5597] focus:ring-2 focus:ring-blue-100"
+              />
+              {rulesFileName && (
+                <p className="text-xs text-gray-500">Loaded: {rulesFileName}</p>
               )}
             </div>
 
@@ -1014,24 +1026,34 @@ const ProjectVisualizationPage: React.FC = () => {
           <DialogFooter>
             <Button
               variant="outline"
+              onClick={handleInferRules}
+              disabled={isInferring || isInferDisabled}
+              className="rounded-xl border-gray-300"
+            >
+              {isInferring ? (
+                <span className="flex items-center gap-2"><Loader2 className="animate-spin" size={16} /> Inferring...</span>
+              ) : (
+                "Infer rules"
+              )}
+            </Button>
+            <Button
+              variant="outline"
               onClick={() => setIsCreateDialogOpen(false)}
-              disabled={isInferring}
+              disabled={isInferring || isCreatingNetwork}
               className="rounded-xl border-gray-300"
             >
               Cancel
             </Button>
             <Button
-              onClick={hasInferred ? () => setIsCreateDialogOpen(false) : handleInferRules}
-              disabled={isInferring || (!hasInferred && isInferDisabled)}
+              onClick={handleCreateNetwork}
+              disabled={isCreatingNetwork || !canCreateNetwork}
               className="rounded-xl px-5 py-2 font-semibold text-white shadow-lg transition-transform duration-300 hover:scale-105 active:scale-95 disabled:opacity-70"
               style={{ background: "linear-gradient(135deg, #2f5597 0%, #3b6bc9 100%)" }}
             >
-              {isInferring ? (
-                <span className="flex items-center gap-2"><Loader2 className="animate-spin" size={16} /> Inferring...</span>
-              ) : hasInferred ? (
-                "Close"
+              {isCreatingNetwork ? (
+                <span className="flex items-center gap-2"><Loader2 className="animate-spin" size={16} /> Creating...</span>
               ) : (
-                "Infer rules"
+                "Create network"
               )}
             </Button>
           </DialogFooter>
