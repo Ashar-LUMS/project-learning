@@ -19,7 +19,6 @@ export function ResetPasswordPage({}: React.ComponentProps<"div">) {
   const [isSuccess, setIsSuccess] = React.useState<boolean | null>(null);
   const [activeIcons, setActiveIcons] = React.useState<number[]>([]);
   const [passwordStrength, setPasswordStrength] = React.useState<number>(0);
-  const [isTokenValid, setIsTokenValid] = React.useState<boolean>(false);
   const [debugInfo, setDebugInfo] = React.useState<string>("");
 
   const scienceIcons = [FlaskConical, Microscope, Atom, Brain];
@@ -78,16 +77,14 @@ export function ResetPasswordPage({}: React.ComponentProps<"div">) {
 
         console.log('✅ Token exchange successful:', data);
         setDebugInfo(prev => prev + " - Token exchange successful!");
-        setIsTokenValid(true);
         setMessage(null);
         
       } catch (error: any) {
         console.error('❌ Reset initialization failed:', error);
         setDebugInfo(prev => prev + ` - Failed: ${error.message}`);
         
-        // Try alternative approach - sometimes the token works directly without exchange
-        console.log('🔄 Trying direct password update approach...');
-        setIsTokenValid(true); // Let the user try anyway
+        // Let the user try anyway - sometimes it works without exchange
+        console.log('🔄 Allowing password update attempt...');
         setMessage("Note: You can try setting your new password. If it fails, please request a new reset link.");
         
       } finally {
