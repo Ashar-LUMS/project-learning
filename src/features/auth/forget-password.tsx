@@ -7,8 +7,8 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "../../supabaseClient";
 import { Link } from "react-router-dom";
 
-export function ForgotPasswordForm({}: React.ComponentProps<"div">) {
-  
+export function ForgotPasswordForm({ }: React.ComponentProps<"div">) {
+
   const [email, setEmail] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [message, setMessage] = React.useState<string | null>(null);
@@ -29,29 +29,29 @@ export function ForgotPasswordForm({}: React.ComponentProps<"div">) {
   }, []);
 
   const handlePasswordReset = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setLoading(true);
-  setMessage(null);
+    e.preventDefault();
+    setLoading(true);
+    setMessage(null);
 
-  try {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `https://project-learning-sigma.vercel.app/reset-password`,
+      });
 
-    if (error) {
-      throw error;
+      if (error) {
+        throw error;
+      }
+
+      setMessage("If an account with this email exists, a password reset link has been sent.");
+      setIsSuccess(true);
+      setEmail("");
+    } catch (error: any) {
+      setMessage(error.message || "An error occurred while sending reset email.");
+      setIsSuccess(false);
+    } finally {
+      setLoading(false);
     }
-
-    setMessage("If an account with this email exists, a password reset link has been sent.");
-    setIsSuccess(true);
-    setEmail(""); // Clear email on success
-  } catch (error: any) {
-    setMessage(error.message || "An error occurred while sending reset email.");
-    setIsSuccess(false);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
   return (
     <section className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 relative overflow-hidden">
       {/* Background elements with responsive sizing */}
@@ -91,7 +91,7 @@ export function ForgotPasswordForm({}: React.ComponentProps<"div">) {
 
           {/* Responsive card container - matching login card size */}
           <div className="w-full flex justify-center">
-            <Card 
+            <Card
               className="w-full max-w-full sm:max-w-md backdrop-blur-sm bg-white/95 shadow-2xl border-0 mx-2 sm:mx-0"
               style={{
                 boxShadow: '0 20px 40px rgba(47, 85, 151, 0.15)',
@@ -99,8 +99,8 @@ export function ForgotPasswordForm({}: React.ComponentProps<"div">) {
             >
               <CardHeader className="text-center space-y-2 sm:space-y-3 pb-3 sm:pb-4 px-4 sm:px-6">
                 <div className="flex items-center justify-start mb-2">
-                  <Link 
-                    to="/" 
+                  <Link
+                    to="/"
                     className="inline-flex items-center gap-1 text-[#2f5597] hover:text-blue-700 transition-colors text-sm"
                   >
                     <ArrowLeft size={14} />
@@ -114,7 +114,7 @@ export function ForgotPasswordForm({}: React.ComponentProps<"div">) {
                   Enter your email and we'll send you a link to reset your password.
                 </CardDescription>
               </CardHeader>
-              
+
               <CardContent className="space-y-4 sm:space-y-6 px-4 sm:px-6 pb-4 sm:pb-6">
                 <form onSubmit={handlePasswordReset} className="space-y-4 sm:space-y-5" noValidate>
                   <div className="space-y-2 sm:space-y-3">
@@ -136,21 +136,20 @@ export function ForgotPasswordForm({}: React.ComponentProps<"div">) {
                   </div>
 
                   {message && (
-                    <div 
-                      className={`p-2 sm:p-3 rounded-lg text-xs sm:text-sm animate-fade-in ${
-                        isSuccess 
-                          ? "bg-green-50 border border-green-200 text-green-700" 
+                    <div
+                      className={`p-2 sm:p-3 rounded-lg text-xs sm:text-sm animate-fade-in ${isSuccess
+                          ? "bg-green-50 border border-green-200 text-green-700"
                           : "bg-red-50 border border-red-200 text-red-700 animate-shake"
-                      }`}
-                      role="alert" 
+                        }`}
+                      role="alert"
                       aria-live="polite"
                     >
                       {message}
                     </div>
                   )}
 
-                  <Button 
-                    type="submit" 
+                  <Button
+                    type="submit"
                     className="w-full h-10 sm:h-12 text-sm sm:text-base rounded-lg sm:rounded-xl font-semibold text-white transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl"
                     disabled={loading}
                     style={{
@@ -174,8 +173,8 @@ export function ForgotPasswordForm({}: React.ComponentProps<"div">) {
                 {/* Responsive login link */}
                 <div className="text-gray-600 flex justify-center gap-2 text-xs sm:text-sm bg-white/50 backdrop-blur-sm rounded-full px-4 py-2 sm:px-6 sm:py-3 border border-white/20 mt-2">
                   <p>Remembered your password?</p>
-                  <Link 
-                    to="/" 
+                  <Link
+                    to="/"
                     className="text-[#2f5597] font-semibold hover:text-blue-700 transition-all duration-200"
                   >
                     Back to login
