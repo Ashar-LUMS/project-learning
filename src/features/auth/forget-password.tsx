@@ -29,29 +29,29 @@ export function ForgotPasswordForm({ }: React.ComponentProps<"div">) {
   }, []);
 
   const handlePasswordReset = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setMessage(null);
+  e.preventDefault();
+  setLoading(true);
+  setMessage(null);
 
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `https://project-learning-sigma.vercel.app/reset-password`,
-      });
+  try {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `https://project-learning-sigma.vercel.app/reset-password`,
+    });
 
-      if (error) {
-        throw error;
-      }
-
-      setMessage("If an account with this email exists, a password reset link has been sent.");
-      setIsSuccess(true);
-      setEmail("");
-    } catch (error: any) {
-      setMessage(error.message || "An error occurred while sending reset email.");
-      setIsSuccess(false);
-    } finally {
-      setLoading(false);
+    if (error) {
+      throw error;
     }
-  };
+
+    setMessage("If an account with this email exists, a password reset link has been sent. Check your email inbox.");
+    setIsSuccess(true);
+    setEmail("");
+  } catch (error: any) {
+    setMessage(error.message || "An error occurred while sending reset email.");
+    setIsSuccess(false);
+  } finally {
+    setLoading(false);
+  }
+};
   return (
     <section className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 relative overflow-hidden">
       {/* Background elements with responsive sizing */}
