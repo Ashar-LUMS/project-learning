@@ -17,6 +17,7 @@ import { UserProfile } from "./features/profile/Profile";
 import { AdminSettings } from "./features/admin/AdminSetting";
 import ProjectManagement from "./features/admin/AdminProjectManagement";
 import ProjectVisualizationPage from "./features/home/ProjectVisualizationPage";
+import { ResetPasswordPage } from "./features/auth/reset-password";
 
 const router = createBrowserRouter([
   {
@@ -37,7 +38,7 @@ const router = createBrowserRouter([
   },
   {
     path: "/reset-password",
-    element: <ForgotPasswordForm />,
+    element: <ResetPasswordPage />,
   },
   {
     path: "/app",
