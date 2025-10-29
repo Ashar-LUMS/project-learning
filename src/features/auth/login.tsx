@@ -8,6 +8,7 @@ import { Loader2, Eye, EyeOff } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 import { Link } from "react-router-dom";
 import { supabase } from '../../supabaseClient.ts';
+import { extractIsLocked, storeLockStatus } from "../../lib/sessionLock";
 
 const loginSchema = z.object({
   email: z.string().email({
@@ -95,9 +96,14 @@ const Login = ({
         setIsSubmitting(false);
         return;
       } else if (data.user) {
-        console.log("Login successful!", data);
-        navigate('/app');
+        const locked = extractIsLocked(data.user) ?? false;
+        storeLockStatus(locked);
         setIsSubmitting(false);
+        if (locked) {
+          navigate('/app/locked');
+        } else {
+          navigate('/app');
+        }
       }
     } else {
       const fieldErrors: { email?: string; password?: string } = {};

@@ -15,6 +15,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AuthDebug } from "../components/auth-debug";
 import { loadAdminSettings } from "../config/adminSettings";
+import {
+  extractIsLocked,
+  readStoredLockStatus,
+  storeLockStatus,
+  clearStoredLockStatus,
+} from "../lib/sessionLock";
 
 const AppLayout = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -32,8 +38,8 @@ const AppLayout = () => {
   // Fetch user data
   useEffect(() => {
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user || null);
     };
     getUser();
 
@@ -61,26 +67,52 @@ const AppLayout = () => {
   // Fetch user metadata to determine lock status
   useEffect(() => {
     let cancelled = false;
-    const check = async () => {
-      setCheckingLock(true);
-      const { data: { user } } = await supabase.auth.getUser();
+
+    const applyLockState = (lockedValue: boolean | null) => {
       if (cancelled) return;
-      const locked = !!(user?.user_metadata?.isLocked || user?.user_metadata?.is_locked);
-      setIsLocked(locked);
+      setIsLocked(lockedValue);
       setCheckingLock(false);
-      if (locked && !location.pathname.endsWith('/locked')) {
+      if (lockedValue && !location.pathname.endsWith('/locked')) {
         navigate('/app/locked', { replace: true });
+      } else if (lockedValue === false && location.pathname.endsWith('/locked')) {
+        navigate('/app', { replace: true });
       }
     };
-    check();
+
+    const bootstrap = async () => {
+      setCheckingLock(true);
+      const stored = readStoredLockStatus();
+      if (stored !== null) {
+        applyLockState(stored);
+        return;
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (cancelled) return;
+      const locked = extractIsLocked(session?.user);
+      if (locked === null) {
+        clearStoredLockStatus();
+        applyLockState(null);
+      } else {
+        storeLockStatus(locked);
+        applyLockState(locked);
+      }
+    };
+
+    bootstrap();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      const u = session?.user;
-      const locked = !!(u?.user_metadata?.isLocked || u?.user_metadata?.is_locked);
-      setIsLocked(locked);
-      if (locked && !location.pathname.endsWith('/locked')) {
-        navigate('/app/locked', { replace: true });
+      if (cancelled) return;
+      const locked = extractIsLocked(session?.user);
+      if (locked === null) {
+        clearStoredLockStatus();
+        applyLockState(null);
+      } else {
+        storeLockStatus(locked);
+        applyLockState(locked);
       }
     });
+
     return () => { cancelled = true; subscription.unsubscribe(); };
   }, [navigate, location.pathname]);
 
@@ -134,6 +166,7 @@ const AppLayout = () => {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    clearStoredLockStatus();
     navigate("/");
   };
 

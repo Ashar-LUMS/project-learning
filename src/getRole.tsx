@@ -1,5 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { supabase } from "./supabaseClient";
+import {
+  extractIsLocked,
+  readStoredLockStatus,
+  storeLockStatus,
+  clearStoredLockStatus,
+} from "./lib/sessionLock";
 
 // Type for custom claims from app_metadata
 interface AppMetadataClaims {
@@ -30,7 +36,7 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLocked, setIsLocked] = useState<boolean | null>(null);
 
   // Derive roles as a union of app_metadata.claims.roles and user_metadata.roles (handles string / JSON / array)
-  const deriveRoles = (user: any): string[] | null => {
+  const deriveRoles = useCallback((user: any): string[] | null => {
     if (!user) return null;
     const rolesFromClaimsRaw = (user.app_metadata?.claims as AppMetadataClaims | undefined)?.roles;
     const rolesFromClaims = Array.isArray(rolesFromClaimsRaw) ? rolesFromClaimsRaw : [];
@@ -51,33 +57,56 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const combined = Array.from(new Set([...rolesFromClaims, ...rolesFromUserMeta])).filter(Boolean);
     return combined.length > 0 ? combined : null;
-  };
+  }, []);
 
   const refreshRoles = useCallback(async () => {
     setIsLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     setRoles(deriveRoles(user));
-    setIsLocked(!!(user?.user_metadata?.isLocked || user?.user_metadata?.is_locked));
+    const locked = extractIsLocked(user);
+    if (locked === null) {
+      clearStoredLockStatus();
+    } else {
+      storeLockStatus(locked);
+    }
+    setIsLocked(locked);
     setIsLoading(false);
-  }, []);
+  }, [deriveRoles]);
 
   useEffect(() => {
     const initializeAuth = async () => {
       setIsLoading(true);
       
-      // First check for existing session
-      const { data: { session } } = await supabase.auth.getSession();
-      const user = session?.user;
+  const storedLock = readStoredLockStatus();
+      if (storedLock !== null) {
+        setIsLocked(storedLock);
+      }
+
+  // First check for existing session
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
       
       if (!user) {
         setRoles(null);
         setIsLocked(null);
+        clearStoredLockStatus();
         setIsLoading(false);
         return;
       }
 
       setRoles(deriveRoles(user));
-      setIsLocked(!!(user?.user_metadata?.isLocked || user?.user_metadata?.is_locked));
+      const locked = extractIsLocked(user);
+      if (locked === null) {
+        if (storedLock !== null) {
+          setIsLocked(storedLock);
+        } else {
+          setIsLocked(null);
+        }
+      } else {
+        storeLockStatus(locked);
+        setIsLocked(locked);
+      }
       setIsLoading(false);
     };
     
@@ -88,14 +117,22 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (event === 'SIGNED_OUT' || !session) {
         setRoles(null);
         setIsLocked(null);
+        clearStoredLockStatus();
         setIsLoading(false);
         return;
       }
-      
+
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         const user = session.user;
         setRoles(deriveRoles(user));
-        setIsLocked(!!(user?.user_metadata?.isLocked || user?.user_metadata?.is_locked));
+        const locked = extractIsLocked(user);
+        if (locked === null) {
+          clearStoredLockStatus();
+          setIsLocked(null);
+        } else {
+          storeLockStatus(locked);
+          setIsLocked(locked);
+        }
         setIsLoading(false);
       }
     });

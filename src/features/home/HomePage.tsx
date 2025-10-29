@@ -427,9 +427,11 @@ const HomePage: React.FC = () => {
     });
   }, [displayedProjects, currentUserId, currentUserEmail]);
 
+  const hasCreateSearch = useMemo(() => createTeamSearch.trim().length > 0, [createTeamSearch]);
+
   const filteredUsersForCreate = useMemo(() => {
     const q = createTeamSearch.trim().toLowerCase();
-    if (!q) return users;
+    if (!q) return [];
     return users.filter(u => (u.name || u.email || "").toLowerCase().includes(q));
   }, [users, createTeamSearch]);
 
@@ -888,29 +890,39 @@ const HomePage: React.FC = () => {
                       onChange={(e) => setCreateTeamSearch(e.target.value)} 
                     />
                   </div>
-                  {(!usersError && filteredUsersForCreate.length > 0) ? (
-                    <div className="max-h-60 overflow-auto border rounded-xl divide-y">
-                      {filteredUsersForCreate.map(u => (
-                        <label key={u.id} className={`flex items-center gap-3 py-3 px-4 hover:bg-gray-50 cursor-pointer`}>
-                          <input 
-                            type="checkbox" 
-                            checked={selectedAssigneeIds.has(u.id)} 
-                            onChange={() => toggleAssignee(u.id, setSelectedAssigneeIds)} 
-                            className="rounded border-gray-300 text-[#2f5597] focus:ring-[#2f5597]"
-                          />
-                          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#2f5597] to-[#3b6bc9] flex items-center justify-center text-white text-sm font-medium">
-                            {(u.name || u.email || '?').charAt(0).toUpperCase()}
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-sm font-medium text-gray-900">{u.name || 'Unnamed User'}</span>
-                            <span className="text-xs text-gray-500">{u.email || 'No email'}</span>
-                          </div>
-                        </label>
-                      ))}
+                  {usersError ? (
+                    <div className="p-4 text-sm text-gray-600 border rounded-xl bg-gray-50">
+                      Unable to load other users. You can still create the project; you will be the sole assignee.
                     </div>
+                  ) : hasCreateSearch ? (
+                    filteredUsersForCreate.length > 0 ? (
+                      <div className="max-h-60 overflow-auto border rounded-xl divide-y">
+                        {filteredUsersForCreate.map(u => (
+                          <label key={u.id} className="flex items-center gap-3 py-3 px-4 hover:bg-gray-50 cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              checked={selectedAssigneeIds.has(u.id)} 
+                              onChange={() => toggleAssignee(u.id, setSelectedAssigneeIds)} 
+                              className="rounded border-gray-300 text-[#2f5597] focus:ring-[#2f5597]"
+                            />
+                            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#2f5597] to-[#3b6bc9] flex items-center justify-center text-white text-sm font-medium">
+                              {(u.name || u.email || '?').charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium text-gray-900">{u.name || 'Unnamed User'}</span>
+                              <span className="text-xs text-gray-500">{u.email || 'No email'}</span>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-4 text-sm text-gray-600 border rounded-xl bg-gray-50">
+                        No users found for "{createTeamSearch.trim()}".
+                      </div>
+                    )
                   ) : (
                     <div className="p-4 text-sm text-gray-600 border rounded-xl bg-gray-50">
-                      {usersError ? 'Unable to load other users. You can still create the project; you will be the sole assignee.' : 'No other users found. You will be the sole assignee.'}
+                      Start typing a name or email to search for team members.
                     </div>
                   )}
                 </>
