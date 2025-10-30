@@ -18,6 +18,9 @@ import { AdminSettings } from "./features/admin/AdminSetting";
 import ProjectManagement from "./features/admin/AdminProjectManagement";
 import ProjectVisualizationPage from "./features/home/ProjectVisualizationPage";
 import { ResetPasswordPage } from "./features/auth/reset-password";
+import NetworkEditorPage from "./features/networkeditor/NetworkEditorPage";
+import NetworkEditorLayout from "./features/networkeditor/layout/NetworkEditorLayout";
+import ProjectTab from "./features/networkeditor/tabs/ProjectTab";
 
 const router = createBrowserRouter([
   {
@@ -48,10 +51,22 @@ const router = createBrowserRouter([
         index: true,
         element: <HomePage />,
       },
-      {
-        path: "projects/:projectId",
-        element: <ProjectVisualizationPage />,
-      },
+    {
+  path: "network-editor",
+  element: <NetworkEditorPage />,
+},
+{
+  path: "network-editor/:tab?",
+  element: <NetworkEditorPage />,
+},
+{
+  path: "network-editor/:tab/:projectId?",
+  element: <NetworkEditorPage />,
+},
+{
+  path: "projects/:projectId",
+  element: <ProjectVisualizationPage />, // Keep your existing route
+},
       {
         path: "services",
         element: <ServicesPage />,
