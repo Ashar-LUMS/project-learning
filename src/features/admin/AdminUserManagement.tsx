@@ -463,6 +463,9 @@ const UserManagement = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isUserInfoDialogOpen, setIsUserInfoDialogOpen] = useState(false);
+  const [isLockDialogOpen, setIsLockDialogOpen] = useState(false);
+  const [lockTargetUser, setLockTargetUser] = useState<UserData | null>(null);
+  const [lockAction, setLockAction] = useState<'lock' | 'unlock' | null>(null);
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [userForInfo, setUserForInfo] = useState<UserData | null>(null);
 
@@ -607,22 +610,27 @@ const UserManagement = () => {
     }
   }, [users]);
 
-  const handleToggleLock = async (userId: string, lock: boolean) => {
-    if (userId === currentUserId) {
+  const handleToggleLock = (user: UserData, lock: boolean) => {
+    if (user.id === currentUserId) {
       setErrorMessage("You cannot lock/unlock your own account.");
       return;
     }
+    setLockTargetUser(user);
+    setLockAction(lock ? 'lock' : 'unlock');
+    setIsLockDialogOpen(true);
+  };
 
-    const ok = window.confirm(`Are you sure you want to ${lock ? 'lock' : 'unlock'} this user?`);
-    if (!ok) return;
-
+  const handleConfirmLock = async () => {
+    if (!lockTargetUser || !lockAction) return;
     try {
-      setLockingUserId(userId);
-      await handleUpdateUserMeta(userId, { isLocked: lock });
-      setLockingUserId(null);
+      setLockingUserId(lockTargetUser.id);
+      await handleUpdateUserMeta(lockTargetUser.id, { isLocked: lockAction === 'lock' });
+      setIsLockDialogOpen(false);
+      setLockTargetUser(null);
+      setLockAction(null);
     } catch (err) {
-      console.error("Error updating lock status:", err);
       setErrorMessage("Failed to update user status");
+    } finally {
       setLockingUserId(null);
     }
   };
@@ -1048,8 +1056,9 @@ const UserManagement = () => {
                               <DropdownMenuSeparator />
                               {user.raw_user_meta_data?.isLocked ? (
                                 <DropdownMenuItem
-                                  onClick={() => handleToggleLock(user.id, false)}
+                                  onSelect={e => { e.preventDefault(); handleToggleLock(user, false); }}
                                   disabled={user.id === currentUserId || lockingUserId === user.id}
+                                  className="text-red-600 focus:text-red-600"
                                 >
                                   {lockingUserId === user.id ? (
                                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -1060,8 +1069,9 @@ const UserManagement = () => {
                                 </DropdownMenuItem>
                               ) : (
                                 <DropdownMenuItem
-                                  onClick={() => handleToggleLock(user.id, true)}
+                                  onSelect={e => { e.preventDefault(); handleToggleLock(user, true); }}
                                   disabled={user.id === currentUserId || lockingUserId === user.id}
+                                  className="text-red-600 focus:text-red-600"
                                 >
                                   {lockingUserId === user.id ? (
                                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -1071,6 +1081,57 @@ const UserManagement = () => {
                                   Lock Account
                                 </DropdownMenuItem>
                               )}
+      {/* Lock/Unlock User Dialog */}
+      <Dialog open={isLockDialogOpen} onOpenChange={setIsLockDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              {lockAction === 'lock' ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
+              {lockAction === 'lock' ? 'Lock Account' : 'Unlock Account'}
+            </DialogTitle>
+            <DialogDescription>
+              {lockAction === 'lock' ? (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800 space-y-2">
+                  <div>
+                    Are you sure you want to <b>lock</b> this user account?
+                  </div>
+                  <ul className="list-disc list-inside text-sm space-y-1">
+                    <li>The user will be unable to sign in until unlocked.</li>
+                    <li>This action can be reversed by unlocking the account.</li>
+                  </ul>
+                </div>
+              ) : (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-800">
+                  Are you sure you want to <b>unlock</b> this user account?
+                </div>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsLockDialogOpen(false)} disabled={lockingUserId === lockTargetUser?.id}>
+              Cancel
+            </Button>
+            <Button
+              variant={lockAction === 'lock' ? 'destructive' : 'default'}
+              onClick={handleConfirmLock}
+              disabled={lockingUserId === lockTargetUser?.id}
+              className={lockAction === 'lock' ? 'bg-red-600 hover:bg-red-700 text-white' : ''}
+            >
+              {lockingUserId === lockTargetUser?.id ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {lockAction === 'lock' ? 'Locking...' : 'Unlocking...'}
+                </>
+              ) : (
+                <>
+                  {lockAction === 'lock' ? <Lock className="w-4 h-4 mr-2" /> : <Unlock className="w-4 h-4 mr-2" />}
+                  {lockAction === 'lock' ? 'Lock Account' : 'Unlock Account'}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 onClick={() => openDeleteDialog(user)}
