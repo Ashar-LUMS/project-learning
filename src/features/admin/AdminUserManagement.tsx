@@ -3,7 +3,7 @@ import { supabase } from "../../supabaseClient";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card";
+import { Card, CardContent, CardHeader, CardDescription } from "../../components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
@@ -514,13 +514,14 @@ const UserManagement = () => {
     const fetchUsers = async () => {
       setLoading(true);
       setErrorMessage(null);
-      try {
+        try {
         const { data, error } = await supabase.rpc("get_users_as_admin");
         if (error) throw error;
-        const filteredUsers = data?.filter((user: UserData) => user.id !== currentUserId) || [];
+        // Do not filter out the current user — show everyone, but keep actions disabled for current user
+        const fetchedUsers = (data as UserData[]) || [];
         if (isMounted) {
-          setUsers(filteredUsers);
-          setFilteredUsers(filteredUsers);
+          setUsers(fetchedUsers);
+          setFilteredUsers(fetchedUsers);
         }
       } catch (err: any) {
         if (isMounted) setErrorMessage(err?.message ?? "Failed to load users");
@@ -852,7 +853,7 @@ const UserManagement = () => {
 
       {/* Filters Card */}
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="pt-2">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -917,7 +918,6 @@ const UserManagement = () => {
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle>Users</CardTitle>
             <CardDescription>
               Showing {Math.min(totalItems, startIndex + 1)}-{Math.min(endIndex, totalItems)} of {totalItems} users
             </CardDescription>
@@ -949,6 +949,9 @@ const UserManagement = () => {
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
                               {user.raw_user_meta_data?.name || 'No name'}
+                              {currentUserId && user.id === currentUserId && (
+                                <span className="ml-2 text-s text-muted-foreground">(You)</span>
+                              )}
                             </div>
                             <div className="text-sm text-gray-500 flex items-center">
                               <Mail className="w-3 h-3 mr-1" />

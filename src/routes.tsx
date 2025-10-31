@@ -15,11 +15,11 @@ import AdminDashboard from "./features/admin/AdminStats";
 import RoleManagement from "./features/admin/AdminRoleManagement";
 import { UserProfile } from "./features/profile/Profile";
 import { AdminSettings } from "./features/admin/AdminSetting";
-import ProjectManagement from "./features/admin/AdminProjectManagement";
 import { ResetPasswordPage } from "./features/auth/reset-password";
 import NetworkEditorPage from "./features/NetworkEditor/NetworkEditorPage";
 import NetworkGraph from "./features/NetworkEditor/NetworkGraph";
 import ProjectVisualizationPage from "./features/NetworkEditor/ProjectVisualizationPage";
+import AdminProjectManagement from "./features/admin/AdminProjectManagement";
 
 
 const router = createBrowserRouter([
@@ -44,60 +44,60 @@ const router = createBrowserRouter([
     element: <ResetPasswordPage />,
   },
   {
-  path: "/app",
-  element: <AppLayout />,
-  children: [
-    {
-      index: true,
-      element: <HomePage />,
-    },
-    {
-      path: "projects/:projectId",
-      element: <ProjectVisualizationPage />,
-    },
-    {
-      path: "network-editor",
-      element: <NetworkEditorPage />,
-      children: [
-        {
-          path: "graph",
-          element: <NetworkGraph />,
-        },
-      ],
-    },
-    {
-      path: "services",
-      element: <ServicesPage />,
-    },
-    {
-      path: "access-denied",
-      element: <AccessDenied />,
-    },
-    {
-      path: "locked",
-      element: <UserLocked />,
-    },
-    {
-      path: "user-profile",
-      element: <UserProfile />,
-    },
-    {
-      path: "admin",
-      element: (
-        <RequireAdmin>
-          <AdminPanel />
-        </RequireAdmin>
-      ),
-      children: [
-        { index: true, element: <AdminDashboard /> },
-        { path: "users", element: <UserManagement /> },
-        { path: "role-management", element: <RoleManagement /> },
-        { path: "settings", element: <AdminSettings /> },
-        { path: "project-management", element: <ProjectManagement /> },
-      ],
-    },
-  ],
-},
+    path: "/app",
+    element: <AppLayout />,
+    children: [
+      {
+        index: true,
+        element: <HomePage />,
+      },
+      {
+        path: "projects/:projectId",
+        element: <ProjectVisualizationPage />,
+      },
+      {
+        path: "network-editor",
+        element: <NetworkEditorPage />,
+        children: [
+          {
+            path: "graph",
+            element: <NetworkGraph />,
+          },
+        ],
+      },
+      {
+        path: "services",
+        element: <ServicesPage />,
+      },
+      {
+        path: "access-denied",
+        element: <AccessDenied />,
+      },
+      {
+        path: "locked",
+        element: <UserLocked />,
+      },
+      {
+        path: "user-profile",
+        element: <UserProfile />,
+      },
+      {
+        path: "admin",
+        element: (
+          <RequireAdmin>
+            <AdminPanel />
+          </RequireAdmin>
+        ),
+        children: [
+          { index: true, element: <AdminDashboard /> },
+          { path: "users", element: <UserManagement /> },
+          { path: "role-management", element: <RoleManagement /> },
+          { path: "settings", element: <AdminSettings /> },
+          { path: "project-management", element: <AdminProjectManagement /> },
+        ],
+      },
+    ],
+  },
 
 ]);
 
