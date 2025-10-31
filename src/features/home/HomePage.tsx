@@ -428,25 +428,6 @@ const HomePage: React.FC = () => {
     }
   }, [generalAttrs.language, generalAttrs.timezone]);
 
-  const createdByMe = useMemo(() => {
-    const meId = currentUserId;
-    const meEmail = (currentUserEmail || '').toLowerCase();
-    return displayedProjects.filter(p => {
-      if (meId && p.created_by) return p.created_by === meId;
-      if (p.creator_email && meEmail) return p.creator_email.toLowerCase() === meEmail;
-      return false;
-    });
-  }, [displayedProjects, currentUserId, currentUserEmail]);
-
-  const createdByOthers = useMemo(() => {
-    const meId = currentUserId;
-    const meEmail = (currentUserEmail || '').toLowerCase();
-    return displayedProjects.filter(p => {
-      const byMe = (meId && p.created_by === meId) || (p.creator_email && meEmail && p.creator_email.toLowerCase() === meEmail);
-      return !byMe;
-    });
-  }, [displayedProjects, currentUserId, currentUserEmail]);
-
   const hasCreateSearch = useMemo(() => createTeamSearch.trim().length > 0, [createTeamSearch]);
 
   const filteredUsersForCreate = useMemo(() => {
@@ -522,7 +503,7 @@ const HomePage: React.FC = () => {
                 className={`px-4 py-2 text-sm font-medium transition-all border-l ${projectTab === 'other' ? 'bg-[#2f5597] text-white shadow-md' : 'text-[#4b5563] hover:text-gray-900'}`}
                 onClick={() => setProjectTab('other')}
               >
-                Other
+                Shared
               </button>
             </div>
           </div>

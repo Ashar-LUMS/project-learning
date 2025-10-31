@@ -3,6 +3,11 @@ import NetworkEditorLayout from './layout';
 import ProjectTabComponent from './tabs/ProjectTab';
 import NetworkGraph from './NetworkGraph';
 import { supabase } from '../../supabaseClient';
+import { Card, CardContent } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 
 type Network = {
   id: string;
@@ -106,6 +111,33 @@ export default function NetworkEditorPage() {
     };
   }, [selectedProjectId]);
 
+  const renderNetworkSelector = () => (
+    <div className="space-y-2">
+      <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+        Select Network
+      </label>
+      <Select value={selectedNetworkId || ''} onValueChange={setSelectedNetworkId}>
+        <SelectTrigger className="w-80">
+          <SelectValue placeholder="Choose a network..." />
+        </SelectTrigger>
+        <SelectContent>
+          {networks.map((network) => (
+            <SelectItem key={network.id} value={network.id}>
+              <div className="flex items-center justify-between w-full">
+                <span className="font-medium">{network.name}</span>
+                {network.created_at && (
+                  <Badge variant="secondary" className="ml-2 text-xs">
+                    {new Date(network.created_at).toLocaleDateString()}
+                  </Badge>
+                )}
+              </div>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+
   const renderMainContent = () => {
     switch (activeTab) {
       case 'projects':
@@ -119,43 +151,92 @@ export default function NetworkEditorPage() {
         return (
           <div className="h-full p-6">
             {selectedProjectId ? (
-              <div className="flex flex-col h-full">
-                <div className="mb-4">
-                  <select 
-                    className="w-64 p-2 border rounded-md bg-background"
-                    value={selectedNetworkId || ''}
-                    onChange={(e) => setSelectedNetworkId(e.target.value)}
-                  >
-                    <option value="">Select a network</option>
-                    {networks.map(network => (
-                      <option key={network.id} value={network.id}>
-                        {network.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div className="flex flex-col h-full space-y-6">
+                {renderNetworkSelector()}
+                
                 {isLoadingNetworks ? (
-                  <div className="flex flex-1 items-center justify-center text-muted-foreground">
-                    Loading networks...
-                  </div>
+                  <Card className="flex-1">
+                    <CardContent className="flex items-center justify-center h-full p-8">
+                      <div className="space-y-4 text-center">
+                        <Skeleton className="h-8 w-48 mx-auto" />
+                        <Skeleton className="h-4 w-64 mx-auto" />
+                        <Skeleton className="h-32 w-full max-w-2xl mx-auto" />
+                      </div>
+                    </CardContent>
+                  </Card>
                 ) : networksError ? (
-                  <div className="flex flex-1 items-center justify-center text-sm text-destructive">
-                    {networksError}
-                  </div>
+                  <Alert variant="destructive">
+                    <AlertDescription className="flex items-center justify-center py-8">
+                      <div className="text-center">
+                        <p className="font-semibold mb-2">Unable to load networks</p>
+                        <p className="text-sm opacity-90">{networksError}</p>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
                 ) : selectedNetworkId ? (
-                  <div className="flex-1">
-                    <NetworkGraph networkId={selectedNetworkId} />
-                  </div>
+                  <Card className="flex-1">
+                    <CardContent className="p-6 h-full">
+                      <NetworkGraph networkId={selectedNetworkId} />
+                    </CardContent>
+                  </Card>
                 ) : (
-                  <div className="flex items-center justify-center flex-1 text-muted-foreground">
-                    Please select a network to view
-                  </div>
+                  <Card className="flex-1">
+                    <CardContent className="flex flex-col items-center justify-center h-full p-8 text-center">
+                      <div className="max-w-md space-y-4">
+                        <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto">
+                          <svg 
+                            className="w-8 h-8 text-muted-foreground" 
+                            fill="none" 
+                            stroke="currentColor" 
+                            viewBox="0 0 24 24"
+                          >
+                            <path 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round" 
+                              strokeWidth={1.5} 
+                              d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" 
+                            />
+                          </svg>
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-semibold mb-2">No Network Selected</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Choose a network from the dropdown above to visualize and analyze your network structure.
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 )}
               </div>
             ) : (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
-                Please select a project from the Projects tab to view networks
-              </div>
+              <Card className="h-full">
+                <CardContent className="flex flex-col items-center justify-center h-full p-8 text-center">
+                  <div className="max-w-md space-y-4">
+                    <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto">
+                      <svg 
+                        className="w-8 h-8 text-muted-foreground" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path 
+                          strokeLinecap="round" 
+                          strokeLinejoin="round" 
+                          strokeWidth={1.5} 
+                          d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" 
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold mb-2">Project Required</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Please select a project from the Projects tab to access and manage your networks.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             )}
           </div>
         );
@@ -165,9 +246,38 @@ export default function NetworkEditorPage() {
       case 'results':
         return (
           <div className="h-full p-6">
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} workspace - Coming soon
-            </div>
+            <Card className="h-full">
+              <CardContent className="flex flex-col items-center justify-center h-full p-8 text-center">
+                <div className="max-w-md space-y-4">
+                  <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                    <svg 
+                      className="w-8 h-8 text-primary" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round" 
+                        strokeWidth={1.5} 
+                        d="M13 10V3L4 14h7v7l9-11h-7z" 
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2 capitalize">
+                      {activeTab} Workspace
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      The {activeTab} module is currently under development and will be available soon.
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="text-xs">
+                    Coming Soon
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         );
 
