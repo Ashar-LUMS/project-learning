@@ -156,7 +156,7 @@ const Login = ({
                   </CardTitle>
                 </div>
                 <CardDescription className="text-gray-600 text-xs sm:text-sm leading-relaxed">
-                  Welcome back. Please sign in to access advanced cancer modeling tools.
+                  Welcome back
                 </CardDescription>
               </CardHeader>
               
