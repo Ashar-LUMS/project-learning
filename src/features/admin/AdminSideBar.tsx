@@ -42,7 +42,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ collapsed = false, onToggle
       id: 'project',
       label: 'Projects',
       icon: FolderKanban,
-      path: '/app/admin/project_management'
+      path: '/app/admin/project-management'
     },
     // {
     //   id: 'content',
