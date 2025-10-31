@@ -8,6 +8,7 @@ type Network = {
   id: string;
   name: string;
   data: any;
+  created_at?: string | null;
 };
 
 export default function NetworkEditorPage() {
@@ -15,28 +16,94 @@ export default function NetworkEditorPage() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [networks, setNetworks] = useState<Network[]>([]);
   const [selectedNetworkId, setSelectedNetworkId] = useState<string | null>(null);
+  const [isLoadingNetworks, setIsLoadingNetworks] = useState(false);
+  const [networksError, setNetworksError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (selectedProjectId) {
-      const fetchNetworks = async () => {
-        const { data, error } = await supabase
-          .from('networks')
-          .select('*')
-          .eq('project_id', selectedProjectId);
-        
-        if (data && !error) {
-          setNetworks(data);
-          if (data.length > 0) {
-            setSelectedNetworkId(data[0].id);
-          }
-        }
-      };
-      
-      fetchNetworks();
-    } else {
+    let isMounted = true;
+
+    if (!selectedProjectId) {
       setNetworks([]);
       setSelectedNetworkId(null);
+      setNetworksError(null);
+      setIsLoadingNetworks(false);
+      return () => {
+        isMounted = false;
+      };
     }
+
+    const fetchNetworks = async () => {
+      setIsLoadingNetworks(true);
+      setNetworksError(null);
+
+      try {
+        const { data: projectRow, error: projectError } = await supabase
+          .from('projects')
+          .select('networks')
+          .eq('id', selectedProjectId)
+          .maybeSingle();
+
+        if (projectError) throw projectError;
+
+        const networkIds = Array.isArray(projectRow?.networks)
+          ? projectRow?.networks.filter((id): id is string => typeof id === 'string')
+          : [];
+
+        if (networkIds.length === 0) {
+          if (isMounted) {
+            setNetworks([]);
+            setSelectedNetworkId(null);
+          }
+          return;
+        }
+
+        const { data: networkRows, error: networkError } = await supabase
+          .from('networks')
+          .select('id, name, network_data, created_at')
+          .in('id', networkIds);
+
+        if (networkError) throw networkError;
+
+        const networkMap = new Map<string, Network>();
+        (networkRows ?? []).forEach((row) => {
+          networkMap.set(row.id, {
+            id: row.id,
+            name: row.name,
+            data: row.network_data ?? null,
+            created_at: row.created_at ?? null,
+          });
+        });
+
+        const ordered = networkIds
+          .map((id) => networkMap.get(id))
+          .filter((network): network is Network => Boolean(network));
+
+        if (!isMounted) return;
+
+        setNetworks(ordered);
+        setSelectedNetworkId((prev) => {
+          if (prev && ordered.some((network) => network.id === prev)) {
+            return prev;
+          }
+          return ordered[0]?.id ?? null;
+        });
+      } catch (error: any) {
+        if (!isMounted) return;
+        setNetworks([]);
+        setSelectedNetworkId(null);
+        setNetworksError(error?.message || 'Failed to load project networks.');
+      } finally {
+        if (isMounted) {
+          setIsLoadingNetworks(false);
+        }
+      }
+    };
+
+    fetchNetworks();
+
+    return () => {
+      isMounted = false;
+    };
   }, [selectedProjectId]);
 
   const renderMainContent = () => {
@@ -67,12 +134,17 @@ export default function NetworkEditorPage() {
                     ))}
                   </select>
                 </div>
-                {selectedNetworkId ? (
+                {isLoadingNetworks ? (
+                  <div className="flex flex-1 items-center justify-center text-muted-foreground">
+                    Loading networks...
+                  </div>
+                ) : networksError ? (
+                  <div className="flex flex-1 items-center justify-center text-sm text-destructive">
+                    {networksError}
+                  </div>
+                ) : selectedNetworkId ? (
                   <div className="flex-1">
-                    <NetworkGraph 
-                      projectId={selectedProjectId} 
-                      networkId={selectedNetworkId} 
-                    />
+                    <NetworkGraph networkId={selectedNetworkId} />
                   </div>
                 ) : (
                   <div className="flex items-center justify-center flex-1 text-muted-foreground">

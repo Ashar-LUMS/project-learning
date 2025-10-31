@@ -25,7 +25,7 @@ type NetworkData = {
   };
 };
 
-export function useNetworkData(projectId?: string, networkId?: string, refreshToken: number = 0) {
+export function useNetworkData(networkId?: string, refreshToken: number = 0) {
   const [data, setData] = useState<NetworkData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +35,7 @@ export function useNetworkData(projectId?: string, networkId?: string, refreshTo
     const controller = new AbortController();
 
     async function fetchData() {
-      if (!projectId || !networkId) {
+      if (!networkId) {
         setIsLoading(false);
         return;
       }
@@ -46,9 +46,8 @@ export function useNetworkData(projectId?: string, networkId?: string, refreshTo
         // Get network data for specific network
         const { data: networkData, error: networkError } = await supabase
           .from('networks')
-          .select('data')
+          .select('network_data')
           .eq('id', networkId)
-          .eq('project_id', projectId)
           .single();
 
         if (networkError) {
@@ -58,7 +57,7 @@ export function useNetworkData(projectId?: string, networkId?: string, refreshTo
           }
         } else {
           if (!controller.signal.aborted && isMounted) {
-            setData(networkData?.data || null);
+            setData(networkData?.network_data || null);
           }
         }
       } catch (err: any) {
@@ -77,21 +76,19 @@ export function useNetworkData(projectId?: string, networkId?: string, refreshTo
       isMounted = false;
       controller.abort();
     };
-  }, [projectId, networkId, refreshToken]);
+  }, [networkId, refreshToken]);
 
   return { data, isLoading, error } as const;
 }
 
 type Props = {
-  projectId?: string | null;
   networkId?: string | null;
   height?: number | string;
   refreshToken?: number;
 };
 
-const NetworkGraph: React.FC<Props> = ({ projectId, networkId, refreshToken = 0 }) => {
+const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0 }) => {
   const { data: network, isLoading, error } = useNetworkData(
-    projectId ?? undefined,
     networkId ?? undefined,
     refreshToken
   );

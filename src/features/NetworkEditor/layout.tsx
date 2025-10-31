@@ -5,6 +5,7 @@ interface NetworkEditorLayoutProps {
   children: React.ReactNode;
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
+  networkSidebar?: React.ReactNode;
 }
 
 type TabType = 'projects' | 'network' | 'therapeutics' | 'analysis' | 'results';
@@ -12,10 +13,11 @@ type TabType = 'projects' | 'network' | 'therapeutics' | 'analysis' | 'results';
 export default function NetworkEditorLayout({ 
   children, 
   activeTab, 
-  onTabChange 
+  onTabChange,
+  networkSidebar,
 }: NetworkEditorLayoutProps) {
   const tabs = [
-    { id: 'projects' as TabType, label: 'Projects' },
+    { id: 'projects' as TabType, label: 'All networks' },
     { id: 'network' as TabType, label: 'Network' },
     { id: 'therapeutics' as TabType, label: 'Therapeutics' },
     { id: 'analysis' as TabType, label: 'Analysis' },
@@ -50,7 +52,7 @@ export default function NetworkEditorLayout({
       <div className="flex flex-1 overflow-hidden">
         {/* Left Sidebar - Tab Specific Content */}
         <div className="w-80 border-r bg-muted/20 overflow-y-auto">
-          {renderTabContent(activeTab)}
+          {renderTabContent(activeTab, networkSidebar)}
         </div>
 
         {/* Main Workspace - Canvas Area */}
@@ -63,12 +65,12 @@ export default function NetworkEditorLayout({
 }
 
 
-function renderTabContent(activeTab: TabType) {
+function renderTabContent(activeTab: TabType, networkSidebar?: React.ReactNode) {
   switch (activeTab) {
     case 'projects':
       return <ProjectsSidebar />;
     case 'network':
-      return <NetworkSidebar />;
+      return networkSidebar ?? <NetworkSidebar />;
     case 'therapeutics':
       return <TherapeuticsSidebar />;
     case 'analysis':
