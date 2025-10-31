@@ -45,9 +45,10 @@ export default function NetworkEditorLayout({
                   key={tab.id}
                   value={tab.id}
                   className={cn(
-                    "px-6 py-3 h-12 relative data-[state=active]:bg-background data-[state=active]:shadow-sm",
+                    "px-6 py-3 h-12 relative",
+                    "data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:shadow-sm",
                     "border-r border-border last:border-r-0",
-                    "transition-all duration-200"
+                    "transition-all duration-200 hover:bg-muted/50"
                   )}
                 >
                   <span className="flex items-center gap-2 text-sm font-medium">
