@@ -25,7 +25,7 @@ type NetworkData = {
   };
 };
 
-export function useNetworkData(projectId?: string, refreshToken: number = 0) {
+export function useNetworkData(projectId?: string, networkId?: string, refreshToken: number = 0) {
   const [data, setData] = useState<NetworkData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,25 +35,30 @@ export function useNetworkData(projectId?: string, refreshToken: number = 0) {
     const controller = new AbortController();
 
     async function fetchData() {
+      if (!projectId || !networkId) {
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
       setError(null);
       try {
-        let res: any;
-        if (projectId) {
-          res = await supabase.from("projects").select("network_data").eq("id", projectId).single();
-        } else {
-          res = await supabase.from("projects").select("network_data").single();
-        }
+        // Get network data for specific network
+        const { data: networkData, error: networkError } = await supabase
+          .from('networks')
+          .select('data')
+          .eq('id', networkId)
+          .eq('project_id', projectId)
+          .single();
 
-        if (res?.error) {
+        if (networkError) {
           if (!controller.signal.aborted && isMounted) {
-            setError(res.error.message || "Failed to fetch network data");
+            setError(networkError.message || "Failed to fetch network data");
             setData(null);
           }
         } else {
-          const payload = res?.data?.network_data ?? res?.data ?? null;
           if (!controller.signal.aborted && isMounted) {
-            setData(payload);
+            setData(networkData?.data || null);
           }
         }
       } catch (err: any) {
@@ -72,19 +77,24 @@ export function useNetworkData(projectId?: string, refreshToken: number = 0) {
       isMounted = false;
       controller.abort();
     };
-  }, [projectId, refreshToken]);
+  }, [projectId, networkId, refreshToken]);
 
   return { data, isLoading, error } as const;
 }
 
 type Props = {
   projectId?: string | null;
+  networkId?: string | null;
   height?: number | string;
   refreshToken?: number;
 };
 
-const NetworkGraph: React.FC<Props> = ({ projectId, refreshToken = 0 }) => {
-  const { data: network, isLoading, error } = useNetworkData(projectId ?? undefined, refreshToken);
+const NetworkGraph: React.FC<Props> = ({ projectId, networkId, refreshToken = 0 }) => {
+  const { data: network, isLoading, error } = useNetworkData(
+    projectId ?? undefined,
+    networkId ?? undefined,
+    refreshToken
+  );
   const fgRef = useRef<ForceGraphMethods<any, { [others: string]: any; source?: any; target?: any; }> | undefined>(undefined);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [size, setSize] = useState<{ width: number; height: number }>({ width: 1600, height: 1200 });

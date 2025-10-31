@@ -1,17 +1,19 @@
-"use client";
-
 import React, { useState } from 'react';
 import { cn } from '@/lib/utils';
 
 interface NetworkEditorLayoutProps {
   children: React.ReactNode;
+  activeTab: TabType;
+  onTabChange: (tab: TabType) => void;
 }
 
 type TabType = 'projects' | 'network' | 'therapeutics' | 'analysis' | 'results';
 
-export default function NetworkEditorLayout({ children }: NetworkEditorLayoutProps) {
-  const [activeTab, setActiveTab] = useState<TabType>('projects');
-
+export default function NetworkEditorLayout({ 
+  children, 
+  activeTab, 
+  onTabChange 
+}: NetworkEditorLayoutProps) {
   const tabs = [
     { id: 'projects' as TabType, label: 'Projects' },
     { id: 'network' as TabType, label: 'Network' },
@@ -27,7 +29,7 @@ export default function NetworkEditorLayout({ children }: NetworkEditorLayoutPro
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => onTabChange(tab.id)}
             className={cn(
               "px-6 py-3 text-sm font-medium transition-colors relative",
               "hover:bg-muted focus:outline-none focus:bg-muted",
@@ -60,6 +62,7 @@ export default function NetworkEditorLayout({ children }: NetworkEditorLayoutPro
   );
 }
 
+
 function renderTabContent(activeTab: TabType) {
   switch (activeTab) {
     case 'projects':
@@ -79,7 +82,7 @@ function renderTabContent(activeTab: TabType) {
 
 // Project Tab Sidebar
 function ProjectsSidebar() {
-  const [projects, setProjects] = useState([
+  const [projects] = useState([
     { id: 1, name: 'Project Alpha', status: 'active' },
     { id: 2, name: 'Project Beta', status: 'completed' },
     { id: 3, name: 'Project Gamma', status: 'draft' },
@@ -137,13 +140,11 @@ function NetworkSidebar() {
       <div className="space-y-3">
         <div className="p-3 border rounded-lg cursor-grab bg-white shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
             <span>Node</span>
           </div>
         </div>
         <div className="p-3 border rounded-lg cursor-grab bg-white shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center gap-2">
-            <div className="w-4 h-1 bg-green-500"></div>
             <span>Edge</span>
           </div>
         </div>
@@ -173,13 +174,13 @@ function TherapeuticsSidebar() {
       <h2 className="text-lg font-semibold">Therapeutics</h2>
       <div className="space-y-2">
         <button className="w-full text-left p-3 rounded-lg border hover:bg-muted transition-colors">
-          💊 Drug Database
+          Drug Database
         </button>
         <button className="w-full text-left p-3 rounded-lg border hover:bg-muted transition-colors">
-          🔍 Search Compounds
+          Search Compounds
         </button>
         <button className="w-full text-left p-3 rounded-lg border hover:bg-muted transition-colors">
-          📊 Efficacy Analysis
+        Efficacy Analysis
         </button>
       </div>
     </div>
@@ -193,13 +194,13 @@ function AnalysisSidebar() {
       <h2 className="text-lg font-semibold">Analysis</h2>
       <div className="space-y-2">
         <button className="w-full text-left p-3 rounded-lg border hover:bg-muted transition-colors">
-          🎯 Run Analysis
+          Run Analysis
         </button>
         <button className="w-full text-left p-3 rounded-lg border hover:bg-muted transition-colors">
-          📈 View Metrics
+          View Metrics
         </button>
         <button className="w-full text-left p-3 rounded-lg border hover:bg-muted transition-colors">
-          🔄 Compare Results
+          Compare Results
         </button>
       </div>
     </div>
@@ -213,13 +214,13 @@ function ResultsSidebar() {
       <h2 className="text-lg font-semibold">Results</h2>
       <div className="space-y-2">
         <button className="w-full text-left p-3 rounded-lg border hover:bg-muted transition-colors">
-          📋 Export Data
+          Export Data
         </button>
         <button className="w-full text-left p-3 rounded-lg border hover:bg-muted transition-colors">
-          📊 Generate Report
+          Generate Report
         </button>
         <button className="w-full text-left p-3 rounded-lg border hover:bg-muted transition-colors">
-          🖼️ Save Visualization
+          Save Visualization
         </button>
       </div>
     </div>

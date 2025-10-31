@@ -678,7 +678,8 @@ const HomePage: React.FC = () => {
 
                         {/* Action Button */}
                         <Button 
-                          onClick={() => navigate(`/app/projects/${project.id}`)}
+                          // onClick={() => navigate(`/app/projects/${project.id}`)}
+                          onClick={()=>navigate(`/app/network-editor`)}
                           className="w-full rounded-xl py-3 font-semibold transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
                           style={{
                             background: 'linear-gradient(135deg, #2f5597 0%, #3b6bc9 100%)',
