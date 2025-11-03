@@ -17,6 +17,7 @@ type Project = {
   created_at?: string | null;
   created_by?: string | null;
   creator_email?: string | null;
+  networks?: string[] | null;
 };
 
 type MinimalUser = {
@@ -252,7 +253,7 @@ const HomePage: React.FC = () => {
         assignees:[...assigneesArray, currentUserId],
         creator_email: currentUserEmail,
         created_by: currentUserId,
-        network_data: { nodes: [], edges: [], rules: [] },
+        networks: [], // Initialize empty networks array
       }]);
 
       if (error) throw error;
