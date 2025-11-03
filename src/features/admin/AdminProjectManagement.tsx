@@ -411,14 +411,18 @@ export default function AdminProjectManagement() {
     try {
       setDeletingProjectId(selectedProject.id);
       
-      // First, delete all networks associated with this project
+      // First, delete all networks linked via the project's networks uuid[] array (if desired)
+      // Note: If networks can be shared across projects, consider skipping this delete.
       if (selectedProject.networks && selectedProject.networks.length > 0) {
-        const { error: networksError } = await supabase
-          .from('networks')
-          .delete()
-          .eq('project_id', selectedProject.id);
-        
-        if (networksError) throw networksError;
+        const ids = (selectedProject.networks as any[])
+          .filter((id) => typeof id === 'string');
+        if (ids.length > 0) {
+          const { error: networksError } = await supabase
+            .from('networks')
+            .delete()
+            .in('id', ids);
+          if (networksError) throw networksError;
+        }
       }
 
       // Then delete the project itself

@@ -6,6 +6,11 @@ import { cn } from "@/lib/utils";
 import NetworkGraph from "./NetworkGraph";
 import { supabase } from "../../supabaseClient";
 import NetworkEditorLayout from "./layout";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { inferRulesFromBiomolecules } from "@/lib/openRouter";
 
 type ProjectRecord = {
   id: string;
@@ -35,6 +40,17 @@ export default function ProjectVisualizationPage() {
   const [recentNetworkIds, setRecentNetworkIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Import Network dialog state
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [importNetworkName, setImportNetworkName] = useState<string>("Imported Network");
+  const [networkFileName, setNetworkFileName] = useState<string>("");
+  const [rulesFileName, setRulesFileName] = useState<string>("");
+  const [importedNetwork, setImportedNetwork] = useState<{ nodes?: any[]; edges?: any[]; rules?: string[] | null; metadata?: any } | null>(null);
+  const [importedRules, setImportedRules] = useState<string[] | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [isInferring, setIsInferring] = useState(false);
+  const [isSavingImport, setIsSavingImport] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -171,12 +187,206 @@ export default function ProjectVisualizationPage() {
   }, []);
 
   const handleNewNetwork = useCallback(() => {
-    console.info('New network workflow to be implemented.');
-  }, []);
+    (async () => {
+      try {
+        if (!projectId) {
+          setLoadError('Missing project identifier.');
+          return;
+        }
+
+        // 1) Create a new empty network record
+        const defaultName = `Untitled Network ${new Date().toLocaleString()}`;
+        const { data: createdNetwork, error: createErr } = await supabase
+          .from('networks')
+          .insert([{ name: defaultName, network_data: null }])
+          .select('id, name, network_data, created_at')
+          .single();
+
+        if (createErr) throw createErr;
+        const newNetworkId = createdNetwork.id as string;
+
+        // 2) Fetch current networks array for the project
+        const { data: projRow, error: projErr } = await supabase
+          .from('projects')
+          .select('networks')
+          .eq('id', projectId)
+          .maybeSingle();
+
+        if (projErr) throw projErr;
+        const currentIds = Array.isArray(projRow?.networks)
+          ? (projRow!.networks as string[]).filter((id): id is string => typeof id === 'string')
+          : [];
+
+        // 3) Append new network id uniquely and update project
+        const updatedIds = Array.from(new Set([...(currentIds || []), newNetworkId]));
+        const { error: updateErr } = await supabase
+          .from('projects')
+          .update({ networks: updatedIds })
+          .eq('id', projectId);
+
+        if (updateErr) throw updateErr;
+
+        // 4) Update local state to reflect the new network without full reload
+        const newNetwork: NetworkRecord = {
+          id: createdNetwork.id,
+          name: createdNetwork.name,
+          created_at: createdNetwork.created_at ?? null,
+          data: createdNetwork.network_data ?? null,
+        };
+
+        setNetworks((prev) => [newNetwork, ...prev]);
+        setSelectedNetworkId(createdNetwork.id);
+        setRecentNetworkIds((prev) => [createdNetwork.id, ...prev.filter((id) => id !== createdNetwork.id)].slice(0, MAX_RECENT_NETWORKS));
+      } catch (err: any) {
+        setLoadError(err?.message || 'Failed to create and link a new network.');
+      }
+    })();
+  }, [projectId, setNetworks, setSelectedNetworkId, setRecentNetworkIds]);
 
   const handleImportNetwork = useCallback(() => {
-    console.info('Import network workflow to be implemented.');
+    // Open the Import dialog
+    setImportError(null);
+    setImportedNetwork(null);
+    setImportedRules(null);
+    setNetworkFileName("");
+    setRulesFileName("");
+    setImportNetworkName(`Imported Network ${new Date().toLocaleString()}`);
+    setIsImportOpen(true);
   }, []);
+
+  const parseNetworkJson = (text: string) => {
+    const obj = JSON.parse(text);
+    if (!obj || typeof obj !== 'object') throw new Error('Invalid JSON');
+    const nodes = Array.isArray(obj.nodes) ? obj.nodes : [];
+    const edges = Array.isArray(obj.edges) ? obj.edges : [];
+    if (!Array.isArray(nodes) || !Array.isArray(edges)) throw new Error('JSON must contain arrays: nodes and edges');
+    // minimal shape checks
+    const badNode = nodes.find((n: any) => !n || typeof n.id !== 'string');
+    if (badNode) throw new Error('Each node must have an id (string)');
+    const badEdge = edges.find((e: any) => !e || typeof e.source !== 'string' || typeof e.target !== 'string');
+    if (badEdge) throw new Error('Each edge must have source and target (string)');
+    const rules = Array.isArray(obj.rules) ? (obj.rules as string[]) : null;
+    const metadata = obj.metadata ?? {};
+    return { nodes, edges, rules, metadata };
+  };
+
+  const onPickNetworkFile = async (file?: File | null) => {
+    try {
+      setImportError(null);
+      if (!file) return;
+      setNetworkFileName(file.name);
+      const text = await file.text();
+      const parsed = parseNetworkJson(text);
+      setImportedNetwork(parsed);
+      // if the JSON contains rules, respect them unless a rules file is also provided
+      if (parsed.rules && parsed.rules.length > 0) {
+        setImportedRules(parsed.rules);
+      }
+      // default name from file base
+      const base = file.name.replace(/\.[^.]+$/, "");
+      setImportNetworkName((prev) => (prev?.startsWith('Imported Network') ? base : prev));
+    } catch (err: any) {
+      setImportedNetwork(null);
+      setImportError(err?.message || 'Failed to read network file');
+    }
+  };
+
+  const onPickRulesFile = async (file?: File | null) => {
+    try {
+      setImportError(null);
+      if (!file) return;
+      setRulesFileName(file.name);
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+      if (!lines.length) throw new Error('Rules file is empty.');
+      setImportedRules(lines);
+    } catch (err: any) {
+      setImportedRules(null);
+      setImportError(err?.message || 'Failed to read rules file');
+    }
+  };
+
+  const onInferRules = async () => {
+    try {
+      setImportError(null);
+      if (!importedNetwork || !Array.isArray(importedNetwork.nodes) || importedNetwork.nodes.length === 0) {
+        throw new Error('Import a network JSON first to infer rules.');
+      }
+      const biomolecules = importedNetwork.nodes
+        .map((n: any) => (typeof n?.id === 'string' ? n.id.trim() : ''))
+        .filter(Boolean);
+      if (biomolecules.length === 0) {
+        throw new Error('No valid node identifiers found to infer rules.');
+      }
+      setIsInferring(true);
+      const rules = await inferRulesFromBiomolecules(biomolecules);
+      setImportedRules(rules);
+    } catch (err: any) {
+      setImportError(err?.message || 'Failed to infer rules');
+    } finally {
+      setIsInferring(false);
+    }
+  };
+
+  const onSaveImportedNetwork = async () => {
+    try {
+      if (!projectId) throw new Error('Missing project identifier.');
+      if (!importedNetwork) throw new Error('Import a network JSON first.');
+      setIsSavingImport(true);
+      setImportError(null);
+
+      const networkPayload = {
+        nodes: importedNetwork.nodes ?? [],
+        edges: importedNetwork.edges ?? [],
+        rules: importedRules ?? importedNetwork.rules ?? null,
+        metadata: {
+          ...(importedNetwork.metadata || {}),
+          importedAt: new Date().toISOString(),
+          sourceFile: networkFileName || undefined,
+          rulesFile: rulesFileName || undefined,
+        },
+      };
+
+      // 1) Insert network
+      const { data: created, error: createErr } = await supabase
+        .from('networks')
+        .insert([{ name: importNetworkName || `Imported Network ${new Date().toLocaleString()}`, network_data: networkPayload }])
+        .select('id, name, network_data, created_at')
+        .single();
+      if (createErr) throw createErr;
+
+      // 2) Link to project
+      const { data: projRow, error: projErr } = await supabase
+        .from('projects')
+        .select('networks')
+        .eq('id', projectId)
+        .maybeSingle();
+      if (projErr) throw projErr;
+      const currentIds = Array.isArray(projRow?.networks) ? (projRow!.networks as string[]) : [];
+      const updatedIds = Array.from(new Set([...(currentIds || []), created.id]));
+      const { error: updErr } = await supabase
+        .from('projects')
+        .update({ networks: updatedIds })
+        .eq('id', projectId);
+      if (updErr) throw updErr;
+
+      // 3) Update local state
+      const newNet: NetworkRecord = {
+        id: created.id,
+        name: created.name,
+        created_at: created.created_at ?? null,
+        data: created.network_data ?? null,
+      };
+      setNetworks((prev) => [newNet, ...prev]);
+      setSelectedNetworkId(created.id);
+      setRecentNetworkIds((prev) => [created.id, ...prev.filter((id) => id !== created.id)].slice(0, MAX_RECENT_NETWORKS));
+      setIsImportOpen(false);
+    } catch (err: any) {
+      setImportError(err?.message || 'Failed to save imported network');
+    } finally {
+      setIsSavingImport(false);
+    }
+  };
 
   const selectedNetwork = useMemo(
     () => networks.find((network) => network.id === selectedNetworkId) ?? null,
@@ -354,6 +564,68 @@ export default function ProjectVisualizationPage() {
       networkSidebar={networkSidebarContent}
     >
       {renderMainContent()}
+
+      {/* Import Network Dialog */}
+      <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Import Network</DialogTitle>
+            <DialogDescription>
+              Upload a network JSON file, optionally add a rules file, or infer rules from node IDs.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="import-name">Network name</Label>
+              <Input id="import-name" value={importNetworkName} onChange={(e) => setImportNetworkName(e.target.value)} />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Network JSON</Label>
+              <Input type="file" accept="application/json,.json" onChange={(e) => onPickNetworkFile(e.target.files?.[0])} />
+              {networkFileName && <div className="text-xs text-muted-foreground">Selected: {networkFileName}</div>}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Rules (optional, TXT)</Label>
+              <Input type="file" accept="text/plain,.txt" onChange={(e) => onPickRulesFile(e.target.files?.[0])} />
+              <div className="flex items-center gap-2 pt-1">
+                <Button type="button" variant="outline" onClick={onInferRules} disabled={isInferring || !importedNetwork}>
+                  {isInferring ? 'Inferring…' : 'Infer Rules'}
+                </Button>
+                {Array.isArray(importedRules) && (
+                  <span className="text-xs text-muted-foreground">{importedRules.length} rules loaded</span>
+                )}
+              </div>
+            </div>
+
+            {importError && (
+              <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-destructive text-sm">
+                {importError}
+              </div>
+            )}
+
+            {importedNetwork && (
+              <div className="rounded-md border p-3 text-xs text-muted-foreground">
+                <div><strong>Preview</strong></div>
+                <div>Nodes: {Array.isArray(importedNetwork.nodes) ? importedNetwork.nodes.length : 0}</div>
+                <div>Edges: {Array.isArray(importedNetwork.edges) ? importedNetwork.edges.length : 0}</div>
+                <div>Rules: {Array.isArray(importedRules) ? importedRules.length : (Array.isArray(importedNetwork.rules) ? importedNetwork.rules!.length : 0)}</div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsImportOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={onSaveImportedNetwork} disabled={!importedNetwork || isSavingImport}>
+              {isSavingImport ? 'Saving…' : 'Save & Link'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </NetworkEditorLayout>
   );
 }
