@@ -17,7 +17,7 @@ type Network = {
 };
 
 export default function NetworkEditorPage() {
-  const [activeTab, setActiveTab] = useState<'projects' | 'network' | 'therapeutics' | 'analysis' | 'results'>('projects');
+  const [activeTab, setActiveTab] = useState<'projects' | 'network' | 'therapeutics' | 'analysis' | 'results' | 'network-inference' | 'env' | 'cell-circuits' | 'cell-lines' | 'simulation'>('projects');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [networks, setNetworks] = useState<Network[]>([]);
   const [selectedNetworkId, setSelectedNetworkId] = useState<string | null>(null);

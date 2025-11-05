@@ -27,7 +27,7 @@ type NetworkRecord = {
   data: any;
 };
 
-type TabType = 'projects' | 'network' | 'therapeutics' | 'analysis' | 'results';
+type TabType = 'projects' | 'network' | 'therapeutics' | 'analysis' | 'results' | 'network-inference' | 'env' | 'cell-circuits' | 'cell-lines' | 'simulation';
 
 const MAX_RECENT_NETWORKS = 10;
 

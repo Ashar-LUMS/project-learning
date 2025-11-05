@@ -6,6 +6,17 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import {
+  Folder,
+  Network,
+  Pill,
+  LineChart,
+  Waypoints,
+  Container,
+  CircuitBoard,
+  LineSquiggle,
+  Cpu
+} from 'lucide-react';
 
 interface NetworkEditorLayoutProps {
   children: React.ReactNode;
@@ -14,20 +25,24 @@ interface NetworkEditorLayoutProps {
   networkSidebar?: React.ReactNode;
 }
 
-type TabType = 'projects' | 'network' | 'therapeutics' | 'analysis' | 'results';
+type TabType = 'projects' | 'network-inference' | 'network' | 'therapeutics' | 'env' | 'cell-circuits' | 'cell-lines' | 'simulation' | 'analysis' | 'results';
 
-export default function NetworkEditorLayout({ 
-  children, 
-  activeTab, 
+export default function NetworkEditorLayout({
+  children,
+  activeTab,
   onTabChange,
   networkSidebar,
 }: NetworkEditorLayoutProps) {
   const tabs = [
-    { id: 'projects' as TabType, label: 'All Networks', icon: '📊' },
-    { id: 'network' as TabType, label: 'Network', icon: '🕸️' },
-    { id: 'therapeutics' as TabType, label: 'Therapeutics', icon: '💊' },
-    { id: 'analysis' as TabType, label: 'Analysis', icon: '📈' },
-    { id: 'results' as TabType, label: 'Results', icon: '📋' },
+    { id: 'projects' as TabType, label: 'Projects', icon: <Folder color="#ff1f1f" strokeWidth={2.5} className="h-4 w-4" /> },
+    { id: 'network' as TabType, label: 'Network', icon: <Network color="#ff1f1f" strokeWidth={2.5} className="h-4 w-4" /> },
+    { id: 'network-inference' as TabType, label: 'Network Inference', icon: <Waypoints color="#ff1f1f" strokeWidth={2.5} /> },
+    { id: 'therapeutics' as TabType, label: 'Therapeutics', icon: <Pill color="#ff1f1f" strokeWidth={2.5} className="h-4 w-4" /> },
+    { id: 'env' as TabType, label: 'Environment', icon: <Container color="#ff1f1f" strokeWidth={2.5} /> },
+    { id: 'cell-circuits' as TabType, label: 'Cell Circuits', icon: <CircuitBoard color="#ff1f1f" strokeWidth={2.5} />},
+    { id: 'cell-lines' as TabType, label: 'Cell Lines', icon: <LineSquiggle color="#ff1f1f" strokeWidth={2.5} /> },
+    {id: 'simulation' as TabType, label: 'Simulation', icon: <Cpu color="#ff1f1f" strokeWidth={2.5} />},
+    { id: 'analysis' as TabType, label: 'Analysis', icon: <LineChart color="#ff1f1f" strokeWidth={2.5} className="h-4 w-4" /> },
   ];
 
   return (
@@ -89,11 +104,21 @@ export default function NetworkEditorLayout({
 function renderTabContent(activeTab: TabType, networkSidebar?: React.ReactNode) {
   switch (activeTab) {
     case 'projects':
-      return networkSidebar ?? <NetworkSidebar />;
+      return <ProjectsSidebar />;
     case 'network':
       return networkSidebar ?? <NetworkSidebar />;
+    case 'network-inference':
+      return <NetworkAnalysisSidebar />;
     case 'therapeutics':
       return <TherapeuticsSidebar />;
+    case 'env':
+      return <EnvironmentSidebar />;
+    case 'cell-circuits':
+      return <AnalysisSidebar />;
+    case 'cell-lines':
+      return <AnalysisSidebar />;
+    case 'simulation':
+      return <AnalysisSidebar />;
     case 'analysis':
       return <AnalysisSidebar />;
     case 'results':
@@ -169,7 +194,7 @@ function ProjectsSidebar() {
         <CardContent className="p-0">
           <div className="space-y-2">
             {projects.map((project) => (
-              <Card 
+              <Card
                 key={project.id}
                 className="p-4 hover:bg-muted/30 cursor-pointer transition-all duration-200 hover:shadow-sm border-l-2 border-l-transparent hover:border-l-primary group"
               >
@@ -179,8 +204,8 @@ function ProjectsSidebar() {
                       <h3 className="font-medium text-sm truncate group-hover:text-primary transition-colors">
                         {project.name}
                       </h3>
-                      <Badge 
-                        variant={getStatusVariant(project.status) as any} 
+                      <Badge
+                        variant={getStatusVariant(project.status) as any}
                         className="shrink-0 text-xs"
                       >
                         {project.status}
@@ -234,6 +259,103 @@ function NetworkSidebar() {
             <SettingsIcon className="w-4 h-4" />
             Network Settings
           </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Network Analysis Sidebar (separate function for focused network analysis tools)
+function NetworkAnalysisSidebar() {
+  return (
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+          Network Analysis
+        </h2>
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          Run focused network analyses: centrality, clustering, pathfinding and export results
+        </p>
+      </div>
+
+      <Separator />
+
+      <Card className="bg-card/50 backdrop-blur-sm">
+        <CardHeader>
+          <CardTitle className="text-sm font-medium">Analysis Tools</CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 space-y-3">
+          <Button className="w-full justify-start gap-3 h-11" variant="default">
+            <PlayIcon className="w-4 h-4" />
+            Run Network Analysis
+          </Button>
+          <Button className="w-full justify-start gap-3 h-11" variant="outline">
+            <BarChartIcon className="w-4 h-4" />
+            View Metrics
+          </Button>
+          <Button className="w-full justify-start gap-3 h-11" variant="outline">
+            <DownloadIcon className="w-4 h-4" />
+            Export Results
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-medium">Recent Analyses</CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 space-y-3">
+          <div className="text-center py-6 text-muted-foreground">
+            <PlayIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">No recent analyses</p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+  }
+
+// Environment Sidebar
+function EnvironmentSidebar() {
+  return (
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+          Environment
+        </h2>
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          Configure environment presets, media conditions and import/export environment files
+        </p>
+      </div>
+
+      <Separator />
+
+      <Card className="bg-card/50 backdrop-blur-sm">
+        <CardHeader>
+          <CardTitle className="text-sm font-medium">Environment Controls</CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 space-y-3">
+          <Button className="w-full justify-start gap-3 h-11" variant="default">
+            <Container className="w-4 h-4" />
+            Apply Preset
+          </Button>
+          <Button className="w-full justify-start gap-3 h-11" variant="outline">
+            <UploadIcon className="w-4 h-4" />
+            Import Conditions
+          </Button>
+          <Button className="w-full justify-start gap-3 h-11" variant="outline">
+            <DownloadIcon className="w-4 h-4" />
+            Export Environment
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-medium">Active Preset</CardTitle>
+        </CardHeader>
+        <CardContent className="p-4">
+          <div className="text-sm text-muted-foreground">No preset applied</div>
         </CardContent>
       </Card>
     </div>
