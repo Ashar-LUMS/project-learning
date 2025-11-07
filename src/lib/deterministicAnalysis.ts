@@ -107,6 +107,7 @@ const DEFAULT_STATE_CAP = 131072;
 const DEFAULT_STEP_CAP = 131072;
 const MAX_SUPPORTED_NODES = 20;
 
+
 const constantToken = (value: 0 | 1): ConstantToken => ({ kind: "constant", value });
 
 const operatorToken = (symbol: OperatorSymbol): OperatorToken => ({

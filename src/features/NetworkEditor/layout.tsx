@@ -9,6 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
   Folder,
   Network,
@@ -26,7 +27,7 @@ import {
   MoreHorizontal,
   Download,
   Upload,
-  Settings,
+  Settings, 
   Play,
   BarChart3,
   Database,
@@ -166,48 +167,20 @@ function renderTabContent(activeTab: TabType, networkSidebar?: React.ReactNode) 
 
 // Enhanced Project Tab Sidebar
 function ProjectsSidebar() {
-  const [projects, setProjects] = useState([
-    { 
-      id: 1, 
-      name: 'Project Alpha', 
-      status: 'active', 
-      lastModified: '2 hours ago', 
-      nodes: 24, 
-      edges: 48,
-      favorite: true,
-      tags: ['Clinical', 'RNA-seq']
-    },
-    { 
-      id: 2, 
-      name: 'Project Beta', 
-      status: 'completed', 
-      lastModified: '1 day ago', 
-      nodes: 18, 
-      edges: 32,
-      favorite: false,
-      tags: ['Metabolic']
-    },
-    { 
-      id: 3, 
-      name: 'Project Gamma', 
-      status: 'draft', 
-      lastModified: '3 days ago', 
-      nodes: 12, 
-      edges: 20,
-      favorite: true,
-      tags: ['Signaling']
-    },
-    { 
-      id: 4, 
-      name: 'Clinical Trial Analysis', 
-      status: 'active', 
-      lastModified: 'Just now', 
-      nodes: 36, 
-      edges: 72,
-      favorite: false,
-      tags: ['Clinical', 'Drug Response']
-    },
-  ]);
+  const [projects, setProjects] = useState<Array<{
+    id: string;
+    name: string;
+    status: 'active' | 'completed' | 'draft';
+    lastModified: string;
+    nodes: number;
+    edges: number;
+    favorite: boolean;
+    tags: string[];
+  }>>([]);
+
+  const [isNewProjectDialogOpen, setIsNewProjectDialogOpen] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
+  const [newProjectTags, setNewProjectTags] = useState('');
 
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -218,7 +191,7 @@ function ProjectsSidebar() {
     }
   };
 
-  const toggleFavorite = (projectId: number) => {
+  const toggleFavorite = (projectId: string) => {
     setProjects(projects.map(project => 
       project.id === projectId 
         ? { ...project, favorite: !project.favorite }
@@ -226,7 +199,25 @@ function ProjectsSidebar() {
     ));
   };
 
-  return (
+  const handleCreateProject = () => {
+    if (!newProjectName.trim()) return;
+    
+    const newProject = {
+      id: crypto.randomUUID(),
+      name: newProjectName.trim(),
+      status: 'draft' as const,
+      lastModified: 'Just now',
+      nodes: 0,
+      edges: 0,
+      favorite: false,
+      tags: newProjectTags.split(',').map(tag => tag.trim()).filter(Boolean)
+    };
+
+    setProjects([newProject, ...projects]);
+    setNewProjectName('');
+    setNewProjectTags('');
+    setIsNewProjectDialogOpen(false);
+  };  return (
     <div className="space-y-6">
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -238,9 +229,18 @@ function ProjectsSidebar() {
               Manage your network projects and analyses
             </p>
           </div>
-          <Badge variant="secondary" className="px-2 py-1 text-xs">
-            {projects.length}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="px-2 py-1 text-xs">
+              {projects.length}
+            </Badge>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setIsNewProjectDialogOpen(true)}
+            >
+              New Project
+            </Button>
+          </div>
         </div>
 
         <div className="flex gap-2">
@@ -338,6 +338,42 @@ function ProjectsSidebar() {
           ))}
         </div>
       </div>
+
+      <Dialog open={isNewProjectDialogOpen} onOpenChange={setIsNewProjectDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Project</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Project Name</Label>
+              <Input
+                id="name"
+                value={newProjectName}
+                onChange={(e) => setNewProjectName(e.target.value)}
+                placeholder="Enter project name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tags">Tags (comma-separated)</Label>
+              <Input
+                id="tags"
+                value={newProjectTags}
+                onChange={(e) => setNewProjectTags(e.target.value)}
+                placeholder="Clinical, RNA-seq, etc."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsNewProjectDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateProject}>
+              Create Project
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
