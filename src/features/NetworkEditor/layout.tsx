@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import {
   Folder,
   Network,
@@ -15,7 +18,18 @@ import {
   Container,
   CircuitBoard,
   LineSquiggle,
-  Cpu
+  Cpu,
+  Search,
+  Filter,
+  ChevronRight,
+  Star,
+  MoreHorizontal,
+  Download,
+  Upload,
+  Settings,
+  Play,
+  BarChart3,
+  Database,
 } from 'lucide-react';
 
 interface NetworkEditorLayoutProps {
@@ -34,47 +48,67 @@ export default function NetworkEditorLayout({
   networkSidebar,
 }: NetworkEditorLayoutProps) {
   const tabs = [
-    { id: 'projects' as TabType, label: 'Projects', icon: <Folder color="#ff1f1f" strokeWidth={2.5} className="h-4 w-4" /> },
-    { id: 'network' as TabType, label: 'Network', icon: <Network color="#ff1f1f" strokeWidth={2.5} className="h-4 w-4" /> },
-    { id: 'network-inference' as TabType, label: 'Network Inference', icon: <Waypoints color="#ff1f1f" strokeWidth={2.5} /> },
-    { id: 'therapeutics' as TabType, label: 'Therapeutics', icon: <Pill color="#ff1f1f" strokeWidth={2.5} className="h-4 w-4" /> },
-    { id: 'env' as TabType, label: 'Environment', icon: <Container color="#ff1f1f" strokeWidth={2.5} /> },
-    { id: 'cell-circuits' as TabType, label: 'Cell Circuits', icon: <CircuitBoard color="#ff1f1f" strokeWidth={2.5} />},
-    { id: 'cell-lines' as TabType, label: 'Cell Lines', icon: <LineSquiggle color="#ff1f1f" strokeWidth={2.5} /> },
-    {id: 'simulation' as TabType, label: 'Simulation', icon: <Cpu color="#ff1f1f" strokeWidth={2.5} />},
-    { id: 'analysis' as TabType, label: 'Analysis', icon: <LineChart color="#ff1f1f" strokeWidth={2.5} className="h-4 w-4" /> },
+    { id: 'projects' as TabType, label: 'Projects', icon: Folder, color: 'text-blue-600' },
+    { id: 'network' as TabType, label: 'Network', icon: Network, color: 'text-green-600' },
+    { id: 'network-inference' as TabType, label: 'Inference', icon: Waypoints, color: 'text-purple-600' },
+    { id: 'therapeutics' as TabType, label: 'Therapeutics', icon: Pill, color: 'text-red-600' },
+    { id: 'env' as TabType, label: 'Environment', icon: Container, color: 'text-amber-600' },
+    { id: 'cell-circuits' as TabType, label: 'Circuits', icon: CircuitBoard, color: 'text-indigo-600' },
+    { id: 'cell-lines' as TabType, label: 'Cell Lines', icon: LineSquiggle, color: 'text-pink-600' },
+    { id: 'simulation' as TabType, label: 'Simulation', icon: Cpu, color: 'text-cyan-600' },
+    { id: 'analysis' as TabType, label: 'Analysis', icon: LineChart, color: 'text-orange-600' },
   ];
 
   return (
     <div className="flex flex-col h-screen bg-background">
-      {/* Enhanced Header with subtle gradient and better spacing */}
-      <div className="border-b bg-gradient-to-r from-card/80 to-card/60 backdrop-blur-sm supports-[backdrop-filter]:bg-background/60">
-        <div className="px-8">
+      {/* Enhanced Header with improved navigation */}
+      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="px-6">
+          <div className="flex items-center justify-between py-3">
+            <div className="flex items-center gap-4">
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search projects, networks..."
+                  className="pl-9 h-9 bg-muted/50 border-0 focus-visible:ring-1"
+                />
+              </div>
+              <Button variant="outline" size="sm" className="h-9 gap-2">
+                <Settings className="w-4 h-4" />
+                Settings
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Enhanced Tab Navigation */}
+        <div className="px-6">
           <Tabs value={activeTab} onValueChange={(value) => onTabChange(value as TabType)} className="w-full">
-            <TabsList className="w-full justify-start h-14 bg-transparent p-0 gap-1">
-              {tabs.map((tab) => (
-                <TabsTrigger
-                  key={tab.id}
-                  value={tab.id}
-                  className={cn(
-                    "px-6 py-4 h-14 relative group",
-                    "data-[state=active]:bg-primary/20 data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:shadow-sm",
-                    "data-[state=active]:border-b-2 data-[state=active]:border-b-primary",
-                    "transition-all duration-200 hover:bg-muted/50 hover:text-foreground",
-                    "rounded-none border-b-2 border-b-transparent",
-                    "flex items-center gap-3"
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-lg group-data-[state=active]:scale-110 transition-transform duration-200">
-                      {tab.icon}
-                    </span>
-                    <span className="text-sm font-medium tracking-wide">
-                      {tab.label}
-                    </span>
-                  </div>
-                </TabsTrigger>
-              ))}
+            <TabsList className="w-full justify-start h-12 bg-transparent p-0 gap-0 border-b">
+              {tabs.map((tab) => {
+                const IconComponent = tab.icon;
+                return (
+                  <TabsTrigger
+                    key={tab.id}
+                    value={tab.id}
+                    className={cn(
+                      "px-6 py-3 h-12 relative group",
+                      "data-[state=active]:text-foreground data-[state=active]:font-semibold",
+                      "data-[state=active]:border-b-2 data-[state=active]:border-b-primary",
+                      "transition-all duration-200 hover:text-foreground/80",
+                      "rounded-none border-b-2 border-b-transparent",
+                      "flex items-center gap-3"
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <IconComponent className={cn("w-4 h-4 transition-colors", tab.color)} />
+                      <span className="text-sm font-medium tracking-wide">
+                        {tab.label}
+                      </span>
+                    </div>
+                  </TabsTrigger>
+                );
+              })}
             </TabsList>
           </Tabs>
         </div>
@@ -82,8 +116,8 @@ export default function NetworkEditorLayout({
 
       {/* Main Content Area */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Enhanced Sidebar with better styling */}
-        <div className="w-80 border-r bg-gradient-to-b from-muted/10 to-background overflow-hidden flex flex-col shadow-sm">
+        {/* Enhanced Sidebar */}
+        <div className="w-80 border-r bg-background overflow-hidden flex flex-col">
           <ScrollArea className="flex-1">
             <div className="p-6">
               {renderTabContent(activeTab, networkSidebar)}
@@ -91,10 +125,12 @@ export default function NetworkEditorLayout({
           </ScrollArea>
         </div>
 
-        {/* Main Workspace with subtle background pattern */}
-        <div className="flex-1 overflow-auto bg-gradient-to-br from-background to-muted/20 relative">
-          <div className="absolute inset-0 bg-grid-slate-100 [mask-image:linear-gradient(0deg,white,rgba(255,255,255,0.6))] -z-10" />
-          {children}
+        {/* Main Workspace */}
+        <div className="flex-1 overflow-auto bg-gradient-to-br from-background to-muted/5 relative">
+          <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-muted/5" />
+          <div className="relative">
+            {children}
+          </div>
         </div>
       </div>
     </div>
@@ -114,11 +150,11 @@ function renderTabContent(activeTab: TabType, networkSidebar?: React.ReactNode) 
     case 'env':
       return <EnvironmentSidebar />;
     case 'cell-circuits':
-      return <AnalysisSidebar />;
+      return <CellCircuitsSidebar />;
     case 'cell-lines':
-      return <AnalysisSidebar />;
+      return <CellLinesSidebar />;
     case 'simulation':
-      return <AnalysisSidebar />;
+      return <SimulationSidebar />;
     case 'analysis':
       return <AnalysisSidebar />;
     case 'results':
@@ -130,11 +166,47 @@ function renderTabContent(activeTab: TabType, networkSidebar?: React.ReactNode) 
 
 // Enhanced Project Tab Sidebar
 function ProjectsSidebar() {
-  const [projects] = useState([
-    { id: 1, name: 'Project Alpha', status: 'active', lastModified: '2 hours ago', nodes: 24, edges: 48 },
-    { id: 2, name: 'Project Beta', status: 'completed', lastModified: '1 day ago', nodes: 18, edges: 32 },
-    { id: 3, name: 'Project Gamma', status: 'draft', lastModified: '3 days ago', nodes: 12, edges: 20 },
-    { id: 4, name: 'Clinical Trial Analysis', status: 'active', lastModified: 'Just now', nodes: 36, edges: 72 },
+  const [projects, setProjects] = useState([
+    { 
+      id: 1, 
+      name: 'Project Alpha', 
+      status: 'active', 
+      lastModified: '2 hours ago', 
+      nodes: 24, 
+      edges: 48,
+      favorite: true,
+      tags: ['Clinical', 'RNA-seq']
+    },
+    { 
+      id: 2, 
+      name: 'Project Beta', 
+      status: 'completed', 
+      lastModified: '1 day ago', 
+      nodes: 18, 
+      edges: 32,
+      favorite: false,
+      tags: ['Metabolic']
+    },
+    { 
+      id: 3, 
+      name: 'Project Gamma', 
+      status: 'draft', 
+      lastModified: '3 days ago', 
+      nodes: 12, 
+      edges: 20,
+      favorite: true,
+      tags: ['Signaling']
+    },
+    { 
+      id: 4, 
+      name: 'Clinical Trial Analysis', 
+      status: 'active', 
+      lastModified: 'Just now', 
+      nodes: 36, 
+      edges: 72,
+      favorite: false,
+      tags: ['Clinical', 'Drug Response']
+    },
   ]);
 
   const getStatusVariant = (status: string) => {
@@ -146,264 +218,332 @@ function ProjectsSidebar() {
     }
   };
 
+  const toggleFavorite = (projectId: number) => {
+    setProjects(projects.map(project => 
+      project.id === projectId 
+        ? { ...project, favorite: !project.favorite }
+        : project
+    ));
+  };
+
   return (
     <div className="space-y-6">
-      <div className="space-y-3">
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-            Projects
-          </h2>
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight text-foreground">
+              Projects
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Manage your network projects and analyses
+            </p>
+          </div>
           <Badge variant="secondary" className="px-2 py-1 text-xs">
-            {projects.length} total
+            {projects.length}
           </Badge>
         </div>
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          Manage your network projects and analyses in one place
-        </p>
+
+        <div className="flex gap-2">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Search projects..." className="pl-9" />
+          </div>
+          <Button variant="outline" size="icon">
+            <Filter className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
       <Separator />
 
-      {/* Enhanced Project Actions */}
-      <Card className="bg-card/50 backdrop-blur-sm border-l-4 border-l-primary">
-        <CardContent className="p-4 space-y-3">
-          <Button className="w-full justify-start gap-3 h-11" variant="default">
-            <PlusIcon className="w-4 h-4" />
-            <span className="font-medium">New Project</span>
-          </Button>
-          <Button className="w-full justify-start gap-3 h-11" variant="outline">
-            <FolderOpenIcon className="w-4 h-4" />
-            <span className="font-medium">Open Project</span>
-          </Button>
-          <Button className="w-full justify-start gap-3 h-11" variant="outline">
-            <SaveIcon className="w-4 h-4" />
-            <span className="font-medium">Save Project</span>
-          </Button>
-        </CardContent>
-      </Card>
+      {/* Quick Actions */}
+      <div className="grid grid-cols-2 gap-3">
+        <Button className="h-11 gap-2" variant="default">
+          <PlusIcon className="w-4 h-4" />
+          New Project
+        </Button>
+        <Button className="h-11 gap-2" variant="outline">
+          <Upload className="w-4 h-4" />
+          Import
+        </Button>
+      </div>
 
-      {/* Enhanced Project List */}
-      <Card>
-        <CardHeader className="pb-4">
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <div className="w-1.5 h-1.5 bg-primary rounded-full" />
-            Recent Projects
-          </CardTitle>
-          <CardDescription>Your most recently accessed projects</CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="space-y-2">
-            {projects.map((project) => (
-              <Card
-                key={project.id}
-                className="p-4 hover:bg-muted/30 cursor-pointer transition-all duration-200 hover:shadow-sm border-l-2 border-l-transparent hover:border-l-primary group"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-medium text-sm truncate group-hover:text-primary transition-colors">
-                        {project.name}
-                      </h3>
-                      <Badge
-                        variant={getStatusVariant(project.status) as any}
-                        className="shrink-0 text-xs"
-                      >
-                        {project.status}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <span>{project.nodes} nodes</span>
-                      <span>{project.edges} edges</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">{project.lastModified}</p>
-                  </div>
+      {/* Project List */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground">Recent Projects</h3>
+          <Button variant="ghost" size="sm" className="h-8 text-xs">
+            View All
+            <ChevronRight className="w-3 h-3 ml-1" />
+          </Button>
+        </div>
+
+        <div className="space-y-3">
+          {projects.map((project) => (
+            <Card
+              key={project.id}
+              className="p-4 hover:bg-muted/30 cursor-pointer transition-all duration-200 border group"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-medium text-sm group-hover:text-primary transition-colors">
+                    {project.name}
+                  </h3>
+                  <Badge
+                    variant={getStatusVariant(project.status) as any}
+                    className="shrink-0 text-xs"
+                  >
+                    {project.status}
+                  </Badge>
                 </div>
-              </Card>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleFavorite(project.id);
+                    }}
+                  >
+                    <Star 
+                      className={cn(
+                        "w-3 h-3",
+                        project.favorite ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"
+                      )} 
+                    />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-6 w-6">
+                    <MoreHorizontal className="w-3 h-3" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 text-xs text-muted-foreground mb-2">
+                <span>{project.nodes} nodes</span>
+                <span>{project.edges} edges</span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="flex gap-1">
+                  {project.tags.map((tag, index) => (
+                    <Badge key={index} variant="outline" className="text-xs px-1.5 py-0">
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+                <span className="text-xs text-muted-foreground">{project.lastModified}</span>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
 
 // Enhanced Network Tab Sidebar
 function NetworkSidebar() {
+  const [autoLayout, setAutoLayout] = useState(true);
+  const [showLabels, setShowLabels] = useState(true);
+
   return (
     <div className="space-y-6">
       <div className="space-y-3">
-        <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+        <h2 className="text-2xl font-bold tracking-tight text-foreground">
           Network Tools
         </h2>
-        <p className="text-sm text-muted-foreground leading-relaxed">
+        <p className="text-sm text-muted-foreground">
           Manage and analyze your network structures
         </p>
       </div>
 
       <Separator />
 
-      <Card className="bg-card/50 backdrop-blur-sm">
-        <CardHeader>
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium">Quick Actions</CardTitle>
         </CardHeader>
-        <CardContent className="p-4 space-y-3">
-          <Button className="w-full justify-start gap-3 h-11" variant="default">
-            <SaveIcon className="w-4 h-4" />
-            Save Network
-          </Button>
-          <Button className="w-full justify-start gap-3 h-11" variant="outline">
-            <UploadIcon className="w-4 h-4" />
-            Import Data
-          </Button>
-          <Button className="w-full justify-start gap-3 h-11" variant="outline">
-            <SettingsIcon className="w-4 h-4" />
-            Network Settings
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-// Network Analysis Sidebar (separate function for focused network analysis tools)
-function NetworkAnalysisSidebar() {
-  return (
-    <div className="space-y-6">
-      <div className="space-y-3">
-        <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-          Network Analysis
-        </h2>
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          Run focused network analyses: centrality, clustering, pathfinding and export results
-        </p>
-      </div>
-
-      <Separator />
-
-      <Card className="bg-card/50 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle className="text-sm font-medium">Analysis Tools</CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 space-y-3">
-          <Button className="w-full justify-start gap-3 h-11" variant="default">
-            <PlayIcon className="w-4 h-4" />
-            Run Network Analysis
-          </Button>
-          <Button className="w-full justify-start gap-3 h-11" variant="outline">
-            <BarChartIcon className="w-4 h-4" />
-            View Metrics
-          </Button>
-          <Button className="w-full justify-start gap-3 h-11" variant="outline">
-            <DownloadIcon className="w-4 h-4" />
-            Export Results
-          </Button>
+        <CardContent className="p-0">
+          <div className="space-y-1">
+            <Button variant="ghost" className="w-full justify-start gap-3 h-11 px-4">
+              <SaveIcon className="w-4 h-4" />
+              Save Network
+            </Button>
+            <Button variant="ghost" className="w-full justify-start gap-3 h-11 px-4">
+              <Upload className="w-4 h-4" />
+              Import Data
+            </Button>
+            <Button variant="ghost" className="w-full justify-start gap-3 h-11 px-4">
+              <Download className="w-4 h-4" />
+              Export Network
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
+      {/* Display Settings */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium">Recent Analyses</CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">Display Settings</CardTitle>
         </CardHeader>
-        <CardContent className="p-4 space-y-3">
-          <div className="text-center py-6 text-muted-foreground">
-            <PlayIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">No recent analyses</p>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="auto-layout" className="text-sm">Auto Layout</Label>
+            <Switch
+              id="auto-layout"
+              checked={autoLayout}
+              onCheckedChange={setAutoLayout}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="show-labels" className="text-sm">Show Labels</Label>
+            <Switch
+              id="show-labels"
+              checked={showLabels}
+              onCheckedChange={setShowLabels}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Network Statistics */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">Network Stats</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Nodes</span>
+            <span className="font-medium">24</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Edges</span>
+            <span className="font-medium">48</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Density</span>
+            <span className="font-medium">0.083</span>
           </div>
         </CardContent>
       </Card>
     </div>
   );
-  }
+}
 
-// Environment Sidebar
-function EnvironmentSidebar() {
+// Enhanced Network Analysis Sidebar
+function NetworkAnalysisSidebar() {
+  const [selectedAlgorithm, setSelectedAlgorithm] = useState('centrality');
+
   return (
     <div className="space-y-6">
       <div className="space-y-3">
-        <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-          Environment
+        <h2 className="text-2xl font-bold tracking-tight text-foreground">
+          Network Inference
         </h2>
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          Configure environment presets, media conditions and import/export environment files
+        <p className="text-sm text-muted-foreground">
+          Infer networks from omics data and run analyses
         </p>
       </div>
 
       <Separator />
 
-      <Card className="bg-card/50 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle className="text-sm font-medium">Environment Controls</CardTitle>
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">Analysis Type</CardTitle>
         </CardHeader>
-        <CardContent className="p-4 space-y-3">
-          <Button className="w-full justify-start gap-3 h-11" variant="default">
-            <Container className="w-4 h-4" />
-            Apply Preset
-          </Button>
-          <Button className="w-full justify-start gap-3 h-11" variant="outline">
-            <UploadIcon className="w-4 h-4" />
-            Import Conditions
-          </Button>
-          <Button className="w-full justify-start gap-3 h-11" variant="outline">
-            <DownloadIcon className="w-4 h-4" />
-            Export Environment
-          </Button>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant={selectedAlgorithm === 'centrality' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedAlgorithm('centrality')}
+            >
+              Centrality
+            </Button>
+            <Button
+              variant={selectedAlgorithm === 'clustering' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedAlgorithm('clustering')}
+            >
+              Clustering
+            </Button>
+            <Button
+              variant={selectedAlgorithm === 'community' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedAlgorithm('community')}
+            >
+              Community
+            </Button>
+            <Button
+              variant={selectedAlgorithm === 'pathway' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedAlgorithm('pathway')}
+            >
+              Pathway
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium">Active Preset</CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">Analysis Tools</CardTitle>
         </CardHeader>
-        <CardContent className="p-4">
-          <div className="text-sm text-muted-foreground">No preset applied</div>
+        <CardContent className="space-y-3">
+          <Button className="w-full gap-2">
+            <Play className="w-4 h-4" />
+            Run Analysis
+          </Button>
+          <Button variant="outline" className="w-full gap-2">
+            <BarChart3 className="w-4 h-4" />
+            View Metrics
+          </Button>
         </CardContent>
       </Card>
     </div>
   );
 }
 
-// Enhanced Therapeutics Tab Sidebar
+// Enhanced Therapeutics Sidebar
 function TherapeuticsSidebar() {
   return (
     <div className="space-y-6">
       <div className="space-y-3">
-        <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+        <h2 className="text-2xl font-bold tracking-tight text-foreground">
           Therapeutics
         </h2>
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          Drug discovery and compound analysis tools
+        <p className="text-sm text-muted-foreground">
+          Drug discovery and compound analysis
         </p>
       </div>
 
       <Separator />
 
-      <Card className="bg-card/50 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle className="text-sm font-medium">Analysis Tools</CardTitle>
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">Drug Database</CardTitle>
         </CardHeader>
-        <CardContent className="p-4 space-y-3">
-          <Button className="w-full justify-start gap-3 h-11" variant="default">
-            <DatabaseIcon className="w-4 h-4" />
-            Drug Database
+        <CardContent className="space-y-3">
+          <Button className="w-full gap-2">
+            <Database className="w-4 h-4" />
+            Browse Compounds
           </Button>
-          <Button className="w-full justify-start gap-3 h-11" variant="outline">
-            <SearchIcon className="w-4 h-4" />
-            Search Compounds
-          </Button>
-          <Button className="w-full justify-start gap-3 h-11" variant="outline">
-            <ActivityIcon className="w-4 h-4" />
-            Efficacy Analysis
+          <Button variant="outline" className="w-full gap-2">
+            <Search className="w-4 h-4" />
+            Search Database
           </Button>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium">Recent Compounds</CardTitle>
         </CardHeader>
-        <CardContent className="p-4 space-y-3">
-          <div className="text-center py-8 text-muted-foreground">
-            <DatabaseIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
+        <CardContent>
+          <div className="text-center py-6 text-muted-foreground">
+            <Database className="w-8 h-8 mx-auto mb-2 opacity-50" />
             <p className="text-sm">No recent compounds</p>
           </div>
         </CardContent>
@@ -412,37 +552,119 @@ function TherapeuticsSidebar() {
   );
 }
 
-// Enhanced Analysis Tab Sidebar
+// Enhanced Environment Sidebar
+function EnvironmentSidebar() {
+  return (
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <h2 className="text-2xl font-bold tracking-tight text-foreground">
+          Environment
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Configure environment conditions and presets
+        </p>
+      </div>
+
+      <Separator />
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">Environment Controls</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Button className="w-full gap-2">
+            <Container className="w-4 h-4" />
+            Apply Preset
+          </Button>
+          <Button variant="outline" className="w-full gap-2">
+            <Upload className="w-4 h-4" />
+            Import Conditions
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// New specialized sidebars
+function CellCircuitsSidebar() {
+  return (
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <h2 className="text-2xl font-bold tracking-tight text-foreground">
+          Cell Circuits
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Design and analyze genetic circuits
+        </p>
+      </div>
+      <Separator />
+      {/* Add circuit-specific controls */}
+    </div>
+  );
+}
+
+function CellLinesSidebar() {
+  return (
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <h2 className="text-2xl font-bold tracking-tight text-foreground">
+          Cell Lines
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Manage and analyze cell line data
+        </p>
+      </div>
+      <Separator />
+      {/* Add cell line-specific controls */}
+    </div>
+  );
+}
+
+function SimulationSidebar() {
+  return (
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <h2 className="text-2xl font-bold tracking-tight text-foreground">
+          Simulation
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Configure and run network simulations
+        </p>
+      </div>
+      <Separator />
+      {/* Add simulation controls */}
+    </div>
+  );
+}
+
+// Enhanced Analysis Sidebar
 function AnalysisSidebar() {
   return (
     <div className="space-y-6">
       <div className="space-y-3">
-        <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+        <h2 className="text-2xl font-bold tracking-tight text-foreground">
           Analysis
         </h2>
-        <p className="text-sm text-muted-foreground leading-relaxed">
+        <p className="text-sm text-muted-foreground">
           Advanced network analysis and metrics
         </p>
       </div>
 
       <Separator />
 
-      <Card className="bg-card/50 backdrop-blur-sm">
-        <CardHeader>
+      <Card>
+        <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium">Analysis Tools</CardTitle>
         </CardHeader>
-        <CardContent className="p-4 space-y-3">
-          <Button className="w-full justify-start gap-3 h-11" variant="default">
-            <PlayIcon className="w-4 h-4" />
+        <CardContent className="space-y-3">
+          <Button className="w-full gap-2">
+            <Play className="w-4 h-4" />
             Run Analysis
           </Button>
-          <Button className="w-full justify-start gap-3 h-11" variant="outline">
-            <BarChartIcon className="w-4 h-4" />
+          <Button variant="outline" className="w-full gap-2">
+            <BarChart3 className="w-4 h-4" />
             View Metrics
-          </Button>
-          <Button className="w-full justify-start gap-3 h-11" variant="outline">
-            <CompareIcon className="w-4 h-4" />
-            Compare Results
           </Button>
         </CardContent>
       </Card>
@@ -450,37 +672,33 @@ function AnalysisSidebar() {
   );
 }
 
-// Enhanced Results Tab Sidebar
+// Enhanced Results Sidebar
 function ResultsSidebar() {
   return (
     <div className="space-y-6">
       <div className="space-y-3">
-        <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+        <h2 className="text-2xl font-bold tracking-tight text-foreground">
           Results
         </h2>
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          Export, visualize, and generate reports
+        <p className="text-sm text-muted-foreground">
+          Export and visualize analysis results
         </p>
       </div>
 
       <Separator />
 
-      <Card className="bg-card/50 backdrop-blur-sm">
-        <CardHeader>
+      <Card>
+        <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium">Export Options</CardTitle>
         </CardHeader>
-        <CardContent className="p-4 space-y-3">
-          <Button className="w-full justify-start gap-3 h-11" variant="default">
-            <DownloadIcon className="w-4 h-4" />
+        <CardContent className="space-y-3">
+          <Button className="w-full gap-2">
+            <Download className="w-4 h-4" />
             Export Data
           </Button>
-          <Button className="w-full justify-start gap-3 h-11" variant="outline">
+          <Button variant="outline" className="w-full gap-2">
             <FileTextIcon className="w-4 h-4" />
             Generate Report
-          </Button>
-          <Button className="w-full justify-start gap-3 h-11" variant="outline">
-            <ImageIcon className="w-4 h-4" />
-            Save Visualization
           </Button>
         </CardContent>
       </Card>
@@ -488,30 +706,10 @@ function ResultsSidebar() {
   );
 }
 
-// Additional Icon Components
-const UploadIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-  </svg>
-);
-
-const SettingsIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-  </svg>
-);
-
-// Keep all existing icon components from the original code...
+// Icon Components (keep the same as before)
 const PlusIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-  </svg>
-);
-
-const FolderOpenIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" />
   </svg>
 );
 
@@ -521,57 +719,8 @@ const SaveIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const DatabaseIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
-  </svg>
-);
-
-const SearchIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-  </svg>
-);
-
-const ActivityIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-  </svg>
-);
-
-const PlayIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-  </svg>
-);
-
-const BarChartIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-  </svg>
-);
-
-const CompareIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-  </svg>
-);
-
-const DownloadIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-  </svg>
-);
-
 const FileTextIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-  </svg>
-);
-
-const ImageIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
   </svg>
 );
