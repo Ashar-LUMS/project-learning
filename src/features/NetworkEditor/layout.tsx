@@ -38,6 +38,7 @@ interface NetworkEditorLayoutProps {
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
   networkSidebar?: React.ReactNode;
+  inferenceSidebar?: React.ReactNode;
 }
 
 type TabType = 'projects' | 'network-inference' | 'network' | 'therapeutics' | 'env' | 'cell-circuits' | 'cell-lines' | 'simulation' | 'analysis' | 'results';
@@ -47,6 +48,7 @@ export default function NetworkEditorLayout({
   activeTab,
   onTabChange,
   networkSidebar,
+  inferenceSidebar,
 }: NetworkEditorLayoutProps) {
   const tabs = [
     { id: 'projects' as TabType, label: 'Projects', icon: Folder, color: 'text-blue-600' },
@@ -121,7 +123,7 @@ export default function NetworkEditorLayout({
         <div className="w-80 border-r bg-background overflow-hidden flex flex-col">
           <ScrollArea className="flex-1">
             <div className="p-6">
-              {renderTabContent(activeTab, networkSidebar)}
+              {renderTabContent(activeTab, networkSidebar, inferenceSidebar)}
             </div>
           </ScrollArea>
         </div>
@@ -138,14 +140,14 @@ export default function NetworkEditorLayout({
   );
 }
 
-function renderTabContent(activeTab: TabType, networkSidebar?: React.ReactNode) {
+function renderTabContent(activeTab: TabType, networkSidebar?: React.ReactNode, inferenceSidebar?: React.ReactNode) {
   switch (activeTab) {
     case 'projects':
       return <ProjectsSidebar />;
     case 'network':
       return networkSidebar ?? <NetworkSidebar />;
     case 'network-inference':
-      return <NetworkAnalysisSidebar />;
+      return inferenceSidebar ?? <NetworkAnalysisSidebar />;
     case 'therapeutics':
       return <TherapeuticsSidebar />;
     case 'env':
@@ -410,72 +412,35 @@ function NetworkSidebar() {
 
 // Enhanced Network Analysis Sidebar
 function NetworkAnalysisSidebar() {
-  const [selectedAlgorithm, setSelectedAlgorithm] = useState('centrality');
-
   return (
     <div className="space-y-6">
       <div className="space-y-3">
-        <h2 className="text-2xl font-bold tracking-tight text-foreground">
-          Network Inference
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Infer networks from omics data and run analyses
-        </p>
+        <h2 className="text-2xl font-bold tracking-tight text-foreground">Network Inference</h2>
+        <p className="text-sm text-muted-foreground">Deterministic Boolean analysis tools</p>
       </div>
-
       <Separator />
-
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium">Analysis Type</CardTitle>
+          <CardTitle className="text-sm font-medium">Actions</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid grid-cols-2 gap-2">
+        <CardContent className="p-0">
+          <div className="space-y-1">
             <Button
-              variant={selectedAlgorithm === 'centrality' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedAlgorithm('centrality')}
+              className="w-full justify-start gap-3 h-11 px-4"
+              onClick={() => (window as any).runDeterministicAnalysis?.()}
             >
-              Centrality
+              <Play className="w-4 h-4" />
+              Perform Deterministic Analysis
             </Button>
             <Button
-              variant={selectedAlgorithm === 'clustering' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedAlgorithm('clustering')}
+              variant="outline"
+              className="w-full justify-start gap-3 h-11 px-4"
+              onClick={() => (window as any).downloadDeterministicResults?.()}
             >
-              Clustering
-            </Button>
-            <Button
-              variant={selectedAlgorithm === 'community' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedAlgorithm('community')}
-            >
-              Community
-            </Button>
-            <Button
-              variant={selectedAlgorithm === 'pathway' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedAlgorithm('pathway')}
-            >
-              Pathway
+              <Download className="w-4 h-4" />
+              Download Results
             </Button>
           </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium">Analysis Tools</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Button className="w-full gap-2">
-            <Play className="w-4 h-4" />
-            Run Analysis
-          </Button>
-          <Button variant="outline" className="w-full gap-2">
-            <BarChart3 className="w-4 h-4" />
-            View Metrics
-          </Button>
         </CardContent>
       </Card>
     </div>

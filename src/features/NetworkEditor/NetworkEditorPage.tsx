@@ -4,7 +4,7 @@ import NetworkEditorLayout from './layout';
 import ProjectTabComponent from './tabs/ProjectTab';
 import NetworkGraph from './NetworkGraph';
 import { supabase } from '../../supabaseClient';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { performDeterministicAnalysis } from '@/lib/deterministicAnalysis';
 import type { AnalysisNode, DeterministicAnalysisResult } from '@/lib/deterministicAnalysis';
+import { Download, Play } from 'lucide-react';
 
 type Network = {
   id: string;
@@ -32,6 +33,7 @@ export default function NetworkEditorPage() {
   const [analysisResult, setAnalysisResult] = useState<DeterministicAnalysisResult | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [lastRulesUsed, setLastRulesUsed] = useState<string[] | null>(null);
 
   const selectedNetwork = useMemo(() => networks.find(n => n.id === selectedNetworkId) || null, [networks, selectedNetworkId]);
 
@@ -55,6 +57,8 @@ export default function NetworkEditorPage() {
     return Array.from(ids).map(id => ({ id }));
   }, [selectedNetwork, rulesText]);
 
+  
+
   const handleRunAnalysis = () => {
     setAnalysisError(null);
     setIsAnalyzing(true);
@@ -67,11 +71,65 @@ export default function NetworkEditorPage() {
       if (!inferredNodes.length) throw new Error('Could not infer any nodes. Add rules or select a network with nodes.');
       const result = performDeterministicAnalysis({ nodes: inferredNodes, rules });
       setAnalysisResult(result);
+      setLastRulesUsed(rules);
     } catch (e: any) {
       setAnalysisResult(null);
       setAnalysisError(e?.message || 'Analysis failed');
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  const handleRunDeterministic = () => {
+    setAnalysisError(null);
+    setIsAnalyzing(true);
+    try {
+      // Prefer rules from the selected network if available; otherwise use textarea
+      const networkRules: string[] = Array.isArray((selectedNetwork as any)?.data?.rules)
+        ? ((selectedNetwork as any).data.rules as string[]).filter(r => typeof r === 'string')
+        : [];
+      const textRules: string[] = rulesText.split(/\n+/).map(l => l.trim()).filter(l => l && l.includes('='));
+      const rules = networkRules.length > 0 ? networkRules : textRules;
+      if (!rules.length) throw new Error('No rules found. Add rules or select a network that has rules.');
+      if (!inferredNodes.length) throw new Error('Could not infer any nodes. Select a network with nodes or add rules including LHS node names.');
+      // If we used network rules, mirror them in the editor for transparency
+      if (networkRules.length > 0) setRulesText(networkRules.join('\n'));
+      const result = performDeterministicAnalysis({ nodes: inferredNodes, rules });
+      setAnalysisResult(result);
+      setLastRulesUsed(rules);
+    } catch (e: any) {
+      setAnalysisResult(null);
+      setAnalysisError(e?.message || 'Analysis failed');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleDownloadResults = () => {
+    if (!analysisResult) return;
+    try {
+      const payload = {
+        meta: {
+          generatedAt: new Date().toISOString(),
+          projectNetworkId: selectedNetworkId,
+          projectNetworkName: selectedNetwork?.name ?? null,
+          nodeCount: analysisResult.nodeOrder.length,
+        },
+        rules: lastRulesUsed ?? rulesText.split(/\n+/).map(l => l.trim()).filter(Boolean),
+        result: analysisResult,
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const date = new Date().toISOString().replace(/[:.]/g, '-');
+      a.download = `deterministic_analysis_${date}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      // no-op; optional: set error UI
     }
   };
 
@@ -88,6 +146,59 @@ export default function NetworkEditorPage() {
     ].join('\n');
     setRulesText(example);
   };
+
+  // Expose global handlers so default sidebar buttons can invoke actions even without custom sidebar injection
+  useEffect(() => {
+    (window as any).runDeterministicAnalysis = () => handleRunDeterministic();
+    (window as any).downloadDeterministicResults = () => handleDownloadResults();
+    return () => {
+      try {
+        delete (window as any).runDeterministicAnalysis;
+        delete (window as any).downloadDeterministicResults;
+      } catch {}
+    };
+  }, [handleRunDeterministic, handleDownloadResults]);
+
+  const inferenceSidebarContent = (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">Inference Actions</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="space-y-1">
+            <Button
+              className="w-full justify-start gap-3 h-11 px-4"
+              onClick={handleRunDeterministic}
+              disabled={isAnalyzing}
+            >
+              <Play className="w-4 h-4" />
+              Perform Deterministic Analysis
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-3 h-11 px-4"
+              onClick={handleDownloadResults}
+              disabled={!analysisResult}
+            >
+              <Download className="w-4 h-4" />
+              Download Results
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">Status</CardTitle>
+        </CardHeader>
+        <CardContent className="text-xs text-muted-foreground space-y-1">
+          <div>Selected network: {selectedNetwork ? selectedNetwork.name : 'None'}</div>
+          <div>Nodes detected: {inferredNodes.length}</div>
+          <div>Result: {analysisResult ? `${analysisResult.attractors.length} attractor(s)` : '—'}</div>
+        </CardContent>
+      </Card>
+    </div>
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -358,6 +469,16 @@ export default function NetworkEditorPage() {
                   {selectedNetwork && (
                     <div className="text-xs text-muted-foreground">Using {inferredNodes.length} node(s) from {selectedNetwork.name}</div>
                   )}
+                  {isAnalyzing && (
+                    <div className="text-sm text-muted-foreground">Analyzing…</div>
+                  )}
+                  {!isAnalyzing && analysisResult && !analysisError && (
+                    <Alert>
+                      <AlertDescription>
+                        Analysis complete. Found {analysisResult.attractors.length} attractor(s) · Explored {analysisResult.exploredStateCount} states.
+                      </AlertDescription>
+                    </Alert>
+                  )}
                   <textarea
                     placeholder={"A = A\nB = A AND !C\nC = B OR A"}
                     className="font-mono text-sm h-48"
@@ -366,8 +487,12 @@ export default function NetworkEditorPage() {
                   />
                   <div className="flex flex-wrap gap-2">
                     <Button size="sm" onClick={handleRunAnalysis} disabled={isAnalyzing}>{isAnalyzing ? 'Analyzing…' : 'Run Analysis'}</Button>
+                    <Button size="sm" variant="secondary" onClick={handleRunDeterministic} disabled={isAnalyzing}>
+                      {isAnalyzing ? 'Analyzing…' : 'Deterministic Analysis'}
+                    </Button>
                     <Button size="sm" variant="outline" onClick={handleExample}>Load Example</Button>
                     <Button size="sm" variant="ghost" onClick={handleClear} disabled={!analysisResult && !analysisError}>Clear</Button>
+                    <Button size="sm" variant="outline" onClick={handleDownloadResults} disabled={!analysisResult}>Download Results</Button>
                   </div>
                   {analysisError && (
                     <div className="text-sm text-red-600">{analysisError}</div>
@@ -492,7 +617,7 @@ export default function NetworkEditorPage() {
   };
 
   return (
-    <NetworkEditorLayout activeTab={activeTab} onTabChange={setActiveTab}>
+    <NetworkEditorLayout activeTab={activeTab} onTabChange={setActiveTab} inferenceSidebar={inferenceSidebarContent}>
       {renderMainContent()}
     </NetworkEditorLayout>
   );
