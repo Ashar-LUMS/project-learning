@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { formatTimestamp } from '@/lib/format';
 import NetworkGraph from "./NetworkGraph";
 import { supabase } from "../../supabaseClient";
 import NetworkEditorLayout from "./layout";
@@ -11,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { inferRulesFromBiomolecules } from "@/lib/openRouter";
+import { useProjectNetworks, type ProjectNetworkRecord } from '@/hooks/useProjectNetworks';
 
 type ProjectRecord = {
   id: string;
@@ -20,12 +22,7 @@ type ProjectRecord = {
   networks?: string[] | null;
 };
 
-type NetworkRecord = {
-  id: string;
-  name: string;
-  created_at: string | null;
-  data: any;
-};
+// network records provided by useProjectNetworks
 
 type TabType = 'projects' | 'network' | 'therapeutics' | 'analysis' | 'results' | 'network-inference' | 'env' | 'cell-circuits' | 'cell-lines' | 'simulation';
 
@@ -35,8 +32,7 @@ export default function ProjectVisualizationPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const [activeTab, setActiveTab] = useState<TabType>('network');
   const [project, setProject] = useState<ProjectRecord | null>(null);
-  const [networks, setNetworks] = useState<NetworkRecord[]>([]);
-  const [selectedNetworkId, setSelectedNetworkId] = useState<string | null>(null);
+  const { networks, selectedNetworkId, selectedNetwork, selectNetwork, setNetworks } = useProjectNetworks({ projectId });
   const [recentNetworkIds, setRecentNetworkIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -54,137 +50,54 @@ export default function ProjectVisualizationPage() {
 
   useEffect(() => {
     let isMounted = true;
-
     if (!projectId) {
-      setLoadError("Missing project identifier.");
+      setLoadError('Missing project identifier.');
       setIsLoading(false);
-      return () => {
-        isMounted = false;
-      };
+      return () => { isMounted = false; };
     }
-
-    const loadProjectAndNetworks = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-
+    const fetchProject = async () => {
+      setIsLoading(true); setLoadError(null);
       try {
         const { data: projectRow, error: projectError } = await supabase
           .from('projects')
           .select('id, name, assignees, created_at, networks')
           .eq('id', projectId)
           .maybeSingle();
-
         if (projectError) throw projectError;
         if (!projectRow) throw new Error('Project not found.');
-
-        const networkIds = Array.isArray(projectRow.networks)
-          ? projectRow.networks.filter((id): id is string => typeof id === 'string')
-          : [];
-
-        let orderedNetworks: NetworkRecord[] = [];
-
-        if (networkIds.length > 0) {
-          const { data: networkRows, error: networkError } = await supabase
-            .from('networks')
-            .select('id, name, network_data, created_at')
-            .in('id', networkIds);
-
-          if (networkError) throw networkError;
-
-          const networkMap = new Map<string, NetworkRecord>();
-          (networkRows ?? []).forEach((row) => {
-            networkMap.set(row.id, {
-              id: row.id,
-              name: row.name,
-              created_at: row.created_at ?? null,
-              data: row.network_data ?? null,
-            });
-          });
-
-          orderedNetworks = networkIds
-            .map((id) => networkMap.get(id))
-            .filter((network): network is NetworkRecord => Boolean(network));
-
-          if ((networkRows ?? []).length !== orderedNetworks.length) {
-            (networkRows ?? []).forEach((row) => {
-              if (!networkIds.includes(row.id)) {
-                orderedNetworks.push({
-                  id: row.id,
-                  name: row.name,
-                  created_at: row.created_at ?? null,
-                  data: row.network_data ?? null,
-                });
-              }
-            });
-          }
-        }
-
-        if (!isMounted) return;
-
-        setProject(projectRow as ProjectRecord);
-        setNetworks(orderedNetworks);
-      } catch (error: any) {
-        if (!isMounted) return;
-        setProject(null);
-        setNetworks([]);
-        setSelectedNetworkId(null);
-        setRecentNetworkIds([]);
-        setLoadError(error?.message || 'Failed to load project.');
-      } finally {
+        if (isMounted) setProject(projectRow as ProjectRecord);
+      } catch (e: any) {
         if (isMounted) {
-          setIsLoading(false);
+          setProject(null);
+          setLoadError(e?.message || 'Failed to load project.');
         }
+      } finally {
+        if (isMounted) setIsLoading(false);
       }
     };
-
-    loadProjectAndNetworks();
-
-    return () => {
-      isMounted = false;
-    };
+    fetchProject();
+    return () => { isMounted = false; };
   }, [projectId]);
 
   useEffect(() => {
     if (!networks.length) {
-      setSelectedNetworkId(null);
       setRecentNetworkIds([]);
       return;
     }
-
-    setSelectedNetworkId((prev) => {
-      if (prev && networks.some((network) => network.id === prev)) {
-        return prev;
+    setRecentNetworkIds(prev => {
+      const validPrev = prev.filter(id => networks.some(n => n.id === id));
+      if (validPrev.length) {
+        const appended = networks.map(n => n.id).filter(id => !validPrev.includes(id));
+        return [...validPrev, ...appended].slice(0, MAX_RECENT_NETWORKS);
       }
-      return networks[0]?.id ?? null;
-    });
-
-    setRecentNetworkIds((prev) => {
-      const validPrev = prev.filter((id) => networks.some((network) => network.id === id));
-      if (validPrev.length > 0) {
-        const missing = networks
-          .map((network) => network.id)
-          .filter((id) => !validPrev.includes(id));
-        return [...validPrev, ...missing].slice(0, MAX_RECENT_NETWORKS);
-      }
-
-      return [...networks]
-        .sort((a, b) => {
-          const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
-          const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
-          return bTime - aTime;
-        })
-        .map((network) => network.id)
-        .slice(0, MAX_RECENT_NETWORKS);
+      return networks.slice(0, MAX_RECENT_NETWORKS).map(n => n.id);
     });
   }, [networks]);
 
   const handleSelectNetwork = useCallback((networkId: string) => {
-    setSelectedNetworkId(networkId);
-    setRecentNetworkIds((prev) => {
-      const deduped = prev.filter((id) => id !== networkId);
-      return [networkId, ...deduped].slice(0, MAX_RECENT_NETWORKS);
-    });
-  }, []);
+    selectNetwork(networkId);
+    setRecentNetworkIds(prev => [networkId, ...prev.filter(id => id !== networkId)].slice(0, MAX_RECENT_NETWORKS));
+  }, [selectNetwork]);
 
   const handleNewNetwork = useCallback(() => {
     (async () => {
@@ -227,7 +140,7 @@ export default function ProjectVisualizationPage() {
         if (updateErr) throw updateErr;
 
         // 4) Update local state to reflect the new network without full reload
-        const newNetwork: NetworkRecord = {
+        const newNetwork: ProjectNetworkRecord = {
           id: createdNetwork.id,
           name: createdNetwork.name,
           created_at: createdNetwork.created_at ?? null,
@@ -235,13 +148,13 @@ export default function ProjectVisualizationPage() {
         };
 
         setNetworks((prev) => [newNetwork, ...prev]);
-        setSelectedNetworkId(createdNetwork.id);
+        selectNetwork(createdNetwork.id);
         setRecentNetworkIds((prev) => [createdNetwork.id, ...prev.filter((id) => id !== createdNetwork.id)].slice(0, MAX_RECENT_NETWORKS));
       } catch (err: any) {
         setLoadError(err?.message || 'Failed to create and link a new network.');
       }
     })();
-  }, [projectId, setNetworks, setSelectedNetworkId, setRecentNetworkIds]);
+  }, [projectId, setNetworks, setRecentNetworkIds, selectNetwork]);
 
   const handleImportNetwork = useCallback(() => {
     // Open the Import dialog
@@ -371,14 +284,14 @@ export default function ProjectVisualizationPage() {
       if (updErr) throw updErr;
 
       // 3) Update local state
-      const newNet: NetworkRecord = {
+      const newNet: ProjectNetworkRecord = {
         id: created.id,
         name: created.name,
         created_at: created.created_at ?? null,
         data: created.network_data ?? null,
       };
       setNetworks((prev) => [newNet, ...prev]);
-      setSelectedNetworkId(created.id);
+      selectNetwork(created.id);
       setRecentNetworkIds((prev) => [created.id, ...prev.filter((id) => id !== created.id)].slice(0, MAX_RECENT_NETWORKS));
       setIsImportOpen(false);
     } catch (err: any) {
@@ -387,30 +300,14 @@ export default function ProjectVisualizationPage() {
       setIsSavingImport(false);
     }
   };
-
-  const selectedNetwork = useMemo(
-    () => networks.find((network) => network.id === selectedNetworkId) ?? null,
-    [networks, selectedNetworkId]
-  );
-
   const sidebarRecentNetworks = useMemo(
     () => recentNetworkIds
-      .map((id) => networks.find((network) => network.id === id) || null)
-      .filter((network): network is NetworkRecord => Boolean(network)),
+      .map(id => networks.find(n => n.id === id) || null)
+      .filter((n): n is ProjectNetworkRecord => Boolean(n)),
     [recentNetworkIds, networks]
   );
 
-  const formatTimestamp = useCallback((value: string | null) => {
-    if (!value) return null;
-    try {
-      return new Intl.DateTimeFormat(undefined, {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      }).format(new Date(value));
-    } catch {
-      return value;
-    }
-  }, []);
+  // removed local timestamp formatter in favor of shared utility
 
   const networkSidebarContent = (
     <div className="p-4 space-y-4">

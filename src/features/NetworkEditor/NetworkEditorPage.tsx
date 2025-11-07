@@ -1,9 +1,8 @@
 import type React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
 import NetworkEditorLayout from './layout';
 import ProjectTabComponent from './tabs/ProjectTab';
 import NetworkGraph from './NetworkGraph';
-import { supabase } from '../../supabaseClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -11,132 +10,45 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 // Using native textarea (no shadcn textarea present)
 import { Button } from '@/components/ui/button';
-import { performDeterministicAnalysis } from '@/lib/deterministicAnalysis';
-import type { AnalysisNode, DeterministicAnalysisResult } from '@/lib/deterministicAnalysis';
+// analysis node type is internal to the hook now
+import { useDeterministicAnalysis } from '@/hooks/useDeterministicAnalysis';
+import { useProjectNetworks, type ProjectNetworkRecord } from '@/hooks/useProjectNetworks';
 import { Download, Play } from 'lucide-react';
 
-type Network = {
-  id: string;
-  name: string;
-  data: any;
-  created_at?: string | null;
-};
+// network type unified via hook's ProjectNetworkRecord
 
 export default function NetworkEditorPage() {
   const [activeTab, setActiveTab] = useState<'projects' | 'network' | 'therapeutics' | 'analysis' | 'results' | 'network-inference' | 'env' | 'cell-circuits' | 'cell-lines' | 'simulation'>('projects');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [networks, setNetworks] = useState<Network[]>([]);
-  const [selectedNetworkId, setSelectedNetworkId] = useState<string | null>(null);
-  const [isLoadingNetworks, setIsLoadingNetworks] = useState(false);
-  const [networksError, setNetworksError] = useState<string | null>(null);
+  // networks managed via hook now
   const [rulesText, setRulesText] = useState('');
-  const [analysisResult, setAnalysisResult] = useState<DeterministicAnalysisResult | null>(null);
-  const [analysisError, setAnalysisError] = useState<string | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [lastRulesUsed, setLastRulesUsed] = useState<string[] | null>(null);
+  // analysis managed via hook
 
-  const selectedNetwork = useMemo(() => networks.find(n => n.id === selectedNetworkId) || null, [networks, selectedNetworkId]);
+  // use shared hook for project networks
+  const { networks, selectedNetworkId, selectedNetwork, isLoading: isLoadingNetworks, error: networksError, selectNetwork } = useProjectNetworks({ projectId: selectedProjectId });
 
-  const inferredNodes: AnalysisNode[] = useMemo(() => {
-    // Prefer nodes from network data if present (expecting structure with nodes array of { id, label })
-    const fromNetwork: AnalysisNode[] = Array.isArray((selectedNetwork as any)?.data?.nodes)
-      ? ((selectedNetwork as any).data.nodes as any[])
-          .filter(n => n && (n.id || n.name))
-          .map(n => ({ id: String(n.id || n.name), label: n.label || n.name || n.id }))
-      : [];
-    if (fromNetwork.length) return fromNetwork;
-    // Fallback: derive node ids from left-hand sides of rules
-    const ids = new Set<string>();
-    rulesText.split(/\n+/).forEach(line => {
-      const [lhs, rhs] = line.split('=');
-      if (lhs && rhs) {
-        const id = lhs.trim();
-        if (id) ids.add(id);
-      }
-    });
-    return Array.from(ids).map(id => ({ id }));
-  }, [selectedNetwork, rulesText]);
+  const {
+    inferredNodes,
+    isAnalyzing,
+    analysisResult,
+    analysisError,
+    runDeterministic,
+    runFromEditorRules,
+    downloadResults,
+    clear,
+  } = useDeterministicAnalysis({
+    selectedNetworkId: selectedNetworkId,
+    selectedNetworkName: selectedNetwork?.name ?? null,
+    networkData: (selectedNetwork as any)?.data ?? null,
+    rulesText,
+  });
 
   
 
-  const handleRunAnalysis = () => {
-    setAnalysisError(null);
-    setIsAnalyzing(true);
-    try {
-      const rules = rulesText
-        .split(/\n+/)
-        .map(l => l.trim())
-        .filter(l => l && l.includes('='));
-      if (!rules.length) throw new Error('Provide at least one rule in the form NODE = EXPRESSION');
-      if (!inferredNodes.length) throw new Error('Could not infer any nodes. Add rules or select a network with nodes.');
-      const result = performDeterministicAnalysis({ nodes: inferredNodes, rules });
-      setAnalysisResult(result);
-      setLastRulesUsed(rules);
-    } catch (e: any) {
-      setAnalysisResult(null);
-      setAnalysisError(e?.message || 'Analysis failed');
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  const handleRunDeterministic = () => {
-    setAnalysisError(null);
-    setIsAnalyzing(true);
-    try {
-      // Prefer rules from the selected network if available; otherwise use textarea
-      const networkRules: string[] = Array.isArray((selectedNetwork as any)?.data?.rules)
-        ? ((selectedNetwork as any).data.rules as string[]).filter(r => typeof r === 'string')
-        : [];
-      const textRules: string[] = rulesText.split(/\n+/).map(l => l.trim()).filter(l => l && l.includes('='));
-      const rules = networkRules.length > 0 ? networkRules : textRules;
-      if (!rules.length) throw new Error('No rules found. Add rules or select a network that has rules.');
-      if (!inferredNodes.length) throw new Error('Could not infer any nodes. Select a network with nodes or add rules including LHS node names.');
-      // If we used network rules, mirror them in the editor for transparency
-      if (networkRules.length > 0) setRulesText(networkRules.join('\n'));
-      const result = performDeterministicAnalysis({ nodes: inferredNodes, rules });
-      setAnalysisResult(result);
-      setLastRulesUsed(rules);
-    } catch (e: any) {
-      setAnalysisResult(null);
-      setAnalysisError(e?.message || 'Analysis failed');
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  const handleDownloadResults = () => {
-    if (!analysisResult) return;
-    try {
-      const payload = {
-        meta: {
-          generatedAt: new Date().toISOString(),
-          projectNetworkId: selectedNetworkId,
-          projectNetworkName: selectedNetwork?.name ?? null,
-          nodeCount: analysisResult.nodeOrder.length,
-        },
-        rules: lastRulesUsed ?? rulesText.split(/\n+/).map(l => l.trim()).filter(Boolean),
-        result: analysisResult,
-      };
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      const date = new Date().toISOString().replace(/[:.]/g, '-');
-      a.download = `deterministic_analysis_${date}.json`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch {
-      // no-op; optional: set error UI
-    }
-  };
-
-  const handleClear = () => {
-    setAnalysisResult(null);
-    setAnalysisError(null);
-  };
+  const handleRunAnalysis = () => runFromEditorRules();
+  const handleRunDeterministic = () => runDeterministic();
+  const handleDownloadResults = () => downloadResults();
+  const handleClear = () => clear();
 
   const handleExample = () => {
     const example = [
@@ -147,17 +59,7 @@ export default function NetworkEditorPage() {
     setRulesText(example);
   };
 
-  // Expose global handlers so default sidebar buttons can invoke actions even without custom sidebar injection
-  useEffect(() => {
-    (window as any).runDeterministicAnalysis = () => handleRunDeterministic();
-    (window as any).downloadDeterministicResults = () => handleDownloadResults();
-    return () => {
-      try {
-        delete (window as any).runDeterministicAnalysis;
-        delete (window as any).downloadDeterministicResults;
-      } catch {}
-    };
-  }, [handleRunDeterministic, handleDownloadResults]);
+  // No global window handlers; actions are provided via injected sidebar below
 
   const inferenceSidebarContent = (
     <div className="space-y-6">
@@ -200,104 +102,19 @@ export default function NetworkEditorPage() {
     </div>
   );
 
-  useEffect(() => {
-    let isMounted = true;
-
-    if (!selectedProjectId) {
-      setNetworks([]);
-      setSelectedNetworkId(null);
-      setNetworksError(null);
-      setIsLoadingNetworks(false);
-      return () => {
-        isMounted = false;
-      };
-    }
-
-    const fetchNetworks = async () => {
-      setIsLoadingNetworks(true);
-      setNetworksError(null);
-
-      try {
-        const { data: projectRow, error: projectError } = await supabase
-          .from('projects')
-          .select('networks')
-          .eq('id', selectedProjectId)
-          .maybeSingle();
-
-        if (projectError) throw projectError;
-
-        const networkIds = Array.isArray(projectRow?.networks)
-          ? projectRow?.networks.filter((id): id is string => typeof id === 'string')
-          : [];
-
-        if (networkIds.length === 0) {
-          if (isMounted) {
-            setNetworks([]);
-            setSelectedNetworkId(null);
-          }
-          return;
-        }
-
-        const { data: networkRows, error: networkError } = await supabase
-          .from('networks')
-          .select('id, name, network_data, created_at')
-          .in('id', networkIds);
-
-        if (networkError) throw networkError;
-
-        const networkMap = new Map<string, Network>();
-        (networkRows ?? []).forEach((row) => {
-          networkMap.set(row.id, {
-            id: row.id,
-            name: row.name,
-            data: row.network_data ?? null,
-            created_at: row.created_at ?? null,
-          });
-        });
-
-        const ordered = networkIds
-          .map((id) => networkMap.get(id))
-          .filter((network): network is Network => Boolean(network));
-
-        if (!isMounted) return;
-
-        setNetworks(ordered);
-        setSelectedNetworkId((prev) => {
-          if (prev && ordered.some((network) => network.id === prev)) {
-            return prev;
-          }
-          return ordered[0]?.id ?? null;
-        });
-      } catch (error: any) {
-        if (!isMounted) return;
-        setNetworks([]);
-        setSelectedNetworkId(null);
-        setNetworksError(error?.message || 'Failed to load project networks.');
-      } finally {
-        if (isMounted) {
-          setIsLoadingNetworks(false);
-        }
-      }
-    };
-
-    fetchNetworks();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [selectedProjectId]);
+  // removed local fetch effect in favor of shared hook
 
   const renderNetworkSelector = () => (
     <div className="space-y-2">
       <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
         Select Network
       </label>
-      <Select value={selectedNetworkId || ''} onValueChange={setSelectedNetworkId}>
+  <Select value={selectedNetworkId || ''} onValueChange={selectNetwork}>
         <SelectTrigger className="w-80">
           <SelectValue placeholder="Choose a network..." />
         </SelectTrigger>
         <SelectContent>
-          {networks.map((network) => (
+          {networks.map((network: ProjectNetworkRecord) => (
             <SelectItem key={network.id} value={network.id}>
               <div className="flex items-center justify-between w-full">
                 <span className="font-medium">{network.name}</span>
@@ -617,7 +434,17 @@ export default function NetworkEditorPage() {
   };
 
   return (
-    <NetworkEditorLayout activeTab={activeTab} onTabChange={setActiveTab} inferenceSidebar={inferenceSidebarContent}>
+    <NetworkEditorLayout
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      inferenceSidebar={inferenceSidebarContent}
+      inferenceActions={{
+        run: handleRunDeterministic,
+        download: handleDownloadResults,
+        isRunning: isAnalyzing,
+        hasResult: Boolean(analysisResult),
+      }}
+    >
       {renderMainContent()}
     </NetworkEditorLayout>
   );

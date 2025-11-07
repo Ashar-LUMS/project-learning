@@ -39,6 +39,12 @@ interface NetworkEditorLayoutProps {
   onTabChange: (tab: TabType) => void;
   networkSidebar?: React.ReactNode;
   inferenceSidebar?: React.ReactNode;
+  inferenceActions?: {
+    run?: () => void;
+    download?: () => void;
+    isRunning?: boolean;
+    hasResult?: boolean;
+  };
 }
 
 type TabType = 'projects' | 'network-inference' | 'network' | 'therapeutics' | 'env' | 'cell-circuits' | 'cell-lines' | 'simulation' | 'analysis' | 'results';
@@ -49,6 +55,7 @@ export default function NetworkEditorLayout({
   onTabChange,
   networkSidebar,
   inferenceSidebar,
+  inferenceActions,
 }: NetworkEditorLayoutProps) {
   const tabs = [
     { id: 'projects' as TabType, label: 'Projects', icon: Folder, color: 'text-blue-600' },
@@ -123,7 +130,7 @@ export default function NetworkEditorLayout({
         <div className="w-80 border-r bg-background overflow-hidden flex flex-col">
           <ScrollArea className="flex-1">
             <div className="p-6">
-              {renderTabContent(activeTab, networkSidebar, inferenceSidebar)}
+              {renderTabContent(activeTab, networkSidebar, inferenceSidebar, inferenceActions)}
             </div>
           </ScrollArea>
         </div>
@@ -140,14 +147,14 @@ export default function NetworkEditorLayout({
   );
 }
 
-function renderTabContent(activeTab: TabType, networkSidebar?: React.ReactNode, inferenceSidebar?: React.ReactNode) {
+function renderTabContent(activeTab: TabType, networkSidebar?: React.ReactNode, inferenceSidebar?: React.ReactNode, inferenceActions?: NetworkEditorLayoutProps['inferenceActions']) {
   switch (activeTab) {
     case 'projects':
       return <ProjectsSidebar />;
     case 'network':
       return networkSidebar ?? <NetworkSidebar />;
     case 'network-inference':
-      return inferenceSidebar ?? <NetworkAnalysisSidebar />;
+      return inferenceSidebar ?? <NetworkAnalysisSidebar actions={inferenceActions} />;
     case 'therapeutics':
       return <TherapeuticsSidebar />;
     case 'env':
@@ -411,7 +418,7 @@ function NetworkSidebar() {
 }
 
 // Enhanced Network Analysis Sidebar
-function NetworkAnalysisSidebar() {
+function NetworkAnalysisSidebar({ actions }: { actions?: NetworkEditorLayoutProps['inferenceActions'] }) {
   return (
     <div className="space-y-6">
       <div className="space-y-3">
@@ -427,7 +434,8 @@ function NetworkAnalysisSidebar() {
           <div className="space-y-1">
             <Button
               className="w-full justify-start gap-3 h-11 px-4"
-              onClick={() => (window as any).runDeterministicAnalysis?.()}
+              onClick={() => actions?.run?.()}
+              disabled={actions?.isRunning}
             >
               <Play className="w-4 h-4" />
               Perform Deterministic Analysis
@@ -435,7 +443,8 @@ function NetworkAnalysisSidebar() {
             <Button
               variant="outline"
               className="w-full justify-start gap-3 h-11 px-4"
-              onClick={() => (window as any).downloadDeterministicResults?.()}
+              onClick={() => actions?.download?.()}
+              disabled={!actions?.hasResult}
             >
               <Download className="w-4 h-4" />
               Download Results
