@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import ForceGraph2D, { type ForceGraphMethods } from "react-force-graph-2d";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import cytoscape, { type Core } from "cytoscape";
 import { supabase } from "../../supabaseClient";
 
 type Node = {
@@ -92,26 +92,22 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0 }) => {
     networkId ?? undefined,
     refreshToken
   );
-  const fgRef = useRef<ForceGraphMethods<any, { [others: string]: any; source?: any; target?: any; }> | undefined>(undefined);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [size, setSize] = useState<{ width: number; height: number }>({ width: 1600, height: 1200 });
+  const cyRef = useRef<Core | null>(null);
+  // Keep a size state if future features need it; currently unused, so removed to satisfy lint
 
-  // AGGRESSIVE ResizeObserver - Use exact container size
+  // Resize observer to keep Cytoscape fitting to container
   useEffect(() => {
     if (!containerRef.current) return;
     
     const el = containerRef.current;
     
     const updateSize = () => {
-      const rect = el.getBoundingClientRect();
-      console.log("Container rect:", rect.width, "x", rect.height);
-      
-      // USE EXACT CONTAINER SIZE - NO LIMITS
-      const newWidth = Math.floor(rect.width);
-      const newHeight = Math.floor(rect.height);
-      
-      console.log("Setting canvas to:", newWidth, "x", newHeight);
-      setSize({ width: newWidth, height: newHeight });
+      // Trigger cy resize/fit when container changes
+      if (cyRef.current) {
+        cyRef.current.resize();
+        cyRef.current.fit(undefined, 40);
+      }
     };
 
     // Multiple attempts to get proper size
@@ -120,15 +116,8 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0 }) => {
       setTimeout(updateSize, delay);
     });
 
-    const ro = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const { width, height } = entry.contentRect;
-        console.log("ResizeObserver:", width, "x", height);
-        setSize({ 
-          width: Math.floor(width), 
-          height: Math.floor(height)
-        });
-      }
+    const ro = new ResizeObserver(() => {
+      updateSize();
     });
     
     ro.observe(el);
@@ -140,107 +129,124 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0 }) => {
     };
   }, []);
 
-  const graphData = useMemo(() => {
-    if (!network) return { nodes: [], links: [] };
-    return {
-      nodes: (network.nodes || []).map((n) => ({ id: n.id, name: n.label, type: n.type })),
-      links: (network.edges || []).map((e) => ({ source: e.source, target: e.target, interaction: e.interaction })),
-    };
+  const elements = useMemo(() => {
+    const nodeElems = (network?.nodes || []).map((n) => ({
+      data: { id: n.id, label: n.label ?? n.id, type: n.type },
+    }));
+    // generate unique edge ids to avoid duplicates
+    const edgeElems = (network?.edges || []).map((e, idx) => ({
+      data: { id: `e-${idx}-${e.source}-${e.target}`, source: e.source, target: e.target, interaction: e.interaction },
+    }));
+    return [...nodeElems, ...edgeElems];
   }, [network]);
 
-  const nodeTypes = useMemo(() => {
-    const set = new Set<string>();
-    (network?.nodes || []).forEach((n) => set.add(n.type));
-    return Array.from(set);
-  }, [network]);
-
-  // Create color map for node types
-  const colorMap = useMemo(() => {
+  const typeColors = useMemo(() => {
+    const types = Array.from(new Set((network?.nodes || []).map((n) => n.type)));
     const map = new Map<string, string>();
-    nodeTypes.forEach((t, i) => {
-      const hue = (i * 137) % 360; // distribute colors
+    types.forEach((t, i) => {
+      const hue = (i * 137) % 360;
       map.set(t, `hsl(${hue}, 60%, 50%)`);
     });
     return map;
-  }, [nodeTypes]);
+  }, [network]);
 
-  const handleNodeClick = useCallback((node: any) => {
-    if (!fgRef.current) return;
-    const distance = 120;
-    const distRatio = 1 + distance / Math.hypot(node.x ?? 1, node.y ?? 1);
-
-    fgRef.current.centerAt((node.x ?? 0) * distRatio, (node.y ?? 0) * distRatio, 400);
-    fgRef.current.zoom(1.5, 400);
-  }, []);
-
-  // Auto-fit when graph data changes
+  // Initialize or update Cytoscape instance
   useEffect(() => {
-    if (fgRef.current && graphData.nodes.length > 0) {
-      setTimeout(() => {
-        fgRef.current?.zoomToFit(400, 50);
-      }, 1000);
+    if (!containerRef.current) return;
+
+    // Create cy instance once
+    if (!cyRef.current) {
+      cyRef.current = cytoscape({
+        container: containerRef.current,
+        elements: [],
+        style: [
+          {
+            selector: 'node',
+            style: {
+              'background-color': (ele: any) => typeColors.get(ele.data('type')) || '#666',
+              'label': 'data(label)',
+              'color': '#1f2937',
+              'font-size': 12,
+              'text-valign': 'center',
+              'text-halign': 'center',
+              'width': 30,
+              'height': 30,
+              'border-width': 2,
+              'border-color': '#ffffff',
+            },
+          },
+          {
+            selector: 'edge',
+            style: {
+              'width': 2,
+              'line-color': '#94a3b8',
+              'target-arrow-color': '#94a3b8',
+              'target-arrow-shape': 'triangle',
+              'curve-style': 'bezier',
+            },
+          },
+          {
+            selector: ':selected',
+            style: {
+              'border-width': 3,
+              'border-color': '#2563eb',
+              'line-color': '#2563eb',
+              'target-arrow-color': '#2563eb',
+              'background-color': '#2563eb',
+              'color': '#0b1020',
+            },
+          },
+        ],
+        layout: { name: 'cose' },
+        wheelSensitivity: 0.2,
+      });
+
+      // basic interaction: focus node on tap/click
+      cyRef.current.on('tap', 'node', (evt) => {
+        const node = evt.target;
+        const neighborhood = node.closedNeighborhood();
+        cyRef.current?.elements().removeClass('faded');
+        cyRef.current?.elements().not(neighborhood).addClass('faded');
+        node.select();
+      });
+      cyRef.current.on('tap', (evt) => {
+        if (evt.target === cyRef.current) {
+          cyRef.current?.elements().removeClass('faded');
+          cyRef.current?.elements().unselect();
+        }
+      });
+      cyRef.current.style().selector('.faded').style({ opacity: 0.25 }).update();
     }
-  }, [graphData]);
+
+    // Update elements and run layout when data changes
+    const cy = cyRef.current;
+    if (cy) {
+      cy.batch(() => {
+        cy.elements().remove();
+        cy.add(elements as any);
+      });
+      const layout = cy.layout({ name: 'cose', animate: true, fit: true });
+      layout.run();
+      setTimeout(() => {
+        cy.resize();
+        cy.fit(undefined, 40);
+      }, 100);
+    }
+
+    return () => {
+      // keep instance alive across renders; no cleanup here
+    };
+  }, [elements, typeColors]);
 
   if (isLoading) return <div role="status" aria-live="polite">Loading network visualization...</div>;
   if (error) return <div role="alert" className="text-red-600">Failed to load network: {error}</div>;
   
   return (
-    <div 
-      ref={containerRef} 
-      // FIXED: Added box-border and removed overflow-hidden to see full borders
-      className="w-full h-full relative min-h-[800px] border-4 border-red-500 rounded-2xl bg-blue-50 box-border"
-      aria-label="Project network visualization" 
-    >
-      {/* Enhanced debug info */}
-      <div className="absolute top-2 left-2 z-10 bg-black/90 text-white text-sm p-3 rounded-lg font-mono">
-        <div>Canvas: {size.width} x {size.height}px</div>
-        <div>Nodes: {graphData.nodes.length}</div>
-        <div>Links: {graphData.links.length}</div>
-      </div>
-      
-      <ForceGraph2D
-        ref={fgRef}
-        graphData={graphData}
-        width={size.width}
-        height={size.height}
-        nodeLabel={(n: any) => `${n.name} — ${n.type}`}
-        linkLabel={(l: any) => l.interaction}
-        onNodeClick={handleNodeClick}
-        linkDirectionalParticles={3}
-        linkDirectionalParticleSpeed={0.005}
-        // Force engine settings
-        cooldownTime={Infinity}
-        d3AlphaMin={0.001}
-        d3AlphaDecay={0.002}
-        d3VelocityDecay={0.1}
-        // Much larger visual elements
-        nodeRelSize={20}
-        nodeVal={() => 25}
-        linkWidth={5}
-        nodeCanvasObject={(node: any, ctx: CanvasRenderingContext2D) => {
-          const color = colorMap.get(node.type) || "#999";
-          ctx.fillStyle = color;
-          ctx.beginPath();
-          ctx.arc(node.x, node.y, 20, 0, 2 * Math.PI, false); // Much larger nodes
-          ctx.fill();
-          ctx.strokeStyle = '#fff';
-          ctx.lineWidth = 5;
-          ctx.stroke();
-        }}
-        nodePointerAreaPaint={(node: any, color: string, ctx: CanvasRenderingContext2D) => {
-          ctx.fillStyle = color;
-          ctx.beginPath();
-          ctx.arc(node.x, node.y, 25, 0, 2 * Math.PI, false); // Much larger hover area
-          ctx.fill();
-        }}
-        onEngineStop={() => {
-          setTimeout(() => {
-            fgRef.current?.zoomToFit(400, 80);
-          }, 200);
-        }}
-      />
-    </div>
+    <div
+      ref={containerRef}
+      className="w-full h-full relative min-h-[800px] rounded-2xl bg-white border"
+      aria-label="Project network visualization"
+    />
   );
 };
 

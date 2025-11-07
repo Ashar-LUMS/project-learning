@@ -224,23 +224,20 @@ const AppLayout = () => {
     <div className="flex flex-col min-h-screen bg-gray-50 text-gray-800 font-sans antialiased">
       {/* Global Banner from Admin Settings */}
       {adminSettings?.banner?.enabled && adminSettings?.banner?.text ? (
-        <div
-          role="status"
-          className={
-            `w-full px-4 py-2 text-sm text-center ${
-              adminSettings.banner.type === 'success' ? 'bg-green-50 text-green-800 border-b border-green-200' :
-              adminSettings.banner.type === 'warn' ? 'bg-amber-50 text-amber-800 border-b border-amber-200' :
-              adminSettings.banner.type === 'error' ? 'bg-red-50 text-red-800 border-b border-red-200' :
-              'bg-blue-50 text-blue-800 border-b border-blue-200'
-            }`
-          }
-        >
-          {adminSettings.banner.text}
+        <div role="status" className="w-full border-b">
+          <div className={`container mx-auto px-6 py-2 text-sm text-center ${
+            adminSettings.banner.type === 'success' ? 'bg-green-50 text-green-800' :
+            adminSettings.banner.type === 'warn' ? 'bg-amber-50 text-amber-800' :
+            adminSettings.banner.type === 'error' ? 'bg-red-50 text-red-800' :
+            'bg-blue-50 text-blue-800'
+          }`}>
+            {adminSettings.banner.text}
+          </div>
         </div>
       ) : null}
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100">
-        <div className="container mx-auto px-4 py-3 flex justify-between items-center">
+  <div className="container mx-auto px-6 py-3 flex justify-between items-center">
           {/* Logo Section */}
           <div className="flex items-center space-x-3">
             <Link to="/app" className="flex items-center space-x-3 no-underline">
@@ -283,7 +280,7 @@ const AppLayout = () => {
             {/* User Avatar Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-9 w-9 rounded-full hover:bg-gray-100 transition-all duration-200 border border-gray-200">
+                <Button variant="ghost" className="relative h-9 w-9 rounded-full hover:bg-gray-100 transition-all duration-200 border border-gray-200 p-0">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={user?.user_metadata?.avatar_url} alt={user?.user_metadata?.name} />
                     <AvatarFallback className="bg-gradient-to-br from-blue-100 to-blue-200 text-blue-700 text-sm font-medium">
@@ -343,7 +340,7 @@ const AppLayout = () => {
             {/* Mobile Avatar */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-9 w-9 rounded-full border border-gray-200">
+                <Button variant="ghost" className="relative h-9 w-9 rounded-full border border-gray-200 p-0">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={user?.user_metadata?.avatar_url} alt={user?.user_metadata?.name} />
                     <AvatarFallback className="bg-gradient-to-br from-blue-100 to-blue-200 text-blue-700 text-sm font-medium">
@@ -390,13 +387,7 @@ const AppLayout = () => {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              aria-label="Toggle navigation menu"
-              className="h-9 w-9 rounded-lg border border-gray-200 hover:bg-gray-50"
-            >
+            <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(!isMenuOpen)} aria-label="Toggle navigation menu" className="h-9 w-9 rounded-lg border border-gray-200 hover:bg-gray-50 p-0">
               <Menu className="h-4 w-4" />
             </Button>
           </div>
@@ -405,7 +396,7 @@ const AppLayout = () => {
         {/* Mobile Navigation */}
         {isMenuOpen && (
           <nav className="md:hidden bg-white/95 backdrop-blur-md border-t border-gray-100 shadow-lg">
-            <div className="flex flex-col p-4 space-y-1">
+            <div className="flex flex-col p-4 space-y-2">
               <Link
                 to="/app"
                 className="flex items-center gap-3 text-gray-700 hover:bg-blue-50 p-3 rounded-lg transition-colors font-medium"

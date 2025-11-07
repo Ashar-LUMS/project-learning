@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,6 +6,9 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
+import { supabase } from '../../supabaseClient';
+import { useRole } from '../../getRole';
 import {
   Folder,
   Network,
@@ -129,21 +132,66 @@ function renderTabContent(activeTab: TabType, networkSidebar?: React.ReactNode) 
 }
 
 // Enhanced Project Tab Sidebar
-function ProjectsSidebar() {
-  const [projects] = useState([
-    { id: 1, name: 'Project Alpha', status: 'active', lastModified: '2 hours ago', nodes: 24, edges: 48 },
-    { id: 2, name: 'Project Beta', status: 'completed', lastModified: '1 day ago', nodes: 18, edges: 32 },
-    { id: 3, name: 'Project Gamma', status: 'draft', lastModified: '3 days ago', nodes: 12, edges: 20 },
-    { id: 4, name: 'Clinical Trial Analysis', status: 'active', lastModified: 'Just now', nodes: 36, edges: 72 },
-  ]);
+type SidebarProject = {
+  id: string;
+  name?: string | null;
+  assignees?: string[] | null;
+  created_at?: string | null;
+  created_by?: string | null;
+  creator_email?: string | null;
+  networks?: string[] | null;
+};
 
-  const getStatusVariant = (status: string) => {
-    switch (status) {
-      case 'active': return 'default';
-      case 'completed': return 'secondary';
-      case 'draft': return 'outline';
-      default: return 'outline';
+function ProjectsSidebar() {
+  const { isLoading: rolesLoading } = useRole();
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+  const [projects, setProjects] = useState<SidebarProject[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      setCurrentUserId(data.user?.id ?? null);
+      setCurrentUserEmail(data.user?.email ?? null);
+    })();
+  }, []);
+
+  const fetchProjects = useCallback(async () => {
+    // 'All' = assigned to me OR created by me. Requires current user id (and optional email fallback)
+    if (!currentUserId && !currentUserEmail) return;
+    setIsLoading(true); setError(null);
+    try {
+      const selects = 'id, name, assignees, created_at, created_by, creator_email, networks';
+      const [a, b, c] = await Promise.all([
+        currentUserId ? supabase.from('projects').select(selects).contains('assignees', [currentUserId]).order('created_at', { ascending: false }) : Promise.resolve({ data: [], error: null } as any),
+        currentUserId ? supabase.from('projects').select(selects).eq('created_by', currentUserId).order('created_at', { ascending: false }) : Promise.resolve({ data: [], error: null } as any),
+        currentUserEmail ? supabase.from('projects').select(selects).eq('creator_email', currentUserEmail).order('created_at', { ascending: false }) : Promise.resolve({ data: [], error: null } as any),
+      ]);
+      if (a.error) throw a.error;
+      if (b.error) throw b.error;
+      if (c.error) throw c.error;
+      const mergedMap = new Map<string, SidebarProject>();
+      for (const row of ([...(a.data || []), ...(b.data || []), ...(c.data || [])] as SidebarProject[])) {
+        if (row?.id) mergedMap.set(row.id, row);
+      }
+      const merged = Array.from(mergedMap.values()).sort((x, y) => (y.created_at || '').localeCompare(x.created_at || ''));
+      setProjects(merged);
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load projects');
+      setProjects([]);
+    } finally {
+      setIsLoading(false);
     }
+  }, [currentUserId, currentUserEmail]);
+
+  useEffect(() => { fetchProjects(); }, [fetchProjects]);
+
+  const formatDate = (value?: string | null) => {
+    if (!value) return 'Unknown';
+    try { return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value)); }
+    catch { return value as string; }
   };
 
   return (
@@ -154,7 +202,7 @@ function ProjectsSidebar() {
             Projects
           </h2>
           <Badge variant="secondary" className="px-2 py-1 text-xs">
-            {projects.length} total
+            {isLoading ? '...' : projects.length} total
           </Badge>
         </div>
         <p className="text-sm text-muted-foreground leading-relaxed">
@@ -192,35 +240,54 @@ function ProjectsSidebar() {
           <CardDescription>Your most recently accessed projects</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="space-y-2">
-            {projects.map((project) => (
-              <Card
-                key={project.id}
-                className="p-4 hover:bg-muted/30 cursor-pointer transition-all duration-200 hover:shadow-sm border-l-2 border-l-transparent hover:border-l-primary group"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-medium text-sm truncate group-hover:text-primary transition-colors">
-                        {project.name}
-                      </h3>
-                      <Badge
-                        variant={getStatusVariant(project.status) as any}
-                        className="shrink-0 text-xs"
-                      >
-                        {project.status}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <span>{project.nodes} nodes</span>
-                      <span>{project.edges} edges</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">{project.lastModified}</p>
+          {isLoading || rolesLoading ? (
+            <div className="space-y-2 p-4">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="space-y-2">
+                  <Skeleton className="h-4 w-48" />
+                  <div className="flex gap-2">
+                    <Skeleton className="h-3 w-20" />
+                    <Skeleton className="h-3 w-24" />
                   </div>
                 </div>
-              </Card>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {projects.map((project) => (
+                <Card
+                  key={project.id}
+                  className="p-4 hover:bg-muted/30 cursor-pointer transition-all duration-200 hover:shadow-sm border-l-2 border-l-transparent hover:border-l-primary group"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-medium text-sm truncate group-hover:text-primary transition-colors">
+                          {project.name || 'Untitled'}
+                        </h3>
+                        <Badge variant="secondary" className="shrink-0 text-xs">
+                          {(project.assignees || []).length} users
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span>{Array.isArray(project.networks) ? project.networks.length : 0} networks</span>
+                        <span>{formatDate(project.created_at)}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {project.creator_email || project.created_by || 'Unknown owner'}
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+              {projects.length === 0 && (
+                <div className="p-4 text-xs text-muted-foreground">No projects found.</div>
+              )}
+              {error && (
+                <div className="p-4 text-xs text-red-600">{error}</div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
