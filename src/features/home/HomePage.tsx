@@ -145,7 +145,7 @@ const HomePage: React.FC = () => {
   const [deleteCandidate, setDeleteCandidate] = useState<Project | null>(null);
   const [isDeleteLoading, setIsDeleteLoading] = useState(false);
 
-  const [searchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   const [sortBy] = useState<"recent" | "name">("recent");
   const [projectTab, setProjectTab] = useState<"all" | "mine" | "other">("all");
 
@@ -250,7 +250,7 @@ const HomePage: React.FC = () => {
 
       const { error } = await supabase.from("projects").insert([{
         name: newProjectName.trim(),
-        assignees:[...assigneesArray, currentUserId],
+        assignees: [...assigneesArray, currentUserId],
         creator_email: currentUserEmail,
         created_by: currentUserId,
         networks: [], // Initialize empty networks array
@@ -454,26 +454,25 @@ const HomePage: React.FC = () => {
           </h1>
         </div>
         <p className="text-[#4b5563] text-lg">Manage and organize your projects with your team</p>
+
       </div>
 
       {/* Banner */}
       {banner && (
-        <div 
-          className={`mb-8 rounded-2xl border p-4 flex items-start justify-between backdrop-blur-sm animate-fade-in ${
-            banner.type === 'success' 
-              ? 'bg-green-50/80 border-green-200 text-green-800' 
-              : 'bg-[#fee2e2]/80 border-[#fecaca] text-[#b91c1c]'
-          }`}
+        <div
+          className={`mb-8 rounded-2xl border p-4 flex items-start justify-between backdrop-blur-sm animate-fade-in ${banner.type === 'success'
+            ? 'bg-green-50/80 border-green-200 text-green-800'
+            : 'bg-[#fee2e2]/80 border-[#fecaca] text-[#b91c1c]'
+            }`}
         >
           <div className="flex items-start gap-3">
-            <div className={`mt-0.5 rounded-full p-2 ${
-              banner.type === 'success' ? 'bg-green-100' : 'bg-[#fee2e2]'
-            }`}>
+            <div className={`mt-0.5 rounded-full p-2 ${banner.type === 'success' ? 'bg-green-100' : 'bg-[#fee2e2]'
+              }`}>
               {banner.type === 'success' ? <UserCheck size={16} /> : <AlertCircle size={16} />}
             </div>
             <p className="text-sm font-medium">{banner.message}</p>
           </div>
-          <button 
+          <button
             className="text-sm opacity-70 hover:opacity-100 transition-opacity"
             onClick={() => setBanner(null)}
           >
@@ -504,10 +503,22 @@ const HomePage: React.FC = () => {
                 className={`px-4 py-2 text-sm font-medium transition-all border-l ${projectTab === 'other' ? 'bg-[#2f5597] text-white shadow-md' : 'text-[#4b5563] hover:text-gray-900'}`}
                 onClick={() => setProjectTab('other')}
               >
-                Shared
+                Shared With
               </button>
             </div>
           </div>
+          <div className="flex-1 relative max-w-sm">
+            <Input
+              type="text"
+              placeholder="Search projects..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          </div>
+
+
           <Button
             onClick={() => { if (!(policyAttrs.onlyAdminsCreate && !isAdmin)) setIsCreateOpen(true); }}
             className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
@@ -526,7 +537,7 @@ const HomePage: React.FC = () => {
       <section>
         {isProjectsLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {[1,2,3,4,5,6].map(i => (
+            {[1, 2, 3, 4, 5, 6].map(i => (
               <Card key={i} className="rounded-2xl border-0 bg-white/80 backdrop-blur-sm overflow-hidden shadow-lg">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-4 mb-4">
@@ -549,8 +560,8 @@ const HomePage: React.FC = () => {
               </div>
               <h3 className="text-xl font-semibold text-red-900 mb-2">Unable to load projects</h3>
               <p className="text-red-700 mb-6">{projectsError}</p>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => refetchProjects()}
                 className="border-red-300 text-red-700 hover:bg-red-50 rounded-xl"
               >
@@ -631,7 +642,7 @@ const HomePage: React.FC = () => {
                             const label = isUnknown ? 'Deleted user' : (userIdToLabel[id] || id);
                             const initials = isUnknown
                               ? '?'
-                              : ((label || "").split(/[/\s@._-]+/).filter(Boolean).slice(0,2).map(s => s[0]?.toUpperCase()).join("") || "?");
+                              : ((label || "").split(/[/\s@._-]+/).filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase()).join("") || "?");
                             return (
                               <div
                                 key={id}
@@ -688,7 +699,7 @@ const HomePage: React.FC = () => {
               <p className="text-[#6b7280] mb-8 max-w-md mx-auto">
                 Create your first project to start collaborating with your team and organizing your work.
               </p>
-              <Button 
+              <Button
                 onClick={() => { if (!(policyAttrs.onlyAdminsCreate && !isAdmin)) setIsCreateOpen(true); }}
                 className="px-8 py-3 rounded-xl font-semibold text-white transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
                 style={{
@@ -718,10 +729,10 @@ const HomePage: React.FC = () => {
           <div className="space-y-5 py-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Project Name</label>
-              <Input 
-                value={newProjectName} 
-                onChange={(e) => setNewProjectName(e.target.value)} 
-                maxLength={80} 
+              <Input
+                value={newProjectName}
+                onChange={(e) => setNewProjectName(e.target.value)}
+                maxLength={80}
                 placeholder="e.g. Test Network"
                 className="rounded-xl border-2 focus:border-[#2f5597] focus:ring-2 focus:ring-blue-100"
               />
@@ -739,11 +750,11 @@ const HomePage: React.FC = () => {
                 <>
                   <div className="mb-3 relative">
                     <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                    <Input 
-                      placeholder="Search team members" 
+                    <Input
+                      placeholder="Search team members"
                       className="pl-9 rounded-xl border-2 focus:border-[#2f5597] focus:ring-2 focus:ring-blue-100"
-                      value={createTeamSearch} 
-                      onChange={(e) => setCreateTeamSearch(e.target.value)} 
+                      value={createTeamSearch}
+                      onChange={(e) => setCreateTeamSearch(e.target.value)}
                     />
                   </div>
                   {usersError ? (
@@ -755,10 +766,10 @@ const HomePage: React.FC = () => {
                       <div className="max-h-60 overflow-auto border rounded-xl divide-y">
                         {filteredUsersForCreate.map(u => (
                           <label key={u.id} className="flex items-center gap-3 py-3 px-4 hover:bg-gray-50 cursor-pointer">
-                            <input 
-                              type="checkbox" 
-                              checked={selectedAssigneeIds.has(u.id)} 
-                              onChange={() => toggleAssignee(u.id, setSelectedAssigneeIds)} 
+                            <input
+                              type="checkbox"
+                              checked={selectedAssigneeIds.has(u.id)}
+                              onChange={() => toggleAssignee(u.id, setSelectedAssigneeIds)}
                               className="rounded border-gray-300 text-[#2f5597] focus:ring-[#2f5597]"
                             />
                             <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#2f5597] to-[#3b6bc9] flex items-center justify-center text-white text-sm font-medium">
@@ -789,16 +800,16 @@ const HomePage: React.FC = () => {
           </div>
 
           <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => { setIsCreateOpen(false); resetCreateForm(); }} 
+            <Button
+              variant="outline"
+              onClick={() => { setIsCreateOpen(false); resetCreateForm(); }}
               disabled={isCreateLoading}
               className="rounded-xl border-gray-300"
             >
               Cancel
             </Button>
-            <Button 
-              onClick={handleCreateProject} 
+            <Button
+              onClick={handleCreateProject}
               disabled={!newProjectName.trim() || isCreateLoading}
               className="rounded-xl text-white transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
               style={{
@@ -828,7 +839,7 @@ const HomePage: React.FC = () => {
                   const u = userIdToUser[id];
                   const isUnknown = !u;
                   const label = isUnknown ? 'Deleted user' : (u.name || u.email || id);
-                  const initials = isUnknown ? '?' : ((label || "").split(/[\s@._-]+/).filter(Boolean).slice(0,2).map(s => s[0]?.toUpperCase()).join("") || "?");
+                  const initials = isUnknown ? '?' : ((label || "").split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase()).join("") || "?");
                   return (
                     <div key={id} className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium ${isUnknown ? 'bg-gradient-to-br from-gray-400 to-gray-600' : 'bg-gradient-to-br from-[#2f5597] to-[#3b6bc9]'}`}>
@@ -850,7 +861,7 @@ const HomePage: React.FC = () => {
             )}
           </div>
           <DialogFooter>
-            <Button 
+            <Button
               onClick={() => setIsAssigneesOpen(false)}
               className="rounded-xl text-white transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
               style={{
@@ -877,10 +888,10 @@ const HomePage: React.FC = () => {
           <div className="space-y-5 py-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Project Name</label>
-              <Input 
-                value={editName} 
-                onChange={(e) => setEditName(e.target.value)} 
-                placeholder="Enter project name" 
+              <Input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Enter project name"
                 maxLength={80}
                 className="rounded-xl border-2 focus:border-[#2f5597] focus:ring-2 focus:ring-blue-100"
               />
@@ -897,11 +908,11 @@ const HomePage: React.FC = () => {
                 <>
                   <div className="mb-3 relative">
                     <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                    <Input 
-                      placeholder="Search team members" 
+                    <Input
+                      placeholder="Search team members"
                       className="pl-9 rounded-xl border-2 focus:border-[#2f5597] focus:ring-2 focus:ring-blue-100"
-                      value={editTeamSearch} 
-                      onChange={(e) => setEditTeamSearch(e.target.value)} 
+                      value={editTeamSearch}
+                      onChange={(e) => setEditTeamSearch(e.target.value)}
                     />
                   </div>
                   {(!usersError && filteredUsersForEdit.length > 0) ? (
@@ -911,10 +922,10 @@ const HomePage: React.FC = () => {
                         const assigneeEditDisabled = policyAttrs.onlyAdminsEditAssignees && !isAdmin;
                         return (
                           <label key={u.id} className={`flex items-center gap-3 py-3 px-4 ${isCreator ? 'bg-gray-50 cursor-default' : assigneeEditDisabled ? 'bg-gray-50 cursor-not-allowed opacity-60' : 'hover:bg-gray-50 cursor-pointer'}`}>
-                            <input 
-                              type="checkbox" 
-                              checked={editSelectedAssigneeIds.has(u.id)} 
-                              onChange={() => toggleAssignee(u.id, setEditSelectedAssigneeIds)} 
+                            <input
+                              type="checkbox"
+                              checked={editSelectedAssigneeIds.has(u.id)}
+                              onChange={() => toggleAssignee(u.id, setEditSelectedAssigneeIds)}
                               disabled={!!isCreator || assigneeEditDisabled}
                               className="rounded border-gray-300 text-[#2f5597] focus:ring-[#2f5597]"
                             />
@@ -980,16 +991,16 @@ const HomePage: React.FC = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => { setIsEditOpen(false); setEditingProject(null); }} 
+            <Button
+              variant="outline"
+              onClick={() => { setIsEditOpen(false); setEditingProject(null); }}
               disabled={isUpdateLoading}
               className="rounded-xl border-gray-300"
             >
               Cancel
             </Button>
-            <Button 
-              onClick={handleUpdateProject} 
+            <Button
+              onClick={handleUpdateProject}
               disabled={!editName.trim() || isUpdateLoading}
               className="rounded-xl text-white transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
               style={{
@@ -1019,16 +1030,16 @@ const HomePage: React.FC = () => {
             </p>
           </div>
           <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setDeleteCandidate(null)} 
+            <Button
+              variant="outline"
+              onClick={() => setDeleteCandidate(null)}
               disabled={isDeleteLoading}
               className="rounded-xl border-gray-300"
             >
               Cancel
             </Button>
-            <Button 
-              onClick={confirmDeleteProject} 
+            <Button
+              onClick={confirmDeleteProject}
               disabled={isDeleteLoading}
               className="rounded-xl bg-red-600 hover:bg-red-700 text-white transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
             >
