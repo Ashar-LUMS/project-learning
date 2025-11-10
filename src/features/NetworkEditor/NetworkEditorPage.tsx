@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { useDeterministicAnalysis } from '@/hooks/useDeterministicAnalysis';
 import { useProjectNetworks, type ProjectNetworkRecord } from '@/hooks/useProjectNetworks';
 import { Download, Play } from 'lucide-react';
+import AttractorGraph from './AttractorGraph';
 
 // network type unified via hook's ProjectNetworkRecord
 
@@ -75,7 +76,7 @@ export default function NetworkEditorPage() {
               disabled={isAnalyzing}
             >
               <Play className="w-4 h-4" />
-              Perform Deterministic Analysis
+              Perform DA
             </Button>
             <Button
               variant="outline"
@@ -334,27 +335,32 @@ export default function NetworkEditorPage() {
                               <h3 className="font-medium text-sm">Attractor #{attr.id + 1} ({attr.type})</h3>
                               <span className="text-xs text-muted-foreground">Period {attr.period} • Basin { (attr.basinShare*100).toFixed(1) }%</span>
                             </div>
-                            <div className="overflow-auto">
-                              <table className="w-full text-xs border-collapse">
-                                <thead>
-                                  <tr>
-                                    <th className="text-left p-1 font-semibold">State</th>
-                                    {analysisResult.nodeOrder.map(n => (
-                                      <th key={n} className="p-1 font-medium">{analysisResult.nodeLabels[n]}</th>
-                                    ))}
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {attr.states.map((s, si) => (
-                                    <tr key={si} className="odd:bg-muted/40">
-                                      <td className="p-1 font-mono">{s.binary}</td>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div className="overflow-auto">
+                                <table className="w-full text-xs border-collapse">
+                                  <thead>
+                                    <tr>
+                                      <th className="text-left p-1 font-semibold">State</th>
                                       {analysisResult.nodeOrder.map(n => (
-                                        <td key={n} className="p-1 text-center">{s.values[n]}</td>
+                                        <th key={n} className="p-1 font-medium">{analysisResult.nodeLabels[n]}</th>
                                       ))}
                                     </tr>
-                                  ))}
-                                </tbody>
-                              </table>
+                                  </thead>
+                                  <tbody>
+                                    {attr.states.map((s, si) => (
+                                      <tr key={si} className="odd:bg-muted/40">
+                                        <td className="p-1 font-mono">{s.binary}</td>
+                                        {analysisResult.nodeOrder.map(n => (
+                                          <td key={n} className="p-1 text-center">{s.values[n]}</td>
+                                        ))}
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                              <div className="min-h-[180px]">
+                                <AttractorGraph states={attr.states} />
+                              </div>
                             </div>
                           </div>
                         ))}

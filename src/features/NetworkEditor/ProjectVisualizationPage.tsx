@@ -7,6 +7,8 @@ import { formatTimestamp } from '@/lib/format';
 import NetworkGraph from "./NetworkGraph";
 import { supabase } from "../../supabaseClient";
 import NetworkEditorLayout from "./layout";
+import { useDeterministicAnalysis } from '@/hooks/useDeterministicAnalysis';
+import AttractorGraph from './AttractorGraph';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -47,6 +49,22 @@ export default function ProjectVisualizationPage() {
   const [importError, setImportError] = useState<string | null>(null);
   const [isInferring, setIsInferring] = useState(false);
   const [isSavingImport, setIsSavingImport] = useState(false);
+
+  // Minimal inference wiring so sidebar actions work here too
+  const [rulesText, setRulesText] = useState('');
+  const {
+    isAnalyzing,
+    analysisResult,
+    analysisError,
+    runDeterministic,
+    runFromEditorRules,
+    downloadResults,
+  } = useDeterministicAnalysis({
+    selectedNetworkId: selectedNetworkId,
+    selectedNetworkName: selectedNetwork?.name ?? null,
+    networkData: (selectedNetwork as any)?.data ?? null,
+    rulesText,
+  });
 
   useEffect(() => {
     let isMounted = true;
@@ -439,6 +457,84 @@ export default function ProjectVisualizationPage() {
         );
       }
 
+      case 'network-inference': {
+        return (
+          <div className="flex h-full flex-col gap-4 p-6">
+            <div className="flex flex-col gap-1">
+              <h1 className="text-2xl font-semibold text-foreground line-clamp-2">Inference</h1>
+              {selectedNetwork?.name && (
+                <span className="text-xs text-muted-foreground">Selected: {selectedNetwork.name}</span>
+              )}
+            </div>
+            {!selectedNetworkId ? (
+              <div className="flex-1 grid place-items-center text-sm text-muted-foreground">Select a network in the Network tab first.</div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex gap-2 items-center text-xs text-muted-foreground">
+                  <span>Rules source: network rules or editor text</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    className="hidden" // keep rules support minimal; full editor lives in main editor page
+                    value={rulesText}
+                    onChange={(e) => setRulesText(e.target.value)}
+                  />
+                </div>
+                {isAnalyzing && <div className="text-sm text-muted-foreground">Analyzing…</div>}
+                {analysisError && <div className="text-sm text-red-600">{analysisError}</div>}
+                {analysisResult ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-[10px] uppercase tracking-wide text-muted-foreground">Nodes</span><span className="text-sm font-semibold">{analysisResult.nodeOrder.length}</span></div>
+                      <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-[10px] uppercase tracking-wide text-muted-foreground">Explored States</span><span className="text-sm font-semibold">{analysisResult.exploredStateCount}</span></div>
+                      <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-[10px] uppercase tracking-wide text-muted-foreground">State Space</span><span className="text-sm font-semibold">{analysisResult.totalStateSpace}</span></div>
+                      <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-[10px] uppercase tracking-wide text-muted-foreground">Attractors</span><span className="text-sm font-semibold">{analysisResult.attractors.length}</span></div>
+                    </div>
+                    {analysisResult.attractors.map(attr => (
+                      <div key={attr.id} className="border rounded-md p-3 bg-background/50">
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="font-medium text-sm">Attractor #{attr.id + 1} ({attr.type})</h3>
+                          <span className="text-xs text-muted-foreground">Period {attr.period} • Basin {(attr.basinShare*100).toFixed(1)}%</span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="overflow-auto">
+                            <table className="w-full text-xs border-collapse">
+                              <thead>
+                                <tr>
+                                  <th className="text-left p-1 font-semibold">State</th>
+                                  {analysisResult.nodeOrder.map(n => (
+                                    <th key={n} className="p-1 font-medium">{analysisResult.nodeLabels[n]}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {attr.states.map((s, si) => (
+                                  <tr key={si} className="odd:bg-muted/40">
+                                    <td className="p-1 font-mono">{s.binary}</td>
+                                    {analysisResult.nodeOrder.map(n => (
+                                      <td key={n} className="p-1 text-center">{s.values[n]}</td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          <div className="min-h-[180px]">
+                            <AttractorGraph states={attr.states as any} />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">Use the sidebar actions to run deterministic analysis.</div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      }
+
       case 'projects':
       case 'therapeutics':
       case 'analysis':
@@ -459,6 +555,12 @@ export default function ProjectVisualizationPage() {
       activeTab={activeTab}
       onTabChange={setActiveTab}
       networkSidebar={networkSidebarContent}
+      inferenceActions={{
+        run: () => (rulesText ? runFromEditorRules() : runDeterministic()),
+        download: downloadResults,
+        isRunning: isAnalyzing,
+        hasResult: Boolean(analysisResult),
+      }}
     >
       {renderMainContent()}
 

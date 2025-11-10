@@ -438,7 +438,7 @@ function NetworkAnalysisSidebar({ actions }: { actions?: NetworkEditorLayoutProp
               disabled={actions?.isRunning}
             >
               <Play className="w-4 h-4" />
-              Perform Deterministic Analysis
+              Perform DA
             </Button>
             <Button
               variant="outline"
