@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -268,13 +268,12 @@ function ProjectsSidebar() {
         <CardHeader className="pb-4">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <div className="w-1.5 h-1.5 bg-primary rounded-full" />
-            Recent Projects
+            Projects
           </CardTitle>
-          <CardDescription>Your most recently accessed projects</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           {isLoading || rolesLoading ? (
-            <div className="space-y-2 p-4">
+            <div className="space-y-2">
               {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="space-y-2">
                   <Skeleton className="h-4 w-48" />
