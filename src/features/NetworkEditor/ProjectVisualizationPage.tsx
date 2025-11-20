@@ -536,7 +536,36 @@ export default function ProjectVisualizationPage() {
       }
 
       case 'projects':
-      case 'therapeutics':
+        return (
+          <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
+            Workspace for this tab is coming soon.
+          </div>
+        );
+
+      case 'therapeutics': {
+        if (!selectedNetworkId) {
+          return (
+            <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
+              Select a network in the Network tab first to view therapeutics.
+            </div>
+          );
+        }
+
+        return (
+          <div className="flex h-full flex-col gap-4 p-6">
+            <div className="flex flex-col gap-1">
+              <h1 className="text-2xl font-semibold text-foreground line-clamp-2">Therapeutics</h1>
+              {selectedNetwork?.name && (
+                <span className="text-xs text-muted-foreground">Selected: {selectedNetwork.name}</span>
+              )}
+            </div>
+            <div className="flex-1 min-h-0">
+              <NetworkGraph networkId={selectedNetworkId} />
+            </div>
+          </div>
+        );
+      }
+
       case 'analysis':
       case 'results':
         return (
