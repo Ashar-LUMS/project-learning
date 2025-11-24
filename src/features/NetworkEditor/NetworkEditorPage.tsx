@@ -26,7 +26,7 @@ export default function NetworkEditorPage() {
   // analysis managed via hook
 
   // use shared hook for project networks
-  const { networks, selectedNetworkId, selectedNetwork, isLoading: isLoadingNetworks, error: networksError, selectNetwork } = useProjectNetworks({ projectId: selectedProjectId });
+  const { networks, selectedNetworkId, selectedNetwork, isLoading: isLoadingNetworks, error: networksError, selectNetwork, setNetworks } = useProjectNetworks({ projectId: selectedProjectId });
 
   const {
     inferredNodes,
@@ -170,7 +170,10 @@ export default function NetworkEditorPage() {
                 ) : selectedNetworkId ? (
                   <Card className="flex-1">
                     <CardContent className="p-6 h-full">
-                      <NetworkGraph networkId={selectedNetworkId} />
+                      <NetworkGraph networkId={selectedNetworkId} projectId={selectedProjectId} onSaved={(newNetwork) => {
+                        setNetworks(prev => [newNetwork, ...prev]);
+                        selectNetwork(newNetwork.id);
+                      }} />
                     </CardContent>
                   </Card>
                 ) : (

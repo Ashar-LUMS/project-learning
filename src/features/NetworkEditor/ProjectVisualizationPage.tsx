@@ -451,7 +451,11 @@ export default function ProjectVisualizationPage() {
               )}
             </div>
             <div className="flex-1 min-h-0">
-              <NetworkGraph networkId={selectedNetworkId} />
+              <NetworkGraph networkId={selectedNetworkId} projectId={projectId} onSaved={(newNetwork) => {
+                setNetworks(prev => [newNetwork, ...prev]);
+                selectNetwork(newNetwork.id);
+                setRecentNetworkIds(prev => [newNetwork.id, ...prev.filter(id => id !== newNetwork.id)].slice(0, MAX_RECENT_NETWORKS));
+              }} />
             </div>
           </div>
         );
@@ -560,7 +564,11 @@ export default function ProjectVisualizationPage() {
               )}
             </div>
             <div className="flex-1 min-h-0">
-              <NetworkGraph networkId={selectedNetworkId} />
+              <NetworkGraph networkId={selectedNetworkId} projectId={projectId} onSaved={(newNetwork) => {
+                setNetworks(prev => [newNetwork, ...prev]);
+                selectNetwork(newNetwork.id);
+                setRecentNetworkIds(prev => [newNetwork.id, ...prev.filter(id => id !== newNetwork.id)].slice(0, MAX_RECENT_NETWORKS));
+              }} />
             </div>
           </div>
         );

@@ -48,6 +48,26 @@ export function useNetworkData(networkId?: string, refreshToken: number = 0) {
           .eq('id', networkId)
           .single();
 
+        // DEV DEBUG: log the raw response so we can diagnose missing network_data
+        // eslint-disable-next-line no-console
+        console.log('[useNetworkData] fetched network row for', networkId, { networkData, networkError });
+
+        // If network_data appears missing, fetch full row to inspect other fields
+        if (!networkData || !networkData.network_data) {
+          try {
+            const { data: fullRow, error: fullErr } = await supabase
+              .from('networks')
+              .select('*')
+              .eq('id', networkId)
+              .maybeSingle();
+            // eslint-disable-next-line no-console
+            console.log('[useNetworkData] full row inspect', { fullRow, fullErr });
+          } catch (e) {
+            // eslint-disable-next-line no-console
+            console.warn('[useNetworkData] failed to fetch full row', e);
+          }
+        }
+
         if (networkError) {
           if (!controller.signal.aborted && isMounted) {
             setError(networkError.message || "Failed to fetch network data");

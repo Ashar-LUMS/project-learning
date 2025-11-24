@@ -11,9 +11,12 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // Configure Supabase client with sessionStorage instead of localStorage
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true,
+    // In development disable automatic refresh/persistent sessions to avoid
+    // CORS refresh-token requests while iterating locally. Production keeps
+    // the defaults (auto refresh + persist session).
+    autoRefreshToken: import.meta.env.DEV ? false : true,
+    persistSession: import.meta.env.DEV ? false : true,
+    detectSessionInUrl: import.meta.env.DEV ? false : true,
     flowType: 'pkce',
     storage: {
       getItem: (key: string) => {
