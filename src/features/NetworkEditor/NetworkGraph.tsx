@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import cytoscape, { type Core } from "cytoscape";
+import { supabase } from '../../supabaseClient';
 import { useNetworkData } from '../../hooks/useNetworkData';
 export { useNetworkData } from '../../hooks/useNetworkData';
 import { Button } from '@/components/ui/button';
@@ -27,7 +28,7 @@ type Props = {
   onSaved?: (network: { id: string; name: string; created_at: string | null; data: any }) => void;
 };
 
-const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0,  }) => {
+const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId = null, onSaved }) => {
   const [manualRefresh, setManualRefresh] = useState(0);
   const effectiveRefresh = (refreshToken ?? 0) + manualRefresh;
   const { data: network, isLoading, error } = useNetworkData(
@@ -582,10 +583,88 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0,  }) => {
                     </Button>
                     
                     <Button variant="outline" size="sm" onClick={() => {
+                      if (!cyRef.current) return window.alert('cy not initialized');
+                      try {
+                        cyRef.current.fit(undefined, 60);
+                        console.log('[NetworkGraph] Fit: cy elements:', cyRef.current.elements().map((el: any) => String(el.data('id'))));
+                        window.alert('Fit executed — check console for element ids');
+                      } catch (e) {
+                        console.error('[NetworkGraph] Fit error', e);
+                        window.alert('Fit error — see console');
+                      }
+                    }}>
+                      Fit & Log
+                    </Button>
+                    
+                    <Button variant="outline" size="sm" onClick={() => {
                       setManualRefresh(prev => prev + 1);
                       console.log('[NetworkGraph] manual refresh bumped');
                     }}>
                       Refresh
+                    </Button>
+
+                    {/* SAVE NETWORK BUTTON - ADDED BACK */}
+                    <Button variant="outline" size="sm" onClick={async () => {
+                      try {
+                        const name = window.prompt('Save network as (name):', `network-${Date.now()}`);
+                        if (!name) return;
+                        const elems = elements || [];
+                        const nodes = elems.filter((e: any) => e.data && !('source' in e.data)).map((n: any) => ({ id: n.data.id, label: n.data.label, type: n.data.type }));
+                        const edges = elems.filter((e: any) => e.data && ('source' in e.data)).map((ed: any) => ({ source: ed.data.source, target: ed.data.target, interaction: ed.data.interaction }));
+                        const payload = { nodes, edges };
+
+                        const { data, error } = await supabase.from('networks').insert({ name, network_data: payload }).select().single();
+                        if (error) {
+                          console.error('Failed to save network', error);
+                          window.alert('Failed to save network: ' + (error.message || String(error)));
+                        } else {
+                          console.log('Saved network', data);
+                          const newNetwork = { id: data.id as string, name: data.name as string, created_at: data.created_at ?? null, data: data.network_data ?? null };
+                          try { onSaved?.(newNetwork); } catch (e) {}
+                          try {
+                            const newNetworkId = data.id as string;
+                            if (projectId) {
+                              const { data: projRow, error: projErr } = await supabase
+                                .from('projects')
+                                .select('networks')
+                                .eq('id', projectId)
+                                .maybeSingle();
+                              if (projErr) throw projErr;
+                              const currentIds = Array.isArray(projRow?.networks) ? projRow.networks.filter((id: any) => typeof id === 'string') : [];
+                              const updatedIds = Array.from(new Set([...(currentIds || []), newNetworkId]));
+                              const { error: updateErr } = await supabase.from('projects').update({ networks: updatedIds }).eq('id', projectId);
+                              if (updateErr) throw updateErr;
+                            }
+                          } catch (linkErr: any) {
+                            console.warn('Saved network but failed to link to project', linkErr);
+                          }
+                          window.alert('Network saved successfully');
+                        }
+                      } catch (err: any) {
+                        console.error('Save network error', err);
+                        window.alert('Save failed: ' + String(err?.message || err));
+                      }
+                    }}>
+                      Save Network
+                    </Button>
+
+                    <Button variant="outline" size="sm" onClick={async () => {
+                      if (!networkId) { window.alert('No networkId'); return; }
+                      try {
+                        const { data: row, error: rowErr } = await supabase.from('networks').select('*').eq('id', networkId).maybeSingle();
+                        if (rowErr) {
+                          console.error('[NetworkGraph] inspect db error', rowErr);
+                          window.alert('Inspect DB error: ' + (rowErr.message || String(rowErr)));
+                          return;
+                        }
+                        console.log('[NetworkGraph] inspect db row', row);
+                        window.alert('Inspect DB: row logged to console (check developer tools)');
+                      } catch (e: any) {
+                        console.error('[NetworkGraph] inspect db exception', e);
+                        window.alert('Inspect failed: ' + String(e?.message || e));
+                      }
+                    }}>
+                      Inspect DB
                     </Button>
                   </div>
                 </div>
