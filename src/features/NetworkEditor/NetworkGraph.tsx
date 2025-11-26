@@ -43,7 +43,7 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const cyRef = useRef<Core | null>(null);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
-  const [tool, setTool] = useState<'select' | 'add-node' | 'add-edge'>('select');
+  const [tool, setTool] = useState<'select' | 'add-node' | 'add-edge' | 'delete'>('select');
   const toolRef = useRef(tool);
   
   useEffect(() => {
@@ -66,45 +66,50 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
     label: string;
     type: string;
   } | null>(null);
+  
+  // State for tracking modifications
   const [localNodes, setLocalNodes] = useState<Node[]>([]);
   const [localEdges, setLocalEdges] = useState<Edge[]>([]);
+  const [deletedNodeIds, setDeletedNodeIds] = useState<Set<string>>(new Set());
+  const [deletedEdgeIds, setDeletedEdgeIds] = useState<Set<string>>(new Set());
 
-  const elements = useMemo(() => {
+  // Get the current network data with all modifications applied
+  const getCurrentNetworkData = useMemo(() => {
     const fetchedNodes = (network && (Array.isArray((network as any).nodes) ? (network as any).nodes : Array.isArray((network as any).data?.nodes) ? (network as any).data.nodes : [])) || [];
     const fetchedEdges = (network && (Array.isArray((network as any).edges) ? (network as any).edges : Array.isArray((network as any).data?.edges) ? (network as any).data.edges : [])) || [];
 
-    const nodeElems = fetchedNodes
-      .filter((n: any) => n && typeof n.id === 'string')
-      .map((n: any) => ({
-        data: { id: n.id, label: n.label ?? n.id, type: n.type ?? 'custom' },
-      }));
-      
-    const localNodeElems = (localNodes || []).map((n) => ({ 
-      data: { id: n.id, label: n.label ?? n.id, type: n.type } 
+    // Filter out deleted nodes and edges, then combine with local additions
+    const currentNodes = [
+      ...fetchedNodes.filter((n: any) => n && typeof n.id === 'string' && !deletedNodeIds.has(n.id)),
+      ...localNodes
+    ];
+
+    const currentEdges = [
+      ...fetchedEdges.filter((e: any) => e && typeof e.source === 'string' && typeof e.target === 'string' && !deletedEdgeIds.has(`e-${e.source}-${e.target}`)),
+      ...localEdges
+    ];
+
+    return { nodes: currentNodes, edges: currentEdges };
+  }, [network, localNodes, localEdges, deletedNodeIds, deletedEdgeIds]);
+
+  const elements = useMemo(() => {
+    const { nodes, edges } = getCurrentNetworkData;
+
+    const nodeElems = nodes.map((n: any) => ({
+      data: { id: n.id, label: n.label ?? n.id, type: n.type ?? 'custom' },
     }));
     
-    const edgeElems = fetchedEdges
-      .filter((e: any) => e && typeof e.source === 'string' && typeof e.target === 'string')
-      .map((e: any, idx: number) => ({
-        data: {
-          id: `e-${idx}-${e.source}-${e.target}`,
-          source: e.source,
-          target: e.target,
-          interaction: e.interaction,
-        },
-      }));
-      
-    const localEdgeElems = (localEdges || []).map((e, idx) => ({ 
-      data: { 
-        id: `local-e-${idx}-${e.source}-${e.target}`, 
-        source: e.source, 
-        target: e.target, 
-        interaction: e.interaction 
-      } 
+    const edgeElems = edges.map((e: any, idx: number) => ({
+      data: {
+        id: `e-${idx}-${e.source}-${e.target}`,
+        source: e.source,
+        target: e.target,
+        interaction: e.interaction,
+      },
     }));
 
-    return [...nodeElems, ...localNodeElems, ...edgeElems, ...localEdgeElems];
-  }, [network, localNodes, localEdges]);
+    return [...nodeElems, ...edgeElems];
+  }, [getCurrentNetworkData]);
 
   const typeColors = useMemo(() => {
     const nodeTypes = new Set<string>();
@@ -120,6 +125,166 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
     });
     return map;
   }, [elements]);
+
+  // Function to delete a node and its connected edges
+  const deleteNode = (nodeId: string) => {
+    if (!cyRef.current) return;
+
+    // Check if this is a local node or fetched node
+    const isLocalNode = localNodes.some(n => n.id === nodeId);
+    
+    if (isLocalNode) {
+      // Remove from local nodes
+      setLocalNodes(prev => prev.filter(n => n.id !== nodeId));
+      // Remove local edges connected to this node
+      setLocalEdges(prev => prev.filter(e => e.source !== nodeId && e.target !== nodeId));
+    } else {
+      // Mark fetched node as deleted
+      setDeletedNodeIds(prev => new Set([...prev, nodeId]));
+      // Mark edges connected to this node as deleted
+      if (cyRef.current) {
+        const node = cyRef.current.getElementById(nodeId);
+        if (node) {
+          const connectedEdges = node.connectedEdges();
+          connectedEdges.forEach((edge: any) => {
+            const source = edge.data('source');
+            const target = edge.data('target');
+            setDeletedEdgeIds(prev => new Set([...prev, `e-${source}-${target}`]));
+          });
+        }
+      }
+    }
+
+    // Remove from cytoscape visualization
+    const node = cyRef.current.getElementById(nodeId);
+    if (node) {
+      node.connectedEdges().remove();
+      node.remove();
+    }
+
+    // Clear selection if the deleted node was selected
+    if (selectedNode?.id === nodeId) {
+      setSelectedNode(null);
+    }
+
+    // Clear edge source if it was the deleted node
+    if (edgeSourceId === nodeId) {
+      setEdgeSourceId(null);
+    }
+  };
+
+  // Function to delete an edge
+  // const deleteEdge = (source: string, target: string) => {
+  //   const edgeId = `e-${source}-${target}`;
+    
+  //   // Check if this is a local edge or fetched edge
+  //   const isLocalEdge = localEdges.some(e => e.source === source && e.target === target);
+    
+  //   if (isLocalEdge) {
+  //     // Remove from local edges
+  //     setLocalEdges(prev => prev.filter(e => !(e.source === source && e.target === target)));
+  //   } else {
+  //     // Mark fetched edge as deleted
+  //     setDeletedEdgeIds(prev => new Set([...prev, edgeId]));
+  //   }
+
+  //   // Remove from cytoscape visualization
+  //   if (cyRef.current) {
+  //     const edge = cyRef.current.edges().filter((e: any) => 
+  //       e.data('source') === source && e.data('target') === target
+  //     );
+  //     edge.remove();
+  //   }
+  // };
+
+  // Save network function
+  const saveNetwork = async (isUpdate: boolean = false) => {
+    try {
+      const { nodes, edges } = getCurrentNetworkData;
+      const payload = { nodes, edges };
+
+      if (isUpdate && networkId) {
+        // Update existing network
+        const { data, error } = await supabase
+          .from('networks')
+          .update({ network_data: payload })
+          .eq('id', networkId)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Failed to update network', error);
+          window.alert('Failed to update network: ' + (error.message || String(error)));
+        } else {
+          console.log('Updated network', data);
+          const updatedNetwork = { 
+            id: data.id as string, 
+            name: data.name as string, 
+            created_at: data.created_at ?? null, 
+            data: data.network_data ?? null 
+          };
+          try { onSaved?.(updatedNetwork); } catch (e) {}
+          window.alert('Network updated successfully');
+        }
+      } else {
+        // Create new network
+        const name = window.prompt('Save network as (name):', `network-${Date.now()}`);
+        if (!name) return;
+
+        const { data, error } = await supabase
+          .from('networks')
+          .insert({ name, network_data: payload })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Failed to save network', error);
+          window.alert('Failed to save network: ' + (error.message || String(error)));
+        } else {
+          console.log('Saved network', data);
+          const newNetwork = { 
+            id: data.id as string, 
+            name: data.name as string, 
+            created_at: data.created_at ?? null, 
+            data: data.network_data ?? null 
+          };
+          try { onSaved?.(newNetwork); } catch (e) {}
+          
+          // Link to project if projectId is provided
+          try {
+            const newNetworkId = data.id as string;
+            if (projectId) {
+              const { data: projRow, error: projErr } = await supabase
+                .from('projects')
+                .select('networks')
+                .eq('id', projectId)
+                .maybeSingle();
+              if (projErr) throw projErr;
+              const currentIds = Array.isArray(projRow?.networks) ? projRow.networks.filter((id: any) => typeof id === 'string') : [];
+              const updatedIds = Array.from(new Set([...(currentIds || []), newNetworkId]));
+              const { error: updateErr } = await supabase.from('projects').update({ networks: updatedIds }).eq('id', projectId);
+              if (updateErr) throw updateErr;
+            }
+          } catch (linkErr: any) {
+            console.warn('Saved network but failed to link to project', linkErr);
+          }
+          window.alert('Network saved successfully');
+        }
+      }
+    } catch (err: any) {
+      console.error('Save network error', err);
+      window.alert('Save failed: ' + String(err?.message || err));
+    }
+  };
+
+  // Reset all local modifications
+  const resetModifications = () => {
+    setLocalNodes([]);
+    setLocalEdges([]);
+    setDeletedNodeIds(new Set());
+    setDeletedEdgeIds(new Set());
+    setManualRefresh(prev => prev + 1);
+  };
 
   // Initialize Cytoscape instance - run when container is ready
   useEffect(() => {
@@ -169,6 +334,14 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
             style: {
               'border-color': '#f59e0b',
               'border-width': 4,
+            },
+          },
+          {
+            selector: '.delete-candidate',
+            style: {
+              'border-color': '#ef4444',
+              'border-width': 4,
+              'background-color': '#fee2e2',
             },
           },
           {
@@ -270,6 +443,11 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
         const clickedId = String(node.data('id'));
         const currentEdgeSource = edgeSourceRef.current;
 
+        if (toolRef.current === 'delete') {
+          deleteNode(clickedId);
+          return;
+        }
+
         if (toolRef.current === 'add-edge') {
           const id = clickedId;
           if (!currentEdgeSource) {
@@ -328,6 +506,19 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
         }
       });
 
+      // Handle mouseover for delete tool
+      cy.on('mouseover', 'node', (evt: any) => {
+        if (toolRef.current === 'delete') {
+          evt.target.addClass('delete-candidate');
+        }
+      });
+
+      cy.on('mouseout', 'node', (evt: any) => {
+        if (toolRef.current === 'delete') {
+          evt.target.removeClass('delete-candidate');
+        }
+      });
+
       // Handle window resize
       const handleResize = () => {
         if (cyRef.current) {
@@ -359,6 +550,8 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
       container.style.cursor = 'crosshair';
     } else if (tool === 'add-edge') {
       container.style.cursor = 'pointer';
+    } else if (tool === 'delete') {
+      container.style.cursor = 'not-allowed';
     } else {
       container.style.cursor = 'default';
     }
@@ -366,6 +559,11 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
     if (tool !== 'add-edge' && edgeSourceId && cyRef.current) {
       cyRef.current.getElementById(edgeSourceId)?.removeClass('edge-source');
       setEdgeSourceId(null);
+    }
+
+    // Clear delete candidate styling when switching away from delete tool
+    if (tool !== 'delete' && cyRef.current) {
+      cyRef.current.elements().removeClass('delete-candidate');
     }
   }, [tool, edgeSourceId]);
 
@@ -382,6 +580,9 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
       }
     } catch (e) {}
   }, [tool]);
+
+  // Check if there are any modifications
+  const hasModifications = localNodes.length > 0 || localEdges.length > 0 || deletedNodeIds.size > 0 || deletedEdgeIds.size > 0;
 
   if (isLoading) {
     return (
@@ -447,12 +648,28 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
                       <Badge>{selectedNode.label}</Badge>
                     </div>
                   )}
+                  {hasModifications && (
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-orange-600 border-orange-300">
+                        Unsaved Changes
+                      </Badge>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
           </div>
           
           <div className="flex items-center gap-2">
+            {hasModifications && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={resetModifications}
+              >
+                Reset Changes
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -538,6 +755,17 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
           >
             <LinkIcon />
           </Button>
+
+          {/* DELETE TOOL BUTTON - ADDED */}
+          <Button
+            size="icon"
+            variant={tool === 'delete' ? 'destructive' : 'ghost'}
+            onClick={() => setTool('delete')}
+            className="h-12 w-12"
+            title="Delete tool"
+          >
+            <TrashIcon />
+          </Button>
         </div>
 
         {/* Main Canvas Area */}
@@ -561,6 +789,7 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
                   <div>EdgeHandles: {ehLoaded ? (ehEnabled ? 'loaded & enabled' : 'loaded') : 'not loaded'}</div>
                   <div>Selected: {selectedNode ? selectedNode.id : 'none'}</div>
                   <div>Cy elements: {cyElementsCount} • ids: {cyElementIds.join(', ') || 'none'}</div>
+                  <div>Modifications: +{localNodes.length} nodes, +{localEdges.length} edges, -{deletedNodeIds.size} nodes, -{deletedEdgeIds.size} edges</div>
                   
                   <div className="flex flex-wrap gap-1 pt-2">
                     <Button variant="outline" size="sm" onClick={() => {
@@ -603,50 +832,16 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
                       Refresh
                     </Button>
 
-                    {/* SAVE NETWORK BUTTON - ADDED BACK */}
-                    <Button variant="outline" size="sm" onClick={async () => {
-                      try {
-                        const name = window.prompt('Save network as (name):', `network-${Date.now()}`);
-                        if (!name) return;
-                        const elems = elements || [];
-                        const nodes = elems.filter((e: any) => e.data && !('source' in e.data)).map((n: any) => ({ id: n.data.id, label: n.data.label, type: n.data.type }));
-                        const edges = elems.filter((e: any) => e.data && ('source' in e.data)).map((ed: any) => ({ source: ed.data.source, target: ed.data.target, interaction: ed.data.interaction }));
-                        const payload = { nodes, edges };
-
-                        const { data, error } = await supabase.from('networks').insert({ name, network_data: payload }).select().single();
-                        if (error) {
-                          console.error('Failed to save network', error);
-                          window.alert('Failed to save network: ' + (error.message || String(error)));
-                        } else {
-                          console.log('Saved network', data);
-                          const newNetwork = { id: data.id as string, name: data.name as string, created_at: data.created_at ?? null, data: data.network_data ?? null };
-                          try { onSaved?.(newNetwork); } catch (e) {}
-                          try {
-                            const newNetworkId = data.id as string;
-                            if (projectId) {
-                              const { data: projRow, error: projErr } = await supabase
-                                .from('projects')
-                                .select('networks')
-                                .eq('id', projectId)
-                                .maybeSingle();
-                              if (projErr) throw projErr;
-                              const currentIds = Array.isArray(projRow?.networks) ? projRow.networks.filter((id: any) => typeof id === 'string') : [];
-                              const updatedIds = Array.from(new Set([...(currentIds || []), newNetworkId]));
-                              const { error: updateErr } = await supabase.from('projects').update({ networks: updatedIds }).eq('id', projectId);
-                              if (updateErr) throw updateErr;
-                            }
-                          } catch (linkErr: any) {
-                            console.warn('Saved network but failed to link to project', linkErr);
-                          }
-                          window.alert('Network saved successfully');
-                        }
-                      } catch (err: any) {
-                        console.error('Save network error', err);
-                        window.alert('Save failed: ' + String(err?.message || err));
-                      }
-                    }}>
-                      Save Network
+                    {/* SAVE NETWORK BUTTONS - UPDATED */}
+                    <Button variant="outline" size="sm" onClick={() => saveNetwork(false)}>
+                      Save As New
                     </Button>
+
+                    {networkId && (
+                      <Button variant="outline" size="sm" onClick={() => saveNetwork(true)}>
+                        Update Current
+                      </Button>
+                    )}
 
                     <Button variant="outline" size="sm" onClick={async () => {
                       if (!networkId) { window.alert('No networkId'); return; }
@@ -800,6 +995,22 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
                     </Button>
                   )}
                 </div>
+
+                {/* DELETE NODE BUTTON - ADDED */}
+                <div className="pt-4 border-t">
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      if (window.confirm(`Are you sure you want to delete node "${selectedNode.label}"?`)) {
+                        deleteNode(selectedNode.id);
+                      }
+                    }}
+                    className="w-full"
+                  >
+                    <TrashIcon />
+                    Delete Node
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -877,7 +1088,7 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
   );
 };
 
-// Icon components
+// Icon components (keep the same as before)
 const CursorIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M4 4l7.07 17 2.51-7.39L21 11.07z"/>
@@ -906,6 +1117,12 @@ const LinkIcon = () => (
 const XIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M18 6L6 18M6 6l12 12"/>
+  </svg>
+);
+
+const TrashIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
   </svg>
 );
 
