@@ -8,16 +8,28 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 
+// UPDATED: Added weight properties
 type Node = {
   id: string;
   type: string;
   label: string;
+  weight?: number; // NEW: Node weight property
+  properties?: {   // NEW: Extended properties for future use
+    centrality?: number;
+    degree?: number;
+    [key: string]: any;
+  };
 };
 
 type Edge = {
   source: string;
   target: string;
   interaction?: string;
+  weight?: number; // NEW: Edge weight property
+  properties?: {   // NEW: Extended properties for future use
+    capacity?: number;
+    [key: string]: any;
+  };
 };
 
 type Props = {
@@ -35,7 +47,7 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
     networkId ?? undefined,
     effectiveRefresh
   );
-
+  
   useEffect(() => {
     setManualRefresh((p) => p + 1);
   }, [networkId]);
@@ -43,6 +55,7 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const cyRef = useRef<Core | null>(null);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null); // NEW: Track selected edge
   const [tool, setTool] = useState<'select' | 'add-node' | 'add-edge' | 'delete'>('select');
   const toolRef = useRef(tool);
   
@@ -65,7 +78,12 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
     modelPos: { x: number; y: number };
     label: string;
     type: string;
+    weight?: number; // NEW: Weight in node creation
   } | null>(null);
+
+  // NEW: Default weights
+  const defaultNodeWeight = 1;
+  const defaultEdgeWeight = 1;
   
   // State for tracking modifications
   const [localNodes, setLocalNodes] = useState<Node[]>([]);
@@ -92,11 +110,18 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
     return { nodes: currentNodes, edges: currentEdges };
   }, [network, localNodes, localEdges, deletedNodeIds, deletedEdgeIds]);
 
+  // UPDATED: Include weight data in elements
   const elements = useMemo(() => {
     const { nodes, edges } = getCurrentNetworkData;
 
     const nodeElems = nodes.map((n: any) => ({
-      data: { id: n.id, label: n.label ?? n.id, type: n.type ?? 'custom' },
+      data: { 
+        id: n.id, 
+        label: n.label ?? n.id, 
+        type: n.type ?? 'custom',
+        weight: n.weight ?? defaultNodeWeight, // NEW: Include weight
+        properties: n.properties || {} // NEW: Include properties
+      },
     }));
     
     const edgeElems = edges.map((e: any, idx: number) => ({
@@ -105,6 +130,8 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
         source: e.source,
         target: e.target,
         interaction: e.interaction,
+        weight: e.weight ?? defaultEdgeWeight, // NEW: Include weight
+        properties: e.properties || {} // NEW: Include properties
       },
     }));
 
@@ -172,30 +199,6 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
       setEdgeSourceId(null);
     }
   };
-
-  // Function to delete an edge
-  // const deleteEdge = (source: string, target: string) => {
-  //   const edgeId = `e-${source}-${target}`;
-    
-  //   // Check if this is a local edge or fetched edge
-  //   const isLocalEdge = localEdges.some(e => e.source === source && e.target === target);
-    
-  //   if (isLocalEdge) {
-  //     // Remove from local edges
-  //     setLocalEdges(prev => prev.filter(e => !(e.source === source && e.target === target)));
-  //   } else {
-  //     // Mark fetched edge as deleted
-  //     setDeletedEdgeIds(prev => new Set([...prev, edgeId]));
-  //   }
-
-  //   // Remove from cytoscape visualization
-  //   if (cyRef.current) {
-  //     const edge = cyRef.current.edges().filter((e: any) => 
-  //       e.data('source') === source && e.data('target') === target
-  //     );
-  //     edge.remove();
-  //   }
-  // };
 
   // Save network function
   const saveNetwork = async (isUpdate: boolean = false) => {
@@ -286,7 +289,7 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
     setManualRefresh(prev => prev + 1);
   };
 
-  // Initialize Cytoscape instance - run when container is ready
+  // Cytoscape initialization
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -395,9 +398,9 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
                     const maybeExisting = cy.edges().filter((e: any) => String(e.data('source')) === src && String(e.data('target')) === tgt);
                     if (!maybeExisting || maybeExisting.length === 0) {
                       const newEdgeId = `eh-e-${Date.now()}`;
-                      try { cy.add({ group: 'edges', data: { id: newEdgeId, source: src, target: tgt } }); } catch (e) { console.log('[NetworkGraph] edgehandles fallback cy.add error', e); }
+                      try { cy.add({ group: 'edges', data: { id: newEdgeId, source: src, target: tgt, weight: defaultEdgeWeight } }); } catch (e) { console.log('[NetworkGraph] edgehandles fallback cy.add error', e); }
                     }
-                    setLocalEdges(prev => [...prev, { source: src, target: tgt }]);
+                    setLocalEdges(prev => [...prev, { source: src, target: tgt, weight: defaultEdgeWeight }]);
                   } catch (e) {
                     console.log('[NetworkGraph] edgehandles complete error', e);
                   }
@@ -408,7 +411,7 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
                   try {
                     const src = String(evt.source.id());
                     const tgt = String(evt.target.id());
-                    setLocalEdges(prev => [...prev, { source: src, target: tgt }]);
+                    setLocalEdges(prev => [...prev, { source: src, target: tgt, weight: defaultEdgeWeight }]);
                   } catch (e) {
                     console.log('[NetworkGraph] cy ehcomplete handler error', e);
                   }
@@ -459,11 +462,11 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
           } else {
             const newEdgeId = `local-e-${Date.now()}`;
             try {
-              cy.add({ group: 'edges', data: { id: newEdgeId, source: currentEdgeSource, target: id } });
+              cy.add({ group: 'edges', data: { id: newEdgeId, source: currentEdgeSource, target: id, weight: defaultEdgeWeight } });
             } catch (e) {
               console.log('[NetworkGraph] add-edge via click: cy.add error', e);
             }
-            setLocalEdges(prev => [...prev, { source: currentEdgeSource!, target: id }]);
+            setLocalEdges(prev => [...prev, { source: currentEdgeSource!, target: id, weight: defaultEdgeWeight }]);
             cy.getElementById(currentEdgeSource)?.removeClass('edge-source');
             setEdgeSourceId(null);
           }
@@ -479,23 +482,49 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
         setSelectedNode({ 
           id: String(data.id), 
           type: String(data.type), 
-          label: String(data.label || data.id) 
+          label: String(data.label || data.id),
+          weight: data.weight, // NEW: Include weight
+          properties: data.properties || {} // NEW: Include properties
         });
+        setSelectedEdge(null); // Clear edge selection when node is selected
+      });
+
+      // NEW: Edge selection handler
+      cy.on('tap', 'edge', (evt: any) => {
+        const edge = evt.target;
+        const data = edge.data();
+        
+        setSelectedEdge({
+          source: String(data.source),
+          target: String(data.target),
+          interaction: data.interaction,
+          weight: data.weight,
+          properties: data.properties || {}
+        });
+        
+        // Highlight connected nodes
+        const connectedNodes = edge.connectedNodes();
+        cy.elements().removeClass('faded');
+        cy.elements().not(connectedNodes).not(edge).addClass('faded');
       });
 
       cy.on('tap', (evt: any) => {
         const isNode = evt.target && typeof evt.target.isNode === 'function' && evt.target.isNode();
-        if (!isNode) {
+        const isEdge = evt.target && typeof evt.target.isEdge === 'function' && evt.target.isEdge();
+        
+        if (!isNode && !isEdge) {
           cy.elements().removeClass('faded');
           cy.elements().unselect();
           setSelectedNode(null);
+          setSelectedEdge(null);
 
           if (toolRef.current === 'add-node') {
             const pos = evt.position || evt.renderedPosition || { x: 0, y: 0 };
             setNewNodeDraft({ 
               modelPos: { x: pos.x, y: pos.y }, 
               label: `Node ${nodeCounterRef.current + 1}`,
-              type: 'custom' 
+              type: 'custom',
+              weight: defaultNodeWeight // NEW: Default weight
             });
           }
 
@@ -681,6 +710,24 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
             >
               Fit to View
             </Button>
+            {/* SAVE NETWORK BUTTONS */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => saveNetwork(false)}
+            >
+              Save As New
+            </Button>
+
+            {networkId && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => saveNetwork(true)}
+              >
+                Update Current
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -715,7 +762,12 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
             className="h-12 w-12"
             onClick={() => {
               const newId = `n-${Date.now()}`;
-              const newNode = { id: newId, label: `Node ${nodeCounterRef.current + 1}`, type: 'custom' };
+              const newNode = { 
+                id: newId, 
+                label: `Node ${nodeCounterRef.current + 1}`, 
+                type: 'custom',
+                weight: defaultNodeWeight // NEW: Default weight
+              };
               setLocalNodes(prev => [...prev, newNode]);
               nodeCounterRef.current++;
               setTimeout(() => {
@@ -724,7 +776,15 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
                     const pan = cyRef.current.pan();
                     const zoom = cyRef.current.zoom();
                     const center = { x: (cyRef.current.width() / 2 - pan.x) / zoom, y: (cyRef.current.height() / 2 - pan.y) / zoom };
-                    cyRef.current.add({ data: { id: newId, label: newNode.label, type: newNode.type }, position: center });
+                    cyRef.current.add({ 
+                      data: { 
+                        id: newId, 
+                        label: newNode.label, 
+                        type: newNode.type,
+                        weight: newNode.weight 
+                      }, 
+                      position: center 
+                    });
                     const n = cyRef.current.getElementById(newId);
                     try { n.select(); } catch {}
                     setSelectedNode(newNode);
@@ -756,7 +816,6 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
             <LinkIcon />
           </Button>
 
-          {/* DELETE TOOL BUTTON - ADDED */}
           <Button
             size="icon"
             variant={tool === 'delete' ? 'destructive' : 'ghost'}
@@ -787,7 +846,7 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
                   <div>NetworkId: {String(networkId ?? 'none')}</div>
                   <div>Cytoscape: {cyInitialized ? 'initialized' : 'not initialized'}</div>
                   <div>EdgeHandles: {ehLoaded ? (ehEnabled ? 'loaded & enabled' : 'loaded') : 'not loaded'}</div>
-                  <div>Selected: {selectedNode ? selectedNode.id : 'none'}</div>
+                  <div>Selected: {selectedNode ? selectedNode.id : (selectedEdge ? `${selectedEdge.source}-${selectedEdge.target}` : 'none')}</div>
                   <div>Cy elements: {cyElementsCount} • ids: {cyElementIds.join(', ') || 'none'}</div>
                   <div>Modifications: +{localNodes.length} nodes, +{localEdges.length} edges, -{deletedNodeIds.size} nodes, -{deletedEdgeIds.size} edges</div>
                   
@@ -795,7 +854,14 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
                     <Button variant="outline" size="sm" onClick={() => {
                       if (!cyRef.current) return;
                       const id = `debug-${Date.now()}`;
-                      cyRef.current.add({ data: { id, label: 'Debug node' }, position: { x: 0, y: 0 } });
+                      cyRef.current.add({ 
+                        data: { 
+                          id, 
+                          label: 'Debug node',
+                          weight: Math.round(Math.random() * 10)
+                        }, 
+                        position: { x: 0, y: 0 } 
+                      });
                       setTimeout(() => { cyRef.current?.fit(undefined, 60); }, 50);
                     }}>
                       Test Node
@@ -831,17 +897,6 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
                     }}>
                       Refresh
                     </Button>
-
-                    {/* SAVE NETWORK BUTTONS - UPDATED */}
-                    <Button variant="outline" size="sm" onClick={() => saveNetwork(false)}>
-                      Save As New
-                    </Button>
-
-                    {networkId && (
-                      <Button variant="outline" size="sm" onClick={() => saveNetwork(true)}>
-                        Update Current
-                      </Button>
-                    )}
 
                     <Button variant="outline" size="sm" onClick={async () => {
                       if (!networkId) { window.alert('No networkId'); return; }
@@ -883,18 +938,21 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
           )}
         </div>
 
-        {/* Right Sidebar - Node Properties (only when node is selected) */}
-        {selectedNode && (
+        {/* Right Sidebar - Node/Edge Properties */}
+        {(selectedNode || selectedEdge) && (
           <div className="w-80 bg-white border-l flex-shrink-0 z-20">
             <Card className="h-full border-0 rounded-none">
               <CardHeader className="pb-3 border-b">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">Node Properties</CardTitle>
+                  <CardTitle className="text-lg">
+                    {selectedNode ? 'Node Properties' : 'Edge Properties'}
+                  </CardTitle>
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => {
                       setSelectedNode(null);
+                      setSelectedEdge(null);
                       if (cyRef.current) {
                         cyRef.current.elements().removeClass('faded');
                         cyRef.current.elements().unselect();
@@ -907,110 +965,226 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
               </CardHeader>
               
               <CardContent className="p-4 space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Label</label>
-                  <Input
-                    value={selectedNode.label}
-                    onChange={(e) => {
-                      const newLabel = e.target.value;
-                      setSelectedNode(prev => prev ? { ...prev, label: newLabel } : null);
-                      if (cyRef.current) {
-                        const node = cyRef.current.getElementById(selectedNode.id);
-                        if (node) {
-                          node.data('label', newLabel);
-                        }
-                      }
-                      if (selectedNode.id.startsWith('n-')) {
-                        setLocalNodes(prev => 
-                          prev.map(n => n.id === selectedNode.id ? { ...n, label: newLabel } : n)
-                        );
-                      }
-                    }}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Type</label>
-                  <div className="flex items-center gap-2">
-                    <Badge 
-                      variant="secondary" 
-                      className="text-sm px-2 py-1"
-                      style={{ 
-                        backgroundColor: typeColors.get(selectedNode.type) || '#6b7280',
-                        color: 'white'
-                      }}
-                    >
-                      {selectedNode.type}
-                    </Badge>
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">ID</label>
-                  <div className="text-sm text-gray-600 font-mono bg-gray-50 px-3 py-2 rounded border">
-                    {selectedNode.id}
-                  </div>
-                </div>
-                
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setEdgeSourceId(selectedNode.id);
-                      if (cyRef.current) {
-                        cyRef.current.getElementById(selectedNode.id)?.addClass('edge-source');
-                      }
-                    }}
-                    className="flex-1"
-                  >
-                    Set as Source
-                  </Button>
-                  
-                  {edgeSourceId && edgeSourceId !== selectedNode.id && (
-                    <Button
-                      onClick={() => {
-                        const newEdgeId = `local-e-${Date.now()}`;
-                        if (cyRef.current) {
-                          cyRef.current.add({ 
-                            group: 'edges', 
-                            data: { 
-                              id: newEdgeId, 
-                              source: edgeSourceId, 
-                              target: selectedNode.id 
-                            } 
-                          });
-                        }
-                        setLocalEdges(prev => [...prev, { 
-                          source: edgeSourceId, 
-                          target: selectedNode.id 
-                        }]);
-                        if (cyRef.current) {
-                          cyRef.current.getElementById(edgeSourceId)?.removeClass('edge-source');
-                        }
-                        setEdgeSourceId(null);
-                      }}
-                      className="flex-1"
-                    >
-                      Connect
-                    </Button>
-                  )}
-                </div>
+                {selectedNode && (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Label</label>
+                      <Input
+                        value={selectedNode.label}
+                        onChange={(e) => {
+                          const newLabel = e.target.value;
+                          setSelectedNode(prev => prev ? { ...prev, label: newLabel } : null);
+                          if (cyRef.current) {
+                            const node = cyRef.current.getElementById(selectedNode.id);
+                            if (node) {
+                              node.data('label', newLabel);
+                            }
+                          }
+                          if (selectedNode.id.startsWith('n-')) {
+                            setLocalNodes(prev => 
+                              prev.map(n => n.id === selectedNode.id ? { ...n, label: newLabel } : n)
+                            );
+                          }
+                        }}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Type</label>
+                      <div className="flex items-center gap-2">
+                        <Badge 
+                          variant="secondary" 
+                          className="text-sm px-2 py-1"
+                          style={{ 
+                            backgroundColor: typeColors.get(selectedNode.type) || '#6b7280',
+                            color: 'white'
+                          }}
+                        >
+                          {selectedNode.type}
+                        </Badge>
+                      </div>
+                    </div>
 
-                {/* DELETE NODE BUTTON - ADDED */}
-                <div className="pt-4 border-t">
-                  <Button
-                    variant="destructive"
-                    onClick={() => {
-                      if (window.confirm(`Are you sure you want to delete node "${selectedNode.label}"?`)) {
-                        deleteNode(selectedNode.id);
-                      }
-                    }}
-                    className="w-full"
-                  >
-                    <TrashIcon />
-                    Delete Node
-                  </Button>
-                </div>
+                    {/* NEW: Weight input for nodes (NUMBER INPUT) */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Weight</label>
+                      <Input
+                        type="number"
+                        value={selectedNode.weight ?? defaultNodeWeight}
+                        onChange={(e) => {
+                          const newWeight = parseFloat(e.target.value) || defaultNodeWeight;
+                          setSelectedNode(prev => prev ? { ...prev, weight: newWeight } : null);
+                          if (cyRef.current) {
+                            const node = cyRef.current.getElementById(selectedNode.id);
+                            if (node) {
+                              node.data('weight', newWeight);
+                            }
+                          }
+                          if (selectedNode.id.startsWith('n-')) {
+                            setLocalNodes(prev => 
+                              prev.map(n => n.id === selectedNode.id ? { ...n, weight: newWeight } : n)
+                            );
+                          }
+                        }}
+                        min="0"
+                        step="0.1"
+                        className="w-full"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">ID</label>
+                      <div className="text-sm text-gray-600 font-mono bg-gray-50 px-3 py-2 rounded border">
+                        {selectedNode.id}
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-2 pt-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setEdgeSourceId(selectedNode.id);
+                          if (cyRef.current) {
+                            cyRef.current.getElementById(selectedNode.id)?.addClass('edge-source');
+                          }
+                        }}
+                        className="flex-1"
+                      >
+                        Set as Source
+                      </Button>
+                      
+                      {edgeSourceId && edgeSourceId !== selectedNode.id && (
+                        <Button
+                          onClick={() => {
+                            const newEdgeId = `local-e-${Date.now()}`;
+                            if (cyRef.current) {
+                              cyRef.current.add({ 
+                                group: 'edges', 
+                                data: { 
+                                  id: newEdgeId, 
+                                  source: edgeSourceId, 
+                                  target: selectedNode.id,
+                                  weight: defaultEdgeWeight
+                                } 
+                              });
+                            }
+                            setLocalEdges(prev => [...prev, { 
+                              source: edgeSourceId, 
+                              target: selectedNode.id,
+                              weight: defaultEdgeWeight
+                            }]);
+                            if (cyRef.current) {
+                              cyRef.current.getElementById(edgeSourceId)?.removeClass('edge-source');
+                            }
+                            setEdgeSourceId(null);
+                          }}
+                          className="flex-1"
+                        >
+                          Connect
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="pt-4 border-t">
+                      <Button
+                        variant="destructive"
+                        onClick={() => {
+                          if (window.confirm(`Are you sure you want to delete node "${selectedNode.label}"?`)) {
+                            deleteNode(selectedNode.id);
+                          }
+                        }}
+                        className="w-full"
+                      >
+                        <TrashIcon />
+                        Delete Node
+                      </Button>
+                    </div>
+                  </>
+                )}
+
+                {selectedEdge && (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Connection</label>
+                      <div className="text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded border">
+                        {selectedEdge.source} → {selectedEdge.target}
+                      </div>
+                    </div>
+
+                    {selectedEdge.interaction && (
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Interaction</label>
+                        <div className="text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded border">
+                          {selectedEdge.interaction}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* NEW: Weight input for edges (NUMBER INPUT) */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Weight</label>
+                      <Input
+                        type="number"
+                        value={selectedEdge.weight ?? defaultEdgeWeight}
+                        onChange={(e) => {
+                          const newWeight = parseFloat(e.target.value) || defaultEdgeWeight;
+                          setSelectedEdge(prev => prev ? { ...prev, weight: newWeight } : null);
+                          if (cyRef.current) {
+                            const edges = cyRef.current.edges().filter((e: any) => 
+                              e.data('source') === selectedEdge.source && 
+                              e.data('target') === selectedEdge.target
+                            );
+                            edges.forEach((edge: any) => {
+                              edge.data('weight', newWeight);
+                            });
+                          }
+                          // Update in local edges if this is a local edge
+                          const edgeKey = `${selectedEdge.source}-${selectedEdge.target}`;
+                          if (localEdges.some(e => `${e.source}-${e.target}` === edgeKey)) {
+                            setLocalEdges(prev => 
+                              prev.map(e => 
+                                e.source === selectedEdge.source && e.target === selectedEdge.target 
+                                  ? { ...e, weight: newWeight } 
+                                  : e
+                              )
+                            );
+                          }
+                        }}
+                        min="0"
+                        step="0.1"
+                        className="w-full"
+                      />
+                    </div>
+
+                    <div className="pt-4 border-t">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          if (cyRef.current) {
+                            const edges = cyRef.current.edges().filter((e: any) => 
+                              e.data('source') === selectedEdge.source && 
+                              e.data('target') === selectedEdge.target
+                            );
+                            edges.remove();
+                          }
+                          setLocalEdges(prev => 
+                            prev.filter(e => 
+                              !(e.source === selectedEdge.source && e.target === selectedEdge.target)
+                            )
+                          );
+                          setSelectedEdge(null);
+                          if (cyRef.current) {
+                            cyRef.current.elements().removeClass('faded');
+                          }
+                        }}
+                        className="w-full"
+                      >
+                        <TrashIcon />
+                        Delete Edge
+                      </Button>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -1043,6 +1217,19 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
                   placeholder="Enter node type"
                 />
               </div>
+
+              {/* NEW: Weight input in node creation */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Weight</label>
+                <Input
+                  type="number"
+                  value={newNodeDraft.weight ?? defaultNodeWeight}
+                  onChange={(e) => setNewNodeDraft({ ...newNodeDraft, weight: parseFloat(e.target.value) || defaultNodeWeight })}
+                  placeholder="Enter node weight"
+                  min="0"
+                  step="0.1"
+                />
+              </div>
               
               <div className="flex gap-2 pt-2">
                 <Button
@@ -1058,7 +1245,8 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
                     const newNode = {
                       id: newId,
                       label: newNodeDraft.label || `Node ${nodeCounterRef.current + 1}`,
-                      type: newNodeDraft.type || 'custom'
+                      type: newNodeDraft.type || 'custom',
+                      weight: newNodeDraft.weight ?? defaultNodeWeight // NEW: Include weight
                     };
                     
                     setLocalNodes(prev => [...prev, newNode]);
