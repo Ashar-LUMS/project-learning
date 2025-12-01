@@ -61,3 +61,18 @@ Guidance for AI coding agents contributing to this Vite + React + TypeScript app
 - `src/lib/deterministicAnalysis.ts` / `src/lib/weightedDeterministicAnalysis.ts`
 
 If anything here seems off or incomplete (e.g., table schemas, expected JSON shapes), tell the human to confirm or provide examples, and align the implementation accordingly.
+
+## Database Schema
+- `projects` table: 
+  - id: uuid (primary key)
+  - name: text
+  - assignees: uuid[] (default '{}')
+  - created_at: timestamptz (default now())
+  - created_by: uuid (default auth.uid())
+  - creator_email: text
+  - networks: uuid[] (array of network IDs)
+- `networks` table:
+  - id: uuid (primary key)
+  - name: text
+  - network_data: jsonb (shape: { nodes: [], edges: [], rules?: [] })
+  - created_at: timestamptz (default now())
