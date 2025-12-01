@@ -7,14 +7,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import RuleBasedGraph from './RuleBasedGraph';
+import type { RuleSet } from './RuleBasedGraph';
 
 // UPDATED: Added weight properties
 type Node = {
   id: string;
   type: string;
   label: string;
-  weight?: number; // NEW: Node weight property
-  properties?: {   // NEW: Extended properties for future use
+  weight?: number;
+  properties?: {
     centrality?: number;
     degree?: number;
     [key: string]: any;
@@ -25,8 +27,8 @@ type Edge = {
   source: string;
   target: string;
   interaction?: string;
-  weight?: number; // NEW: Edge weight property
-  properties?: {   // NEW: Extended properties for future use
+  weight?: number;
+  properties?: {
     capacity?: number;
     [key: string]: any;
   };
@@ -39,6 +41,8 @@ type Props = {
   projectId?: string | null;
   onSaved?: (network: { id: string; name: string; created_at: string | null; data: any }) => void;
 };
+
+type GraphMode = 'weight-based' | 'rule-based';
 
 const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId = null, onSaved }) => {
   const [manualRefresh, setManualRefresh] = useState(0);
@@ -55,7 +59,7 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const cyRef = useRef<Core | null>(null);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
-  const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null); // NEW: Track selected edge
+  const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null);
   const [tool, setTool] = useState<'select' | 'add-node' | 'add-edge' | 'delete'>('select');
   const toolRef = useRef(tool);
   
@@ -78,10 +82,16 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
     modelPos: { x: number; y: number };
     label: string;
     type: string;
-    weight?: number; // NEW: Weight in node creation
+    weight?: number;
   } | null>(null);
 
-  // NEW: Default weights
+  // NEW: Rule-based graph state
+  const [graphMode, setGraphMode] = useState<GraphMode>('weight-based');
+  const [showModeSelector, setShowModeSelector] = useState(false);
+  const [activeRuleSet, setActiveRuleSet] = useState<RuleSet | null>(null);
+  const [showRuleEditor, setShowRuleEditor] = useState(false);
+
+  // Default weights
   const defaultNodeWeight = 1;
   const defaultEdgeWeight = 1;
   
@@ -96,7 +106,6 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
     const fetchedNodes = (network && (Array.isArray((network as any).nodes) ? (network as any).nodes : Array.isArray((network as any).data?.nodes) ? (network as any).data.nodes : [])) || [];
     const fetchedEdges = (network && (Array.isArray((network as any).edges) ? (network as any).edges : Array.isArray((network as any).data?.edges) ? (network as any).data.edges : [])) || [];
 
-    // Filter out deleted nodes and edges, then combine with local additions
     const currentNodes = [
       ...fetchedNodes.filter((n: any) => n && typeof n.id === 'string' && !deletedNodeIds.has(n.id)),
       ...localNodes
@@ -119,8 +128,8 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
         id: n.id, 
         label: n.label ?? n.id, 
         type: n.type ?? 'custom',
-        weight: n.weight ?? defaultNodeWeight, // NEW: Include weight
-        properties: n.properties || {} // NEW: Include properties
+        weight: n.weight ?? defaultNodeWeight,
+        properties: n.properties || {}
       },
     }));
     
@@ -130,8 +139,8 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
         source: e.source,
         target: e.target,
         interaction: e.interaction,
-        weight: e.weight ?? defaultEdgeWeight, // NEW: Include weight
-        properties: e.properties || {} // NEW: Include properties
+        weight: e.weight ?? defaultEdgeWeight,
+        properties: e.properties || {}
       },
     }));
 
@@ -157,18 +166,13 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
   const deleteNode = (nodeId: string) => {
     if (!cyRef.current) return;
 
-    // Check if this is a local node or fetched node
     const isLocalNode = localNodes.some(n => n.id === nodeId);
     
     if (isLocalNode) {
-      // Remove from local nodes
       setLocalNodes(prev => prev.filter(n => n.id !== nodeId));
-      // Remove local edges connected to this node
       setLocalEdges(prev => prev.filter(e => e.source !== nodeId && e.target !== nodeId));
     } else {
-      // Mark fetched node as deleted
       setDeletedNodeIds(prev => new Set([...prev, nodeId]));
-      // Mark edges connected to this node as deleted
       if (cyRef.current) {
         const node = cyRef.current.getElementById(nodeId);
         if (node) {
@@ -182,19 +186,16 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
       }
     }
 
-    // Remove from cytoscape visualization
     const node = cyRef.current.getElementById(nodeId);
     if (node) {
       node.connectedEdges().remove();
       node.remove();
     }
 
-    // Clear selection if the deleted node was selected
     if (selectedNode?.id === nodeId) {
       setSelectedNode(null);
     }
 
-    // Clear edge source if it was the deleted node
     if (edgeSourceId === nodeId) {
       setEdgeSourceId(null);
     }
@@ -207,7 +208,6 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
       const payload = { nodes, edges };
 
       if (isUpdate && networkId) {
-        // Update existing network
         const { data, error } = await supabase
           .from('networks')
           .update({ network_data: payload })
@@ -230,7 +230,6 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
           window.alert('Network updated successfully');
         }
       } else {
-        // Create new network
         const name = window.prompt('Save network as (name):', `network-${Date.now()}`);
         if (!name) return;
 
@@ -253,7 +252,6 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
           };
           try { onSaved?.(newNetwork); } catch (e) {}
           
-          // Link to project if projectId is provided
           try {
             const newNetworkId = data.id as string;
             if (projectId) {
@@ -280,6 +278,129 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
     }
   };
 
+  // NEW: Function to apply rules to the graph
+  const applyRuleSet = (ruleSet: RuleSet) => {
+    setActiveRuleSet(ruleSet);
+    setShowRuleEditor(false);
+    
+    if (!cyRef.current) return;
+
+    const cy = cyRef.current;
+    const enabledRules = ruleSet.rules.filter(rule => rule.enabled);
+    
+    // Reset all styling first
+    cy.elements().removeStyle();
+    
+    // Reapply base styles
+    // cy.style(cy.style());
+    
+    // Apply rules in priority order
+    enabledRules.sort((a, b) => a.priority - b.priority).forEach(rule => {
+      try {
+        // Create evaluation context with available functions
+        const context = {
+          node: null,
+          edge: null,
+          graph: cy,
+          highlightNode: (node: any, color: string) => {
+            node.style('background-color', color);
+            node.style('border-color', color);
+          },
+          setNodeSize: (node: any, size: number) => {
+            node.style('width', size);
+            node.style('height', size);
+          },
+          setNodeColor: (node: any, color: string) => {
+            node.style('background-color', color);
+          },
+          setEdgeWidth: (edge: any, width: number) => {
+            edge.style('width', width);
+          },
+          setEdgeColor: (edge: any, color: string) => {
+            edge.style('line-color', color);
+            edge.style('target-arrow-color', color);
+          },
+          showNeighbors: (node: any) => {
+            const neighborhood = node.closedNeighborhood();
+            cy.elements().removeClass('faded');
+            cy.elements().not(neighborhood).addClass('faded');
+          },
+          hideUnconnectedNodes: () => {
+            const connectedNodes = cy.edges().connectedNodes();
+            cy.nodes().forEach((node: any) => {
+              if (!connectedNodes.contains(node)) {
+                node.style('display', 'none');
+              }
+            });
+          }
+        };
+
+        // Apply rule to nodes
+        cy.nodes().forEach((node: any) => {
+          const nodeData = node.data();
+          
+          try {
+            const conditionMet = new Function(
+              'node', 'edge', 'graph', 
+              `return ${rule.condition}`
+            )(nodeData, null, cy);
+            
+            if (conditionMet) {
+              new Function(
+                'node', 'edge', 'graph', 'highlightNode', 'setNodeSize', 'setNodeColor', 'setEdgeWidth', 'setEdgeColor', 'showNeighbors', 'hideUnconnectedNodes',
+                rule.action
+              )(
+                nodeData, null, cy, 
+                context.highlightNode, context.setNodeSize, context.setNodeColor, 
+                context.setEdgeWidth, context.setEdgeColor, context.showNeighbors, context.hideUnconnectedNodes
+              );
+            }
+          } catch (error) {
+            console.warn(`Error applying rule "${rule.name}" to node ${nodeData.id}:`, error);
+          }
+        });
+
+        // Apply rule to edges
+        cy.edges().forEach((edge: any) => {
+          const edgeData = edge.data();
+          
+          try {
+            const conditionMet = new Function(
+              'node', 'edge', 'graph',
+              `return ${rule.condition}`
+            )(null, edgeData, cy);
+            
+            if (conditionMet) {
+              new Function(
+                'node', 'edge', 'graph', 'setEdgeWidth', 'setEdgeColor',
+                rule.action
+              )(null, edgeData, cy, context.setEdgeWidth, context.setEdgeColor);
+            }
+          } catch (error) {
+            console.warn(`Error applying rule "${rule.name}" to edge ${edgeData.id}:`, error);
+          }
+        });
+
+      } catch (error) {
+        console.error(`Error processing rule "${rule.name}":`, error);
+      }
+    });
+  };
+
+  // NEW: Function to handle node creation mode selection
+  const handleAddNodeWithMode = (evt: any) => {
+    if (toolRef.current === 'add-node') {
+      const pos = evt.position || evt.renderedPosition || { x: 0, y: 0 };
+      setNewNodeDraft({ 
+        modelPos: { x: pos.x, y: pos.y }, 
+        label: `Node ${nodeCounterRef.current + 1}`,
+        type: 'custom',
+        weight: defaultNodeWeight
+      });
+      setShowModeSelector(true);
+    }
+  };
+
   // Reset all local modifications
   const resetModifications = () => {
     setLocalNodes([]);
@@ -295,7 +416,6 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
 
     console.log('[NetworkGraph] Initializing cytoscape with elements:', elements.length);
 
-    // Destroy existing instance if it exists
     if (cyRef.current) {
       cyRef.current.destroy();
       cyRef.current = null;
@@ -377,7 +497,7 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
       // Load edgehandles
       (async () => {
         try {
-          const ehModule = await import('cytoscape' + '-edgehandles');
+          const ehModule = await import('cytoscape-edgehandles');
           const initializer = (ehModule && (ehModule.default || ehModule)) as any;
           if (typeof initializer === 'function') {
             initializer(cytoscape);
@@ -483,13 +603,12 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
           id: String(data.id), 
           type: String(data.type), 
           label: String(data.label || data.id),
-          weight: data.weight, // NEW: Include weight
-          properties: data.properties || {} // NEW: Include properties
+          weight: data.weight,
+          properties: data.properties || {}
         });
-        setSelectedEdge(null); // Clear edge selection when node is selected
+        setSelectedEdge(null);
       });
 
-      // NEW: Edge selection handler
       cy.on('tap', 'edge', (evt: any) => {
         const edge = evt.target;
         const data = edge.data();
@@ -502,7 +621,6 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
           properties: data.properties || {}
         });
         
-        // Highlight connected nodes
         const connectedNodes = edge.connectedNodes();
         cy.elements().removeClass('faded');
         cy.elements().not(connectedNodes).not(edge).addClass('faded');
@@ -518,14 +636,9 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
           setSelectedNode(null);
           setSelectedEdge(null);
 
+          // UPDATED: Use the new mode selection handler
           if (toolRef.current === 'add-node') {
-            const pos = evt.position || evt.renderedPosition || { x: 0, y: 0 };
-            setNewNodeDraft({ 
-              modelPos: { x: pos.x, y: pos.y }, 
-              label: `Node ${nodeCounterRef.current + 1}`,
-              type: 'custom',
-              weight: defaultNodeWeight // NEW: Default weight
-            });
+            handleAddNodeWithMode(evt);
           }
 
           if (toolRef.current === 'add-edge' && edgeSourceRef.current) {
@@ -535,7 +648,6 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
         }
       });
 
-      // Handle mouseover for delete tool
       cy.on('mouseover', 'node', (evt: any) => {
         if (toolRef.current === 'delete') {
           evt.target.addClass('delete-candidate');
@@ -568,7 +680,7 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
     } catch (err) {
       console.error('Cytoscape initialization error:', err);
     }
-  }, [elements.length]); // Re-initialize when elements change
+  }, [elements.length]);
 
   // Update tool-specific behavior
   useEffect(() => {
@@ -590,7 +702,6 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
       setEdgeSourceId(null);
     }
 
-    // Clear delete candidate styling when switching away from delete tool
     if (tool !== 'delete' && cyRef.current) {
       cyRef.current.elements().removeClass('delete-candidate');
     }
@@ -671,6 +782,25 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
                     <span className="text-gray-600">Edges:</span>
                     <Badge variant="secondary">{edgesCount}</Badge>
                   </div>
+                  {/* NEW: Mode indicator and toggle */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-600">Mode:</span>
+                    <Badge 
+                      variant={graphMode === 'rule-based' ? 'default' : 'outline'}
+                      className="cursor-pointer"
+                      onClick={() => setGraphMode(
+                        graphMode === 'rule-based' ? 'weight-based' : 'rule-based'
+                      )}
+                    >
+                      {graphMode === 'rule-based' ? 'Rule-Based' : 'Weight-Based'}
+                    </Badge>
+                  </div>
+                  {activeRuleSet && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-600">Active Rules:</span>
+                      <Badge variant="outline">{activeRuleSet.name}</Badge>
+                    </div>
+                  )}
                   {selectedNode && (
                     <div className="flex items-center gap-2">
                       <span className="text-gray-600">Selected:</span>
@@ -690,6 +820,35 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
           </div>
           
           <div className="flex items-center gap-2">
+            {/* NEW: Rule-based controls */}
+            {graphMode === 'rule-based' && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowRuleEditor(true)}
+                >
+                  {activeRuleSet ? 'Edit Rules' : 'Create Rules'}
+                </Button>
+                {activeRuleSet && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setActiveRuleSet(null);
+                      if (cyRef.current) {
+                        cyRef.current.elements().removeStyle();
+                        // Reapply default styles
+                        // cyRef.current.style(cyRef.current.style());
+                      }
+                    }}
+                  >
+                    Clear Rules
+                  </Button>
+                )}
+              </>
+            )}
+
             {hasModifications && (
               <Button
                 variant="outline"
@@ -710,7 +869,6 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
             >
               Fit to View
             </Button>
-            {/* SAVE NETWORK BUTTONS */}
             <Button
               variant="outline"
               size="sm"
@@ -766,7 +924,7 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
                 id: newId, 
                 label: `Node ${nodeCounterRef.current + 1}`, 
                 type: 'custom',
-                weight: defaultNodeWeight // NEW: Default weight
+                weight: defaultNodeWeight
               };
               setLocalNodes(prev => [...prev, newNode]);
               nodeCounterRef.current++;
@@ -829,112 +987,85 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
 
         {/* Main Canvas Area */}
         <div className="flex-1 relative min-w-0 min-h-0">
-          {/* Cytoscape container - Takes full available space */}
-          <div
-            ref={containerRef}
-            className="w-full h-full bg-gradient-to-br from-gray-50 to-gray-100"
-            aria-label="Project network visualization"
-          />
-
-          {/* Debug Panel - Bottom left */}
-          <div className="absolute left-4 bottom-4 z-30 max-w-md">
-            <Card className="bg-white/95 backdrop-blur-sm max-h-64 overflow-y-auto">
-              <CardContent className="p-3">
-                <div className="space-y-1 text-xs">
-                  <div className="font-mono">Mode: {tool} • Nodes: {nodesCount} • Edges: {edgesCount}</div>
-                  <div className="text-muted-foreground">Fetched: {fetchedNodeCount} nodes • {fetchedEdgeCount} edges</div>
-                  <div>NetworkId: {String(networkId ?? 'none')}</div>
-                  <div>Cytoscape: {cyInitialized ? 'initialized' : 'not initialized'}</div>
-                  <div>EdgeHandles: {ehLoaded ? (ehEnabled ? 'loaded & enabled' : 'loaded') : 'not loaded'}</div>
-                  <div>Selected: {selectedNode ? selectedNode.id : (selectedEdge ? `${selectedEdge.source}-${selectedEdge.target}` : 'none')}</div>
-                  <div>Cy elements: {cyElementsCount} • ids: {cyElementIds.join(', ') || 'none'}</div>
-                  <div>Modifications: +{localNodes.length} nodes, +{localEdges.length} edges, -{deletedNodeIds.size} nodes, -{deletedEdgeIds.size} edges</div>
-                  
-                  <div className="flex flex-wrap gap-1 pt-2">
-                    <Button variant="outline" size="sm" onClick={() => {
-                      if (!cyRef.current) return;
-                      const id = `debug-${Date.now()}`;
-                      cyRef.current.add({ 
-                        data: { 
-                          id, 
-                          label: 'Debug node',
-                          weight: Math.round(Math.random() * 10)
-                        }, 
-                        position: { x: 0, y: 0 } 
-                      });
-                      setTimeout(() => { cyRef.current?.fit(undefined, 60); }, 50);
-                    }}>
-                      Test Node
-                    </Button>
-                    
-                    <Button variant="outline" size="sm" onClick={() => {
-                      if (cyRef.current) {
-                        try { console.log('[NetworkGraph] cy elements count:', cyRef.current.elements().length); } catch (e) { console.log('[NetworkGraph] cy log error', e); }
-                      } else {
-                        console.log('[NetworkGraph] cy is not initialized');
-                      }
-                    }}>
-                      Log Cy
-                    </Button>
-                    
-                    <Button variant="outline" size="sm" onClick={() => {
-                      if (!cyRef.current) return window.alert('cy not initialized');
-                      try {
-                        cyRef.current.fit(undefined, 60);
-                        console.log('[NetworkGraph] Fit: cy elements:', cyRef.current.elements().map((el: any) => String(el.data('id'))));
-                        window.alert('Fit executed — check console for element ids');
-                      } catch (e) {
-                        console.error('[NetworkGraph] Fit error', e);
-                        window.alert('Fit error — see console');
-                      }
-                    }}>
-                      Fit & Log
-                    </Button>
-                    
-                    <Button variant="outline" size="sm" onClick={() => {
-                      setManualRefresh(prev => prev + 1);
-                      console.log('[NetworkGraph] manual refresh bumped');
-                    }}>
-                      Refresh
-                    </Button>
-
-                    <Button variant="outline" size="sm" onClick={async () => {
-                      if (!networkId) { window.alert('No networkId'); return; }
-                      try {
-                        const { data: row, error: rowErr } = await supabase.from('networks').select('*').eq('id', networkId).maybeSingle();
-                        if (rowErr) {
-                          console.error('[NetworkGraph] inspect db error', rowErr);
-                          window.alert('Inspect DB error: ' + (rowErr.message || String(rowErr)));
-                          return;
-                        }
-                        console.log('[NetworkGraph] inspect db row', row);
-                        window.alert('Inspect DB: row logged to console (check developer tools)');
-                      } catch (e: any) {
-                        console.error('[NetworkGraph] inspect db exception', e);
-                        window.alert('Inspect failed: ' + String(e?.message || e));
-                      }
-                    }}>
-                      Inspect DB
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Warning panel - Centered */}
-          {showNoElementsWarning && (
-            <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30 max-w-2xl">
-              <Card className="bg-yellow-50 border-yellow-200">
-                <CardContent className="p-4">
-                  <div className="text-yellow-800">
-                    <div className="font-semibold">Warning: network fetched but no nodes/edges were found.</div>
-                    <div className="mt-2 text-sm">Raw network data (truncated):</div>
-                    <pre className="mt-2 max-h-64 overflow-auto text-xs whitespace-pre-wrap bg-yellow-100 p-3 rounded border">{rawNetworkJson?.slice(0, 2000)}</pre>
-                  </div>
-                </CardContent>
-              </Card>
+          {/* Show Rule Editor when in rule-based mode */}
+          {graphMode === 'rule-based' && showRuleEditor ? (
+            <div className="w-full h-full p-4">
+              <RuleBasedGraph
+                onRulesApply={applyRuleSet}
+                onCancel={() => setShowRuleEditor(false)}
+                initialRuleSet={activeRuleSet || undefined}
+              />
             </div>
+          ) : (
+            <>
+              {/* Cytoscape container - Takes full available space */}
+              <div
+                ref={containerRef}
+                className="w-full h-full bg-gradient-to-br from-gray-50 to-gray-100"
+                aria-label="Project network visualization"
+              />
+
+              {/* Debug Panel - Bottom left */}
+              <div className="absolute left-4 bottom-4 z-30 max-w-md">
+                <Card className="bg-white/95 backdrop-blur-sm max-h-64 overflow-y-auto">
+                  <CardContent className="p-3">
+                    <div className="space-y-1 text-xs">
+                      <div className="font-mono">Mode: {tool} • Graph Mode: {graphMode} • Nodes: {nodesCount} • Edges: {edgesCount}</div>
+                      <div className="text-muted-foreground">Fetched: {fetchedNodeCount} nodes • {fetchedEdgeCount} edges</div>
+                      <div>NetworkId: {String(networkId ?? 'none')}</div>
+                      <div>Cytoscape: {cyInitialized ? 'initialized' : 'not initialized'}</div>
+                      <div>EdgeHandles: {ehLoaded ? (ehEnabled ? 'loaded & enabled' : 'loaded') : 'not loaded'}</div>
+                      <div>Selected: {selectedNode ? selectedNode.id : (selectedEdge ? `${selectedEdge.source}-${selectedEdge.target}` : 'none')}</div>
+                      <div>Cy elements: {cyElementsCount} • ids: {cyElementIds.join(', ') || 'none'}</div>
+                      <div>Modifications: +{localNodes.length} nodes, +{localEdges.length} edges, -{deletedNodeIds.size} nodes, -{deletedEdgeIds.size} edges</div>
+                      
+                      <div className="flex flex-wrap gap-1 pt-2">
+                        <Button variant="outline" size="sm" onClick={() => {
+                          if (!cyRef.current) return;
+                          const id = `debug-${Date.now()}`;
+                          cyRef.current.add({ 
+                            data: { 
+                              id, 
+                              label: 'Debug node',
+                              weight: Math.round(Math.random() * 10)
+                            }, 
+                            position: { x: 0, y: 0 } 
+                          });
+                          setTimeout(() => { cyRef.current?.fit(undefined, 60); }, 50);
+                        }}>
+                          Test Node
+                        </Button>
+                        
+                        <Button variant="outline" size="sm" onClick={() => {
+                          if (cyRef.current) {
+                            try { console.log('[NetworkGraph] cy elements count:', cyRef.current.elements().length); } catch (e) { console.log('[NetworkGraph] cy log error', e); }
+                          } else {
+                            console.log('[NetworkGraph] cy is not initialized');
+                          }
+                        }}>
+                          Log Cy
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Warning panel - Centered */}
+              {showNoElementsWarning && (
+                <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30 max-w-2xl">
+                  <Card className="bg-yellow-50 border-yellow-200">
+                    <CardContent className="p-4">
+                      <div className="text-yellow-800">
+                        <div className="font-semibold">Warning: network fetched but no nodes/edges were found.</div>
+                        <div className="mt-2 text-sm">Raw network data (truncated):</div>
+                        <pre className="mt-2 max-h-64 overflow-auto text-xs whitespace-pre-wrap bg-yellow-100 p-3 rounded border">{rawNetworkJson?.slice(0, 2000)}</pre>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -1005,7 +1136,6 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
                       </div>
                     </div>
 
-                    {/* NEW: Weight input for nodes (NUMBER INPUT) */}
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Weight</label>
                       <Input
@@ -1120,7 +1250,6 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
                       </div>
                     )}
 
-                    {/* NEW: Weight input for edges (NUMBER INPUT) */}
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Weight</label>
                       <Input
@@ -1138,7 +1267,6 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
                               edge.data('weight', newWeight);
                             });
                           }
-                          // Update in local edges if this is a local edge
                           const edgeKey = `${selectedEdge.source}-${selectedEdge.target}`;
                           if (localEdges.some(e => `${e.source}-${e.target}` === edgeKey)) {
                             setLocalEdges(prev => 
@@ -1191,8 +1319,95 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
         )}
       </div>
 
+      {/* Mode Selection Modal */}
+      {showModeSelector && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50">
+          <Card className="w-96">
+            <CardHeader>
+              <CardTitle>Select Node Creation Mode</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-gray-600">
+                Choose how you want to create this node:
+              </p>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <Button
+                  onClick={() => {
+                    setShowModeSelector(false);
+                    // Continue with weight-based node creation
+                    const newId = `n-${Date.now()}`;
+                    const newNode = {
+                      id: newId,
+                      label: newNodeDraft?.label || `Node ${nodeCounterRef.current + 1}`,
+                      type: newNodeDraft?.type || 'custom',
+                      weight: newNodeDraft?.weight ?? defaultNodeWeight
+                    };
+                    
+                    setLocalNodes(prev => [...prev, newNode]);
+                    setNewNodeDraft(null);
+                    nodeCounterRef.current++;
+                    
+                    setTimeout(() => {
+                      if (cyRef.current) {
+                        const addedNode = cyRef.current.getElementById(newId);
+                        if (addedNode) {
+                          addedNode.select();
+                          setSelectedNode(newNode);
+                        }
+                      }
+                    }, 100);
+                  }}
+                  className="h-20 flex flex-col"
+                  variant="outline"
+                >
+                  <span className="font-semibold">Weight-Based</span>
+                  <span className="text-xs text-gray-500 mt-1">Set numeric weights</span>
+                </Button>
+
+                <Button
+                  onClick={() => {
+                    setShowModeSelector(false);
+                    setGraphMode('rule-based');
+                    setShowRuleEditor(true);
+                    // Still create the node but switch to rule mode
+                    const newId = `n-${Date.now()}`;
+                    const newNode = {
+                      id: newId,
+                      label: newNodeDraft?.label || `Node ${nodeCounterRef.current + 1}`,
+                      type: newNodeDraft?.type || 'custom',
+                      weight: newNodeDraft?.weight ?? defaultNodeWeight
+                    };
+                    
+                    setLocalNodes(prev => [...prev, newNode]);
+                    setNewNodeDraft(null);
+                    nodeCounterRef.current++;
+                  }}
+                  className="h-20 flex flex-col"
+                >
+                  <span className="font-semibold">Rule-Based</span>
+                  <span className="text-xs text-gray-500 mt-1">Define behavior rules</span>
+                </Button>
+              </div>
+
+              <div className="flex justify-end pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowModeSelector(false);
+                    setNewNodeDraft(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Node creation form - Modal overlay */}
-      {newNodeDraft && (
+      {newNodeDraft && !showModeSelector && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50">
           <Card className="w-80">
             <CardHeader>
@@ -1218,7 +1433,6 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
                 />
               </div>
 
-              {/* NEW: Weight input in node creation */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Weight</label>
                 <Input
@@ -1246,7 +1460,7 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
                       id: newId,
                       label: newNodeDraft.label || `Node ${nodeCounterRef.current + 1}`,
                       type: newNodeDraft.type || 'custom',
-                      weight: newNodeDraft.weight ?? defaultNodeWeight // NEW: Include weight
+                      weight: newNodeDraft.weight ?? defaultNodeWeight
                     };
                     
                     setLocalNodes(prev => [...prev, newNode]);
@@ -1276,7 +1490,7 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
   );
 };
 
-// Icon components (keep the same as before)
+// Icon components
 const CursorIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M4 4l7.07 17 2.51-7.39L21 11.07z"/>
