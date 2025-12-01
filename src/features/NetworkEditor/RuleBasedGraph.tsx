@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 
 export type Rule = {
   id: string;
@@ -13,6 +14,7 @@ export type Rule = {
   action: string;
   priority: number;
   enabled: boolean;
+  target: 'nodes' | 'edges' | 'both'; // Changed from 'targets' array to 'target' string
 };
 
 export type RuleSet = {
@@ -47,25 +49,23 @@ const RuleBasedGraph: React.FC<RuleBasedGraphProps> = ({
 
   // Predefined conditions and actions for easier rule creation
   const predefinedConditions = [
-    'node.degree > 2',
     'node.weight > 1',
+    'node.degree > 2',
     'node.type === "hub"',
     'edge.weight > 0.5',
     'node.properties.centrality > 0.7',
     'node.id.includes("important")',
-    'edge.source === selectedNode',
-    'edge.target === selectedNode'
+    'true' // Always true condition
   ];
 
   const predefinedActions = [
     'highlightNode(node, "red")',
-    'setNodeSize(node, node.degree * 10)',
+    'setNodeSize(node, 80)',
     'setNodeColor(node, "blue")',
-    'setEdgeWidth(edge, edge.weight * 5)',
+    'setEdgeWidth(edge, 8)',
+    'setEdgeColor(edge, "green")',
     'showNeighbors(node)',
-    'hideUnconnectedNodes()',
-    'clusterSimilarNodes()',
-    'animateFlow(edge)'
+    'hideUnconnectedNodes()'
   ];
 
   const addNewRule = () => {
@@ -75,14 +75,15 @@ const RuleBasedGraph: React.FC<RuleBasedGraphProps> = ({
       condition: 'true',
       action: 'highlightNode(node, "yellow")',
       priority: ruleSet.rules.length + 1,
-      enabled: true
+      enabled: true,
+      target: 'nodes'
     };
     setEditingRule(newRule);
     setShowRuleEditor(true);
   };
 
   const editRule = (rule: Rule) => {
-    setEditingRule(rule);
+    setEditingRule({...rule});
     setShowRuleEditor(true);
   };
 
@@ -114,12 +115,10 @@ const RuleBasedGraph: React.FC<RuleBasedGraphProps> = ({
     
     if (direction === 'up' && index > 0) {
       [rules[index], rules[index - 1]] = [rules[index - 1], rules[index]];
-      rules[index].priority = index + 1;
-      rules[index - 1].priority = index;
+      rules.forEach((r, i) => r.priority = i + 1);
     } else if (direction === 'down' && index < rules.length - 1) {
       [rules[index], rules[index + 1]] = [rules[index + 1], rules[index]];
-      rules[index].priority = index + 1;
-      rules[index + 1].priority = index + 2;
+      rules.forEach((r, i) => r.priority = i + 1);
     }
     
     setRuleSet(prev => ({ ...prev, rules }));
@@ -135,7 +134,7 @@ const RuleBasedGraph: React.FC<RuleBasedGraphProps> = ({
   };
 
   return (
-    <div className="w-full h-full flex flex-col space-y-4">
+    <div className="w-full h-full flex flex-col space-y-4 p-4">
       {/* Rule Set Configuration */}
       <Card>
         <CardHeader>
@@ -195,6 +194,9 @@ const RuleBasedGraph: React.FC<RuleBasedGraphProps> = ({
                       >
                         {rule.enabled ? 'Enabled' : 'Disabled'}
                       </Badge>
+                      <Badge variant="outline" className="text-xs">
+                        {rule.target}
+                      </Badge>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Button
@@ -231,10 +233,10 @@ const RuleBasedGraph: React.FC<RuleBasedGraphProps> = ({
                   </div>
                   <div className="text-sm space-y-1">
                     <div>
-                      <strong>Condition:</strong> <code>{rule.condition}</code>
+                      <strong>Condition:</strong> <code className="bg-gray-100 px-1 rounded">{rule.condition}</code>
                     </div>
                     <div>
-                      <strong>Action:</strong> <code>{rule.action}</code>
+                      <strong>Action:</strong> <code className="bg-gray-100 px-1 rounded">{rule.action}</code>
                     </div>
                   </div>
                 </div>
@@ -272,12 +274,31 @@ const RuleBasedGraph: React.FC<RuleBasedGraphProps> = ({
               </div>
 
               <div className="space-y-2">
+                <label className="text-sm font-medium">Target</label>
+                <Select
+                  value={editingRule.target}
+                  onValueChange={(value: 'nodes' | 'edges' | 'both') => {
+                    setEditingRule(prev => prev ? { ...prev, target: value } : null);
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select target" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="nodes">Nodes Only</SelectItem>
+                    <SelectItem value="edges">Edges Only</SelectItem>
+                    <SelectItem value="both">Both Nodes and Edges</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <label className="text-sm font-medium">Condition</label>
                   <Select
                     value=""
                     onValueChange={(value) => {
-                      if (value) {
+                      if (value && editingRule) {
                         setEditingRule(prev => prev ? { ...prev, condition: value } : null);
                       }
                     }}
@@ -312,7 +333,7 @@ const RuleBasedGraph: React.FC<RuleBasedGraphProps> = ({
                   <Select
                     value=""
                     onValueChange={(value) => {
-                      if (value) {
+                      if (value && editingRule) {
                         setEditingRule(prev => prev ? { ...prev, action: value } : null);
                       }
                     }}
@@ -329,20 +350,11 @@ const RuleBasedGraph: React.FC<RuleBasedGraphProps> = ({
                     </SelectContent>
                   </Select>
                 </div>
-                <Textarea
-                  value={editingRule.action}
-                  onChange={(e) => setEditingRule(prev => prev ? { ...prev, action: e.target.value } : null)}
-                  placeholder="Enter JavaScript action (e.g., highlightNode(node, 'red'))"
-                  rows={3}
-                  className="font-mono text-sm"
-                />
-                <p className="text-xs text-gray-500">
-                  Available functions: highlightNode, setNodeSize, setNodeColor, setEdgeWidth, etc.
-                </p>
+            
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Priority</label>
+                <label className="text-sm font-medium">Priority (lower = applied first)</label>
                 <Input
                   type="number"
                   value={editingRule.priority}
@@ -352,11 +364,10 @@ const RuleBasedGraph: React.FC<RuleBasedGraphProps> = ({
               </div>
 
               <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
+                <Switch
                   id="enabled"
                   checked={editingRule.enabled}
-                  onChange={(e) => setEditingRule(prev => prev ? { ...prev, enabled: e.target.checked } : null)}
+                  onCheckedChange={(checked) => setEditingRule(prev => prev ? { ...prev, enabled: checked } : null)}
                 />
                 <label htmlFor="enabled" className="text-sm font-medium">
                   Rule Enabled
