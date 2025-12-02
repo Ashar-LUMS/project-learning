@@ -1,393 +1,807 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
+import { useState, useEffect } from "react";
+import { BooleanRulesPopup } from "../../components/BooleanRulesPopup";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  Code2, 
+  Network, 
+  Settings, 
+  Play, 
+  Trash2, 
+  Eye, 
+  Brain,
+  GitBranch,
+  Zap,
+  BarChart3,
+  ArrowLeft
+} from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
-export type Rule = {
+// Types for Boolean network
+export type BooleanNode = {
   id: string;
-  name: string;
-  condition: string;
-  action: string;
-  priority: number;
-  enabled: boolean;
-  target: 'nodes' | 'edges' | 'both'; // Changed from 'targets' array to 'target' string
+  label: string;
+  state: boolean;
+  rule?: string;
+  dependencies: string[];
+  dependents: string[];
 };
 
-export type RuleSet = {
-  id: string;
-  name: string;
-  description: string;
-  rules: Rule[];
+export type BooleanEdge = {
+  source: string;
+  target: string;
+  type: 'activation' | 'inhibition';
 };
 
-type RuleBasedGraphProps = {
-  onRulesApply?: (rules: RuleSet) => void;
+export type BooleanNetwork = {
+  nodes: BooleanNode[];
+  edges: BooleanEdge[];
+  rules: string[];
+};
+
+// Import or define RuleSet type to match NetworkGraph
+type RuleSet = {
+  name: string;
+  rules: any[];
+  onRulesApply?: (ruleSet: RuleSet) => void;
   onCancel?: () => void;
   initialRuleSet?: RuleSet;
 };
 
-const RuleBasedGraph: React.FC<RuleBasedGraphProps> = ({
-  onRulesApply,
-  onCancel,
-  initialRuleSet
-}) => {
-  const [ruleSet, setRuleSet] = useState<RuleSet>(
-    initialRuleSet || {
-      id: `ruleset-${Date.now()}`,
-      name: 'New Rule Set',
-      description: '',
-      rules: []
+// Props interface
+interface RuleBasedGraphProps {
+  onRulesApply?: (ruleSet: RuleSet) => void;  // Updated type
+  onCancel?: () => void;
+  initialRuleSet?: RuleSet;  // Updated type
+}
+
+export function RuleBasedGraph({ 
+  onRulesApply, 
+  onCancel, 
+  initialRuleSet 
+}: RuleBasedGraphProps) {
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
+  const [booleanNetwork, setBooleanNetwork] = useState<BooleanNetwork | null>(null);
+  const [rules, setRules] = useState<string[]>([]);
+  const [nodeStates, setNodeStates] = useState<Record<string, boolean>>({});
+  const [simulationStep, setSimulationStep] = useState(0);
+  const [activeTab, setActiveTab] = useState("rules");
+  const [showInactiveNodes, setShowInactiveNodes] = useState(true);
+  const [autoSimulate, setAutoSimulate] = useState(false);
+  const [simulationSpeed, setSimulationSpeed] = useState(1000);
+  const [simulationInterval, setSimulationInterval] = useState<NodeJS.Timeout | null>(null);
+
+  // Initialize from initialRuleSet if provided
+  useEffect(() => {
+    if (initialRuleSet && initialRuleSet.rules) {
+      // Extract Boolean rules from the rule set
+      const booleanRules = initialRuleSet.rules
+        .filter((rule: any) => rule.name && rule.name.includes("Rule"))
+        .map((rule: any) => {
+          // Try to extract the Boolean rule from the name
+          const match = rule.name.match(/Rule \d+: (.+)/);
+          return match ? match[1] : null;
+        })
+        .filter((rule: string | null) => rule !== null) as string[];
+      
+      if (booleanRules.length > 0) {
+        setRules(booleanRules);
+        const network = parseRulesToNetwork(booleanRules);
+        setBooleanNetwork(network);
+      }
     }
-  );
+  }, [initialRuleSet]);
 
-  const [editingRule, setEditingRule] = useState<Rule | null>(null);
-  const [showRuleEditor, setShowRuleEditor] = useState(false);
+  // Parse Boolean rules and create network
+  const parseRulesToNetwork = (rulesText: string[]): BooleanNetwork | null => {
+    if (!rulesText || rulesText.length === 0) return null;
 
-  // Predefined conditions and actions for easier rule creation
-  const predefinedConditions = [
-    'node.weight > 1',
-    'node.degree > 2',
-    'node.type === "hub"',
-    'edge.weight > 0.5',
-    'node.properties.centrality > 0.7',
-    'node.id.includes("important")',
-    'true' // Always true condition
-  ];
+    const nodes: BooleanNode[] = [];
+    const edges: BooleanEdge[] = [];
+    const nodeMap = new Map<string, BooleanNode>();
+    const edgeSet = new Set<string>();
 
-  const predefinedActions = [
-    'highlightNode(node, "red")',
-    'setNodeSize(node, 80)',
-    'setNodeColor(node, "blue")',
-    'setEdgeWidth(edge, 8)',
-    'setEdgeColor(edge, "green")',
-    'showNeighbors(node)',
-    'hideUnconnectedNodes()'
-  ];
+    // First pass: create nodes and extract dependencies
+    rulesText.forEach(rule => {
+      const trimmedRule = rule.trim();
+      if (!trimmedRule || !trimmedRule.includes('=')) return;
 
-  const addNewRule = () => {
-    const newRule: Rule = {
-      id: `rule-${Date.now()}`,
-      name: 'New Rule',
-      condition: 'true',
-      action: 'highlightNode(node, "yellow")',
-      priority: ruleSet.rules.length + 1,
-      enabled: true,
-      target: 'nodes'
+      const [left, right] = trimmedRule.split('=').map(s => s.trim());
+      const nodeId = left;
+      
+      // Extract node dependencies from right side expression
+      const dependencies = extractDependencies(right);
+      
+      if (!nodeMap.has(nodeId)) {
+        const node: BooleanNode = {
+          id: nodeId,
+          label: nodeId,
+          state: false,
+          rule: trimmedRule,
+          dependencies: [],
+          dependents: []
+        };
+        nodes.push(node);
+        nodeMap.set(nodeId, node);
+      }
+      
+      const currentNode = nodeMap.get(nodeId)!;
+      currentNode.rule = trimmedRule;
+      currentNode.dependencies = dependencies;
+    });
+
+    // Second pass: create edges based on dependencies
+    rulesText.forEach(rule => {
+      const trimmedRule = rule.trim();
+      if (!trimmedRule || !trimmedRule.includes('=')) return;
+
+      const [left, right] = trimmedRule.split('=').map(s => s.trim());
+      const targetNodeId = left;
+      const expression = right;
+      
+      // Check for inhibition (!variable) vs activation (variable)
+      const dependencies = extractDependencies(expression);
+      
+      dependencies.forEach(sourceNodeId => {
+        const edgeKey = `${sourceNodeId}→${targetNodeId}`;
+        if (!edgeSet.has(edgeKey)) {
+          // Determine edge type by checking if source is negated in expression
+          const isInhibition = expression.includes(`!${sourceNodeId}`) || 
+                              expression.includes(`! ${sourceNodeId}`);
+          
+          edges.push({
+            source: sourceNodeId,
+            target: targetNodeId,
+            type: isInhibition ? 'inhibition' : 'activation'
+          });
+          edgeSet.add(edgeKey);
+          
+          // Update dependents
+          const sourceNode = nodeMap.get(sourceNodeId);
+          if (sourceNode && !sourceNode.dependents.includes(targetNodeId)) {
+            sourceNode.dependents.push(targetNodeId);
+          }
+        }
+      });
+    });
+
+    // Initialize states
+    const initialState: Record<string, boolean> = {};
+    nodes.forEach(node => {
+      initialState[node.id] = false;
+    });
+
+    setNodeStates(initialState);
+
+    return {
+      nodes,
+      edges,
+      rules: rulesText
     };
-    setEditingRule(newRule);
-    setShowRuleEditor(true);
   };
 
-  const editRule = (rule: Rule) => {
-    setEditingRule({...rule});
-    setShowRuleEditor(true);
-  };
-
-  const saveRule = () => {
-    if (!editingRule) return;
-
-    const updatedRules = ruleSet.rules.filter(r => r.id !== editingRule.id);
-    updatedRules.push(editingRule);
+  // Extract variable names from Boolean expression
+  const extractDependencies = (expression: string): string[] => {
+    // Remove operators, parentheses, and true/false keywords
+    const tokens = expression
+      .replace(/&&|\|\||!|\(|\)|\s/g, ' ')
+      .split(' ')
+      .filter(token => 
+        token.length > 0 && 
+        !/^\d/.test(token) &&
+        token.toLowerCase() !== 'true' && 
+        token.toLowerCase() !== 'false'
+      );
     
-    setRuleSet(prev => ({
-      ...prev,
-      rules: updatedRules.sort((a, b) => a.priority - b.priority)
-    }));
-    
-    setEditingRule(null);
-    setShowRuleEditor(false);
+    return Array.from(new Set(tokens));
   };
 
-  const deleteRule = (ruleId: string) => {
-    setRuleSet(prev => ({
-      ...prev,
-      rules: prev.rules.filter(r => r.id !== ruleId)
-    }));
-  };
-
-  const moveRule = (ruleId: string, direction: 'up' | 'down') => {
-    const rules = [...ruleSet.rules];
-    const index = rules.findIndex(r => r.id === ruleId);
-    
-    if (direction === 'up' && index > 0) {
-      [rules[index], rules[index - 1]] = [rules[index - 1], rules[index]];
-      rules.forEach((r, i) => r.priority = i + 1);
-    } else if (direction === 'down' && index < rules.length - 1) {
-      [rules[index], rules[index + 1]] = [rules[index + 1], rules[index]];
-      rules.forEach((r, i) => r.priority = i + 1);
+  // Evaluate a Boolean expression
+  const evaluateExpression = (expression: string, states: Record<string, boolean>): boolean => {
+    try {
+      // Get all variables used in the expression
+      const variables = extractDependencies(expression);
+      
+      // Create a context object with all variables
+      const context: Record<string, boolean> = {};
+      variables.forEach(v => {
+        context[v] = states[v] || false;
+      });
+      
+      // Add true/false constants
+      context['true'] = true;
+      context['false'] = false;
+      
+      // Create evaluation function
+      const evalFunc = new Function(
+        ...Object.keys(context),
+        `return ${expression}`
+      );
+      
+      // Call with all context values
+      return evalFunc(...Object.values(context));
+    } catch (error) {
+      console.error('Error evaluating expression:', error, expression);
+      return false;
     }
-    
-    setRuleSet(prev => ({ ...prev, rules }));
   };
 
-  const toggleRuleEnabled = (ruleId: string) => {
-    setRuleSet(prev => ({
+  // Handle Boolean rules submission from popup
+ const handleBooleanRulesSubmit = (submittedRules: string[]) => {
+    console.log('Boolean rules submitted:', submittedRules);
+    setRules(submittedRules);
+    
+    // Parse rules to create Boolean network
+    const network = parseRulesToNetwork(submittedRules);
+    console.log('Parsed Boolean network:', network);
+    setBooleanNetwork(network);
+    setSimulationStep(0);
+    
+    // Stop auto simulation if running
+    if (simulationInterval) {
+      clearInterval(simulationInterval);
+      setSimulationInterval(null);
+    }
+
+    // Convert Boolean rules to a RuleSet for NetworkGraph
+    if (onRulesApply) {
+      const ruleSet: RuleSet = {
+        name: "Boolean Network Rules",
+        rules: submittedRules.map((rule, index) => ({
+          id: `boolean-rule-${index}`,
+          name: `Boolean Rule ${index + 1}: ${rule}`,
+          condition: "true", // Simple condition that always applies
+          action: "setNodeColor(node, '#3b82f6')", // Default action
+          target: "nodes",
+          enabled: true,
+          priority: index + 1
+        }))
+      };
+      
+      console.log('Converting to RuleSet for NetworkGraph:', ruleSet);
+      onRulesApply(ruleSet);
+    }
+  };
+
+  // Run one simulation step
+  const runSimulationStep = () => {
+    if (!booleanNetwork) return;
+    
+    const newStates = { ...nodeStates };
+    let hasChanged = false;
+    
+    booleanNetwork.nodes.forEach(node => {
+      if (node.rule) {
+        const [_, expression] = node.rule.split('=').map(s => s.trim());
+        try {
+          const newState = evaluateExpression(expression, nodeStates);
+          if (newState !== newStates[node.id]) {
+            newStates[node.id] = newState;
+            hasChanged = true;
+          }
+        } catch (error) {
+          console.error(`Error evaluating rule for ${node.id}:`, error);
+        }
+      }
+    });
+    
+    if (hasChanged) {
+      setNodeStates(newStates);
+      setSimulationStep(prev => prev + 1);
+    } else {
+      // Stop auto simulation if no changes
+      if (autoSimulate && simulationInterval) {
+        clearInterval(simulationInterval);
+        setSimulationInterval(null);
+        setAutoSimulate(false);
+      }
+    }
+  };
+
+  // Toggle auto simulation
+  const toggleAutoSimulate = () => {
+    const newAutoSimulate = !autoSimulate;
+    setAutoSimulate(newAutoSimulate);
+    
+    if (newAutoSimulate) {
+      // Start interval
+      const interval = setInterval(runSimulationStep, simulationSpeed);
+      setSimulationInterval(interval);
+    } else if (simulationInterval) {
+      // Stop interval
+      clearInterval(simulationInterval);
+      setSimulationInterval(null);
+    }
+  };
+
+  // Reset simulation
+  const resetSimulation = () => {
+    if (!booleanNetwork) return;
+    
+    const resetStates: Record<string, boolean> = {};
+    booleanNetwork.nodes.forEach(node => {
+      resetStates[node.id] = false;
+    });
+    
+    setNodeStates(resetStates);
+    setSimulationStep(0);
+    
+    // Stop auto simulation
+    if (simulationInterval) {
+      clearInterval(simulationInterval);
+      setSimulationInterval(null);
+      setAutoSimulate(false);
+    }
+  };
+
+  // Toggle node state manually
+  const toggleNodeState = (nodeId: string) => {
+    setNodeStates(prev => ({
       ...prev,
-      rules: prev.rules.map(rule =>
-        rule.id === ruleId ? { ...rule, enabled: !rule.enabled } : rule
-      )
+      [nodeId]: !prev[nodeId]
     }));
   };
+
+  // Calculate node statistics
+  const calculateStatistics = () => {
+    if (!booleanNetwork) return null;
+    
+    const activeNodes = Object.values(nodeStates).filter(state => state).length;
+    const totalNodes = booleanNetwork.nodes.length;
+    const edgeCount = booleanNetwork.edges.length;
+    const maxConnections = Math.max(...booleanNetwork.nodes.map(n => 
+      n.dependencies.length + n.dependents.length
+    ), 0);
+    
+    return {
+      activeNodes,
+      totalNodes,
+      edgeCount,
+      activationEdges: booleanNetwork.edges.filter(e => e.type === 'activation').length,
+      inhibitionEdges: booleanNetwork.edges.filter(e => e.type === 'inhibition').length,
+      maxConnections
+    };
+  };
+
+  // Cleanup interval on unmount
+  useEffect(() => {
+    return () => {
+      if (simulationInterval) {
+        clearInterval(simulationInterval);
+      }
+    };
+  }, [simulationInterval]);
+
+  const stats = calculateStatistics();
 
   return (
-    <div className="w-full h-full flex flex-col space-y-4 p-4">
-      {/* Rule Set Configuration */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Rule Set Configuration</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Rule Set Name</label>
-            <Input
-              value={ruleSet.name}
-              onChange={(e) => setRuleSet(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="Enter rule set name"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Description</label>
-            <Textarea
-              value={ruleSet.description}
-              onChange={(e) => setRuleSet(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="Describe what this rule set does"
-              rows={3}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Rules List */}
-      <Card className="flex-1">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Rules</CardTitle>
-          <Button onClick={addNewRule} size="sm">
-            Add Rule
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {ruleSet.rules.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              No rules defined. Click "Add Rule" to create your first rule.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {ruleSet.rules.map((rule, index) => (
-                <div
-                  key={rule.id}
-                  className={`p-4 border rounded-lg ${
-                    rule.enabled ? 'bg-white' : 'bg-gray-50'
-                  }`}
+    <div className="w-full h-full flex flex-col bg-white rounded-xl border shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="flex-shrink-0 border-b bg-white z-30 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              {onCancel && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onCancel}
+                  className="mr-2"
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center space-x-3">
-                      <Badge variant="secondary">#{rule.priority}</Badge>
-                      <span className="font-medium">{rule.name}</span>
-                      <Badge
-                        variant={rule.enabled ? 'default' : 'outline'}
-                        className="cursor-pointer"
-                        onClick={() => toggleRuleEnabled(rule.id)}
-                      >
-                        {rule.enabled ? 'Enabled' : 'Disabled'}
-                      </Badge>
-                      <Badge variant="outline" className="text-xs">
-                        {rule.target}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => moveRule(rule.id, 'up')}
-                        disabled={index === 0}
-                      >
-                        ↑
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => moveRule(rule.id, 'down')}
-                        disabled={index === ruleSet.rules.length - 1}
-                      >
-                        ↓
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => editRule(rule)}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => deleteRule(rule.id)}
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="text-sm space-y-1">
-                    <div>
-                      <strong>Condition:</strong> <code className="bg-gray-100 px-1 rounded">{rule.condition}</code>
-                    </div>
-                    <div>
-                      <strong>Action:</strong> <code className="bg-gray-100 px-1 rounded">{rule.action}</code>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to Graph
+                </Button>
+              )}
+              <Brain className="h-5 w-5 text-blue-600" />
+              <span className="font-semibold">Boolean Network Simulator</span>
             </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Actions */}
-      <div className="flex justify-end space-x-3">
-        <Button variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button onClick={() => onRulesApply?.(ruleSet)}>
-          Apply Rules
-        </Button>
+            {booleanNetwork && (
+              <>
+                <Badge variant="outline">
+                  Nodes: {stats?.totalNodes || 0}
+                </Badge>
+                <Badge variant="outline">
+                  Edges: {stats?.edgeCount || 0}
+                </Badge>
+                <Badge variant="outline">
+                  Step: {simulationStep}
+                </Badge>
+                {autoSimulate && (
+                  <Badge variant="default" className="bg-yellow-500">
+                    <Zap className="h-3 w-3 mr-1" />
+                    Auto-running
+                  </Badge>
+                )}
+              </>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-2">
+            {booleanNetwork && (
+              <>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="auto-simulate" className="text-sm">Auto</Label>
+                  <Switch
+                    id="auto-simulate"
+                    checked={autoSimulate}
+                    onCheckedChange={toggleAutoSimulate}
+                  />
+                </div>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={runSimulationStep}
+                  disabled={autoSimulate}
+                >
+                  <Play className="h-4 w-4 mr-2" />
+                  Step
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={resetSimulation}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Reset
+                </Button>
+              </>
+            )}
+            
+            <Button
+              onClick={() => setIsPopupOpen(true)}
+              variant={booleanNetwork ? "outline" : "default"}
+            >
+              {booleanNetwork ? "Edit Rules" : "Define Boolean Rules"}
+            </Button>
+          </div>
+        </div>
       </div>
 
-      {/* Rule Editor Modal */}
-      {showRuleEditor && editingRule && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <CardHeader>
-              <CardTitle>Edit Rule</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Rule Name</label>
-                <Input
-                  value={editingRule.name}
-                  onChange={(e) => setEditingRule(prev => prev ? { ...prev, name: e.target.value } : null)}
-                  placeholder="Enter rule name"
-                />
+      {/* Main Content */}
+      <div className="flex-1 flex min-h-0">
+        {/* Left Sidebar - Controls */}
+        <div className="w-64 border-r bg-gray-50 p-4 flex flex-col gap-4 overflow-y-auto">
+          {booleanNetwork ? (
+            <>
+              <Card>
+                <CardHeader className="p-4">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4" />
+                    Network Stats
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 pt-0">
+                  <div className="space-y-3">
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">Active Nodes</div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-green-500 h-2 rounded-full" 
+                            style={{ 
+                              width: `${((stats?.activeNodes || 0) / (stats?.totalNodes || 1)) * 100}%` 
+                            }}
+                          />
+                        </div>
+                        <span className="text-sm font-medium">
+                          {stats?.activeNodes}/{stats?.totalNodes}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <div className="text-xs text-muted-foreground">Activation</div>
+                        <Badge variant="outline" className="w-full justify-center bg-green-50 text-green-700">
+                          {stats?.activationEdges}
+                        </Badge>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-xs text-muted-foreground">Inhibition</div>
+                        <Badge variant="outline" className="w-full justify-center bg-red-50 text-red-700">
+                          {stats?.inhibitionEdges}
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <div className="text-xs text-muted-foreground">Max Connections</div>
+                      <div className="text-sm font-medium">{stats?.maxConnections}</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="p-4">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Settings className="h-4 w-4" />
+                    Simulation Settings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 pt-0 space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <Label htmlFor="speed" className="text-xs">Speed</Label>
+                      <span className="text-xs text-muted-foreground">{simulationSpeed}ms</span>
+                    </div>
+                    <Slider
+                      id="speed"
+                      min={100}
+                      max={3000}
+                      step={100}
+                      value={[simulationSpeed]}
+                      onValueChange={([value]) => {
+                        setSimulationSpeed(value);
+                        if (simulationInterval) {
+                          clearInterval(simulationInterval);
+                          const interval = setInterval(runSimulationStep, value);
+                          setSimulationInterval(interval);
+                        }
+                      }}
+                    />
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="show-inactive" className="text-xs">Show Inactive</Label>
+                    <Switch
+                      id="show-inactive"
+                      checked={showInactiveNodes}
+                      onCheckedChange={setShowInactiveNodes}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <div className="flex-1">
+                <div className="text-sm font-medium mb-2">Boolean Rules ({rules.length})</div>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {rules.map((rule, index) => (
+                    <div 
+                      key={index} 
+                      className="p-2 bg-white border rounded text-xs font-mono hover:bg-gray-50 cursor-pointer"
+                      onClick={() => {
+                        const nodeId = rule.split('=')[0].trim();
+                        toggleNodeState(nodeId);
+                      }}
+                      title={`Click to toggle ${rule.split('=')[0].trim()}`}
+                    >
+                      {rule}
+                    </div>
+                  ))}
+                </div>
               </div>
+            </>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <GitBranch className="h-8 w-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium mb-2">No Boolean Network</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Define Boolean rules to create an interactive network
+              </p>
+              <Button 
+                onClick={() => setIsPopupOpen(true)}
+                className="w-full"
+              >
+                Create Network
+              </Button>
+            </div>
+          )}
+        </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Target</label>
-                <Select
-                  value={editingRule.target}
-                  onValueChange={(value: 'nodes' | 'edges' | 'both') => {
-                    setEditingRule(prev => prev ? { ...prev, target: value } : null);
+        {/* Main Visualization Area */}
+        <div className="flex-1 min-w-0 min-h-0 p-4">
+          {booleanNetwork ? (
+            <div className="h-full flex flex-col">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
+                <TabsList className="grid w-full max-w-md grid-cols-2 mb-4">
+                  <TabsTrigger value="rules" className="flex items-center gap-2">
+                    <Eye className="h-4 w-4" />
+                    Node View
+                  </TabsTrigger>
+                  <TabsTrigger value="graph" className="flex items-center gap-2">
+                    <Network className="h-4 w-4" />
+                    Graph View
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="rules" className="h-[calc(100%-60px)] mt-0">
+                  <div className="h-full border rounded-lg bg-gradient-to-br from-gray-50 to-white p-6 overflow-auto">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {booleanNetwork.nodes
+                        .filter(node => showInactiveNodes || nodeStates[node.id])
+                        .map(node => {
+                          const isActive = nodeStates[node.id];
+                          const incomingEdges = booleanNetwork.edges.filter(e => e.target === node.id);
+                          // const outgoingEdges = booleanNetwork.edges.filter(e => e.source === node.id);
+                          
+                          return (
+                            <div
+                              key={node.id}
+                              className={`relative p-4 rounded-lg border-2 transition-all cursor-pointer hover:shadow-lg ${
+                                isActive
+                                  ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-500'
+                                  : 'bg-white border-gray-300'
+                              }`}
+                              onClick={() => toggleNodeState(node.id)}
+                            >
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <div className={`w-3 h-3 rounded-full ${
+                                      isActive ? 'bg-green-500' : 'bg-gray-400'
+                                    }`} />
+                                    <div className="font-bold text-lg">{node.id}</div>
+                                  </div>
+                                  <div className="text-sm text-muted-foreground mt-1">
+                                    {node.dependencies.length} in • {node.dependents.length} out
+                                  </div>
+                                </div>
+                                <Badge 
+                                  variant={isActive ? "default" : "outline"}
+                                  className={isActive ? "bg-green-500" : ""}
+                                >
+                                  {isActive ? "ON" : "OFF"}
+                                </Badge>
+                              </div>
+                              
+                              {/* Rule display */}
+                              <div className="mt-3 pt-3 border-t">
+                                <div className="text-xs text-muted-foreground mb-1">Rule:</div>
+                                <div className="text-xs font-mono bg-gray-50 p-2 rounded">
+                                  {node.rule?.split('=')[1].trim()}
+                                </div>
+                              </div>
+                              
+                              {/* Edge indicators */}
+                              <div className="flex gap-2 mt-3">
+                                {incomingEdges.map((edge, idx) => (
+                                  <div
+                                    key={idx}
+                                    className={`text-xs px-2 py-1 rounded ${
+                                      edge.type === 'activation'
+                                        ? 'bg-green-100 text-green-800'
+                                        : 'bg-red-100 text-red-800'
+                                    }`}
+                                    title={`${edge.source} ${edge.type === 'activation' ? '→' : '⊣'} ${node.id}`}
+                                  >
+                                    {edge.source}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                    
+                    {!showInactiveNodes && booleanNetwork.nodes.some(node => !nodeStates[node.id]) && (
+                      <div className="text-center mt-6">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowInactiveNodes(true)}
+                          className="text-muted-foreground"
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          Show {booleanNetwork.nodes.filter(node => !nodeStates[node.id]).length} inactive nodes
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="graph" className="h-[calc(100%-60px)] mt-0">
+                  <div className="h-full border rounded-lg bg-white p-4">
+                    <div className="text-sm text-muted-foreground text-center mb-4">
+                      Boolean Network Graph Visualization
+                    </div>
+                    <div className="flex flex-wrap gap-3 justify-center">
+                      {booleanNetwork.nodes.map(node => {
+                        const isActive = nodeStates[node.id];
+                        return (
+                          <div
+                            key={node.id}
+                            className={`w-20 h-20 rounded-full flex flex-col items-center justify-center border-2 transition-all cursor-pointer ${
+                              isActive
+                                ? 'bg-green-500 text-white border-green-600 shadow-lg'
+                                : 'bg-gray-100 text-gray-700 border-gray-300'
+                            }`}
+                            onClick={() => toggleNodeState(node.id)}
+                          >
+                            <div className="font-bold text-lg">{node.id}</div>
+                            <div className="text-xs mt-1">
+                              {isActive ? 'ACTIVE' : 'INACTIVE'}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-6 text-center">
+                      <div className="inline-flex gap-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                          <span className="text-sm">Activation Edge</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                          <span className="text-sm">Inhibition Edge</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                          <span className="text-sm">Active Node</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
+                          <span className="text-sm">Inactive Node</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </div>
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center p-12 text-center">
+              <div className="w-24 h-24 bg-gradient-to-br from-blue-50 to-purple-50 rounded-full flex items-center justify-center mb-6">
+                <Brain className="h-12 w-12 text-blue-600" />
+              </div>
+              <h2 className="text-2xl font-bold mb-3">Boolean Network Simulator</h2>
+              <p className="text-muted-foreground mb-6 max-w-md">
+                Define Boolean logic rules to create an interactive network. Each node's state 
+                depends on the states of its inputs according to the rules you define.
+              </p>
+              <div className="flex gap-3">
+                <Button 
+                  onClick={() => setIsPopupOpen(true)}
+                  size="lg"
+                  className="px-6"
+                >
+                  <Code2 className="h-5 w-5 mr-2" />
+                  Define Boolean Rules
+                </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() => {
+                    // Load example rules
+                    handleBooleanRulesSubmit([
+                      "a = (b || c) && (!d)",
+                      "b = e && f",
+                      "c = !g",
+                      "d = h || i",
+                      "e = true",
+                      "f = false",
+                      "g = true",
+                      "h = true",
+                      "i = false"
+                    ]);
                   }}
                 >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select target" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="nodes">Nodes Only</SelectItem>
-                    <SelectItem value="edges">Edges Only</SelectItem>
-                    <SelectItem value="both">Both Nodes and Edges</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <label className="text-sm font-medium">Condition</label>
-                  <Select
-                    value=""
-                    onValueChange={(value) => {
-                      if (value && editingRule) {
-                        setEditingRule(prev => prev ? { ...prev, condition: value } : null);
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="w-40">
-                      <SelectValue placeholder="Add predefined" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {predefinedConditions.map((condition, index) => (
-                        <SelectItem key={index} value={condition}>
-                          {condition}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Textarea
-                  value={editingRule.condition}
-                  onChange={(e) => setEditingRule(prev => prev ? { ...prev, condition: e.target.value } : null)}
-                  placeholder="Enter JavaScript condition (e.g., node.weight > 5)"
-                  rows={3}
-                  className="font-mono text-sm"
-                />
-                <p className="text-xs text-gray-500">
-                  Use variables: node, edge, graph. Return boolean.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <label className="text-sm font-medium">Action</label>
-                  <Select
-                    value=""
-                    onValueChange={(value) => {
-                      if (value && editingRule) {
-                        setEditingRule(prev => prev ? { ...prev, action: value } : null);
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="w-40">
-                      <SelectValue placeholder="Add predefined" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {predefinedActions.map((action, index) => (
-                        <SelectItem key={index} value={action}>
-                          {action}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-            
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Priority (lower = applied first)</label>
-                <Input
-                  type="number"
-                  value={editingRule.priority}
-                  onChange={(e) => setEditingRule(prev => prev ? { ...prev, priority: parseInt(e.target.value) || 1 } : null)}
-                  min="1"
-                />
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="enabled"
-                  checked={editingRule.enabled}
-                  onCheckedChange={(checked) => setEditingRule(prev => prev ? { ...prev, enabled: checked } : null)}
-                />
-                <label htmlFor="enabled" className="text-sm font-medium">
-                  Rule Enabled
-                </label>
-              </div>
-
-              <div className="flex justify-end space-x-3 pt-4">
-                <Button variant="outline" onClick={() => setShowRuleEditor(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={saveRule}>
-                  Save Rule
+                  Load Example
                 </Button>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          )}
         </div>
-      )}
+      </div>
+
+      {/* The Boolean Rules Popup */}
+      <BooleanRulesPopup
+        isOpen={isPopupOpen}
+        onClose={() => setIsPopupOpen(false)}
+        onSubmit={handleBooleanRulesSubmit}
+        initialRules={rules}
+      />
     </div>
   );
-};
+}
 
 export default RuleBasedGraph;
