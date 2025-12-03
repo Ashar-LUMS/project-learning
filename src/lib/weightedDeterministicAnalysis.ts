@@ -19,6 +19,7 @@
 */
 
 import type { DeterministicAttractor, DeterministicAnalysisResult } from './deterministicAnalysis';
+import { decodeState, encodeState, formatState } from './stateEncoding';
 
 export interface WeightedNode {
   id: string;
@@ -51,38 +52,7 @@ const DEFAULT_STATE_CAP = 131072; // 2^17
 const DEFAULT_STEP_CAP = 131072;
 const MAX_SUPPORTED_NODES = 20;
 
-const decodeState = (value: number, target: Uint8Array): void => {
-  for (let index = 0; index < target.length; index += 1) {
-    target[index] = (value >> index) & 1; // eslint-disable-line no-bitwise
-  }
-};
-
-const encodeState = (source: Uint8Array): number => {
-  let result = 0;
-  for (let index = 0; index < source.length; index += 1) {
-    if (source[index]) {
-      result |= (1 << index); // eslint-disable-line no-bitwise
-    }
-  }
-  return result;
-};
-
-const formatState = (
-  value: number,
-  nodeOrder: string[],
-  labels: Record<string, string>
-) => {
-  const values: Record<string, 0 | 1> = {};
-  for (let index = 0; index < nodeOrder.length; index += 1) {
-    const nodeId = nodeOrder[index];
-    const bit = (value >> index) & 1; // eslint-disable-line no-bitwise
-    values[nodeId] = bit ? 1 : 0;
-    const label = labels[nodeId];
-    if (label && label !== nodeId) values[label] = bit ? 1 : 0;
-  }
-  const binary = value.toString(2).padStart(nodeOrder.length, '0');
-  return { binary, values };
-};
+// shared helpers imported from stateEncoding.ts
 
 export function edgesToMatrix(
   nodes: WeightedNode[],

@@ -59,7 +59,9 @@ export function useDeterministicAnalysis({ selectedNetworkId, selectedNetworkNam
 
   const runDeterministic = useCallback(() => {
     const networkRules: string[] = Array.isArray(networkData?.rules)
-      ? (networkData!.rules as string[]).filter(r => typeof r === 'string')
+      ? (networkData!.rules as any[])
+          .map((r) => (typeof r === 'string' ? r : (r && typeof r === 'object' && 'action' in r && 'condition' in r ? `${(r as any).name || 'NODE'} = ${(r as any).condition}` : null)))
+          .filter((l: any) => typeof l === 'string')
       : [];
     const textRules: string[] = rulesText.split(/\n+/).map(l => l.trim()).filter(l => l && l.includes('='));
     const rules = networkRules.length > 0 ? networkRules : textRules;

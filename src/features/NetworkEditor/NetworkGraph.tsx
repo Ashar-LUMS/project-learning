@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback, forwardRef, useImperativeHandle } from "react";
 import cytoscape, { type Core, type StylesheetCSS } from "cytoscape";
 import { supabase } from '../../supabaseClient';
 import { useNetworkData } from '../../hooks/useNetworkData';
@@ -39,6 +39,14 @@ type RuleSet = {
   initialRuleSet?: RuleSet;
 };
 
+export type NetworkGraphHandle = {
+  getLiveWeightedConfig: () => {
+    nodes: Array<{ id: string; label: string; properties?: Record<string, any> }>
+    edges: Array<{ source: string; target: string; weight?: number }>
+    tieBehavior: 'zero-as-zero' | 'zero-as-one' | 'hold'
+  } | null;
+};
+
 type Props = {
   networkId?: string | null;
   height?: number | string;
@@ -49,7 +57,7 @@ type Props = {
 
 type GraphMode = 'weight-based' | 'rule-based';
 
-const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId = null, onSaved }) => {
+const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refreshToken = 0, projectId = null, onSaved }, ref) => {
   console.log('[NetworkGraph] Component render', {
     networkId,
     refreshToken
@@ -61,6 +69,20 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
     networkId ?? undefined,
     effectiveRefresh
   );
+
+  // Load persisted rules from network_data if present
+  useEffect(() => {
+    try {
+      const rules = (network && ((network as any).rules || (network as any).data?.rules)) || null;
+      if (Array.isArray(rules) && rules.length > 0) {
+        setActiveRuleSet((prev) => prev || { name: 'Loaded Rules', rules });
+      }
+      const persistedTie = (network && ((network as any).metadata?.tieBehavior || (network as any).data?.metadata?.tieBehavior)) || null;
+      if (persistedTie === 'zero-as-zero' || persistedTie === 'zero-as-one' || persistedTie === 'hold') {
+        setTieBehavior(persistedTie);
+      }
+    } catch (e) { }
+  }, [network]);
 
   useEffect(() => {
     console.log('[NetworkGraph] networkId changed, triggering manual refresh');
@@ -101,6 +123,8 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
   const [showRuleEditor, setShowRuleEditor] = useState(false);
   const [activeRuleSet, setActiveRuleSet] = useState<RuleSet | null>(null);
   const [isApplyingRules, setIsApplyingRules] = useState(false);
+  // Weighted analysis UI preferences
+  const [tieBehavior, setTieBehavior] = useState<'zero-as-zero' | 'zero-as-one' | 'hold'>('hold');
 
   // Default weights
   const defaultNodeWeight = 1;
@@ -123,7 +147,7 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
     ];
 
     const currentEdges = [
-      ...fetchedEdges.filter((e: any) => e && typeof e.source === 'string' && typeof e.target === 'string' && !deletedEdgeIds.has(`e-${e.source}-${e.target}`)),
+      ...fetchedEdges.filter((e: any) => e && typeof e.source === 'string' && typeof e.target === 'string' && !deletedEdgeIds.has(`edge:${e.source}:${e.target}`)),
       ...localEdges
     ];
 
@@ -144,9 +168,9 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
       },
     }));
 
-    const edgeElems = edges.map((e: any, idx: number) => ({
+    const edgeElems = edges.map((e: any) => ({
       data: {
-        id: `e-${idx}-${e.source}-${e.target}`,
+        id: `edge:${e.source}:${e.target}`,
         source: e.source,
         target: e.target,
         interaction: e.interaction,
@@ -191,7 +215,7 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
           connectedEdges.forEach((edge: any) => {
             const source = edge.data('source');
             const target = edge.data('target');
-            setDeletedEdgeIds(prev => new Set([...prev, `e-${source}-${target}`]));
+            setDeletedEdgeIds(prev => new Set([...prev, `edge:${source}:${target}`]));
           });
         }
       }
@@ -216,7 +240,22 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
   const saveNetwork = async (isUpdate: boolean = false) => {
     try {
       const { nodes, edges } = getCurrentNetworkData;
-      const payload = { nodes, edges };
+      // Validate and de-duplicate edges by source-target
+      const seen = new Set<string>();
+      const dedupedEdges = edges.filter((e: any) => {
+        const key = `${e.source}::${e.target}`;
+        if (seen.has(key)) {
+          return false;
+        }
+        seen.add(key);
+        return true;
+      });
+      const duplicateCount = edges.length - dedupedEdges.length;
+      if (duplicateCount > 0) {
+        console.warn(`[NetworkGraph] Removed ${duplicateCount} duplicate edges before save`);
+        try { window.alert(`Removed ${duplicateCount} duplicate edge(s) (same source→target) before saving.`); } catch {}
+      }
+      const payload = { nodes, edges: dedupedEdges, rules: activeRuleSet?.rules, metadata: { tieBehavior } };
 
       if (isUpdate && networkId) {
         const { data, error } = await supabase
@@ -591,7 +630,7 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
     });
   }, [showRuleEditor, graphMode]);
 
-  // Cytoscape initialization
+  // Cytoscape initialization (initialize once)
   useEffect(() => {
     console.log('[NetworkGraph] Cytoscape useEffect triggered', {
       elementsLength: elements.length,
@@ -612,12 +651,10 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
       return;
     }
 
-    console.log('[NetworkGraph] Initializing cytoscape with elements:', elements.length);
-
+    console.log('[NetworkGraph] Initializing cytoscape (once) with elements:', elements.length);
     if (cyRef.current) {
-      console.log('[NetworkGraph] Destroying previous cytoscape instance');
-      cyRef.current.destroy();
-      cyRef.current = null;
+      console.log('[NetworkGraph] Cytoscape already initialized, skipping reinit');
+      return;
     }
 
     try {
@@ -718,12 +755,15 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
                     try {
                       const src = String(sourceNode.id());
                       const tgt = String(targetNode.id());
-                      const maybeExisting = cy.edges().filter((e: any) => String(e.data('source')) === src && String(e.data('target')) === tgt);
+                      const newEdgeId = `edge:${src}:${tgt}`;
+                      const maybeExisting = cy.getElementById(newEdgeId);
                       if (!maybeExisting || maybeExisting.length === 0) {
-                        const newEdgeId = `eh-e-${Date.now()}`;
                         try { cy.add({ group: 'edges', data: { id: newEdgeId, source: src, target: tgt, weight: defaultEdgeWeight } }); } catch (e) { console.log('[NetworkGraph] edgehandles fallback cy.add error', e); }
                       }
-                      setLocalEdges(prev => [...prev, { source: src, target: tgt, weight: defaultEdgeWeight }]);
+                      setLocalEdges(prev => {
+                        const exists = prev.some(e => e.source === src && e.target === tgt);
+                        return exists ? prev : [...prev, { source: src, target: tgt, weight: defaultEdgeWeight }];
+                      });
                     } catch (e) {
                       console.log('[NetworkGraph] edgehandles complete error', e);
                     }
@@ -767,12 +807,15 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
               try {
                 const src = String(sourceNode.id());
                 const tgt = String(targetNode.id());
-                const maybeExisting = cy.edges().filter((e: any) => String(e.data('source')) === src && String(e.data('target')) === tgt);
+                const newEdgeId = `edge:${src}:${tgt}`;
+                const maybeExisting = cy.getElementById(newEdgeId);
                 if (!maybeExisting || maybeExisting.length === 0) {
-                  const newEdgeId = `eh-e-${Date.now()}`;
                   try { cy.add({ group: 'edges', data: { id: newEdgeId, source: src, target: tgt, weight: defaultEdgeWeight } }); } catch (e) { console.log('[NetworkGraph] edgehandles fallback cy.add error', e); }
                 }
-                setLocalEdges(prev => [...prev, { source: src, target: tgt, weight: defaultEdgeWeight }]);
+                setLocalEdges(prev => {
+                  const exists = prev.some(e => e.source === src && e.target === tgt);
+                  return exists ? prev : [...prev, { source: src, target: tgt, weight: defaultEdgeWeight }];
+                });
               } catch (e) {
                 console.log('[NetworkGraph] edgehandles complete error', e);
               }
@@ -833,13 +876,19 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
             setEdgeSourceId(null);
             node.removeClass('edge-source');
           } else {
-            const newEdgeId = `local-e-${Date.now()}`;
+            const newEdgeId = `edge:${currentEdgeSource}:${id}`;
             try {
-              cy.add({ group: 'edges', data: { id: newEdgeId, source: currentEdgeSource, target: id, weight: defaultEdgeWeight } });
+              const existing = cy.getElementById(newEdgeId);
+              if (!existing || existing.length === 0) {
+                cy.add({ group: 'edges', data: { id: newEdgeId, source: currentEdgeSource, target: id, weight: defaultEdgeWeight } });
+              }
             } catch (e) {
               console.log('[NetworkGraph] add-edge via click: cy.add error', e);
             }
-            setLocalEdges(prev => [...prev, { source: currentEdgeSource!, target: id, weight: defaultEdgeWeight }]);
+            setLocalEdges(prev => {
+              const exists = prev.some(e => e.source === currentEdgeSource && e.target === id);
+              return exists ? prev : [...prev, { source: currentEdgeSource!, target: id, weight: defaultEdgeWeight }];
+            });
             cy.getElementById(currentEdgeSource)?.removeClass('edge-source');
             setEdgeSourceId(null);
           }
@@ -933,7 +982,49 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
     } catch (err) {
       console.error('Cytoscape initialization error:', err);
     }
-  }, [elements.length, showRuleEditor]); // Removed graphMode and activeRuleSet from dependencies
+  }, [showRuleEditor]); // Removed graphMode and activeRuleSet from dependencies; init once
+
+  // Reconcile elements without full reinit
+  useEffect(() => {
+    if (!cyRef.current || showRuleEditor) return;
+    const cy = cyRef.current;
+    try {
+      const desired = elements as any[];
+      const desiredIds = new Set<string>(desired.map(el => String(el.data.id)));
+      // Remove elements not present
+      cy.elements().forEach((el: any) => {
+        const id = String(el.data('id'));
+        if (!desiredIds.has(id)) {
+          try { el.remove(); } catch { }
+        }
+      });
+      // Update existing and add missing
+      desired.forEach((el: any) => {
+        const id = String(el.data.id);
+        const existing = cy.getElementById(id);
+        if (existing && existing.length) {
+          // Update data fields
+          const data = el.data;
+          Object.keys(data).forEach(k => {
+            try { existing.data(k as any, (data as any)[k]); } catch { }
+          });
+        } else {
+          try { cy.add(el); } catch (e) { }
+        }
+      });
+      // Optionally re-run layout for significant changes
+      setTimeout(() => {
+        try {
+          const layout = cy.layout({ name: 'cose', animate: true, fit: true, padding: 60 });
+          layout.run();
+        } catch (err) {
+          try { cy.layout({ name: 'grid', animate: true, fit: true, padding: 60 }).run(); } catch { }
+        }
+      }, 50);
+    } catch (e) {
+      console.log('[NetworkGraph] reconcile error', e);
+    }
+  }, [elements]);
 
   // Update tool-specific behavior
   useEffect(() => {
@@ -976,6 +1067,29 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
 
   // Check if there are any modifications
   const hasModifications = localNodes.length > 0 || localEdges.length > 0 || deletedNodeIds.size > 0 || deletedEdgeIds.size > 0;
+
+  // Expose live weighted configuration (nodes/edges from current Cytoscape view + panel tieBehavior)
+  useImperativeHandle(ref, () => ({
+    getLiveWeightedConfig: () => {
+      if (!cyRef.current) return null;
+      try {
+        const cy = cyRef.current;
+        const nodes = cy.nodes().map((n: any) => ({
+          id: String(n.data('id')),
+          label: String(n.data('label') ?? n.data('id')),
+          properties: n.data('properties') || {},
+        }));
+        const edges = cy.edges().map((e: any) => ({
+          source: String(e.data('source')),
+          target: String(e.data('target')),
+          weight: Number(e.data('weight') ?? 1),
+        }));
+        return { nodes, edges, tieBehavior };
+      } catch {
+        return null;
+      }
+    }
+  }), [tieBehavior]);
 
   if (isLoading) {
     return (
@@ -1366,6 +1480,20 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
               </CardHeader>
 
               <CardContent className="p-4 space-y-4">
+                {/* Weighted analysis controls (panel-level) */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Tie Behavior</label>
+                  <select
+                    className="w-full border rounded px-2 py-1 text-sm"
+                    value={tieBehavior}
+                    onChange={(e) => setTieBehavior(e.target.value as any)}
+                  >
+                    <option value="zero-as-zero">Zero → 0</option>
+                    <option value="zero-as-one">Zero → 1</option>
+                    <option value="hold">Zero → hold</option>
+                  </select>
+                  <div className="text-xs text-muted-foreground">When net input equals 0: choose 0, 1, or hold previous state.</div>
+                </div>
                 {selectedNode && (
                   <>
                     <div className="space-y-2">
@@ -1430,6 +1558,28 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
                         step="0.1"
                         className="w-full"
                       />
+                      <div className="text-xs text-muted-foreground">Node weight is used in weighted analysis; larger values increase influence.</div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Bias</label>
+                      <Input
+                        type="number"
+                        value={Number((selectedNode.properties?.bias ?? 0))}
+                        onChange={(e) => {
+                          const newBias = parseFloat(e.target.value) || 0;
+                          setSelectedNode(prev => prev ? { ...prev, properties: { ...(prev.properties || {}), bias: newBias } } : null);
+                          // Keep local state in sync for newly added nodes
+                          if (selectedNode.id.startsWith('n-')) {
+                            setLocalNodes(prev => prev.map(n => (
+                              n.id === selectedNode.id ? { ...n, properties: { ...(n.properties || {}), bias: newBias } } : n
+                            )));
+                          }
+                        }}
+                        step="0.1"
+                        className="w-full"
+                      />
+                      <div className="text-xs text-muted-foreground">Bias shifts the threshold for this node in weighted analysis.</div>
                     </div>
 
                     <div className="space-y-2">
@@ -1456,17 +1606,20 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
                       {edgeSourceId && edgeSourceId !== selectedNode.id && (
                         <Button
                           onClick={() => {
-                            const newEdgeId = `local-e-${Date.now()}`;
+                            const newEdgeId = `edge:${edgeSourceId}:${selectedNode.id}`;
                             if (cyRef.current) {
-                              cyRef.current.add({
-                                group: 'edges',
-                                data: {
-                                  id: newEdgeId,
-                                  source: edgeSourceId,
-                                  target: selectedNode.id,
-                                  weight: defaultEdgeWeight
-                                }
-                              });
+                              const existing = cyRef.current.getElementById(newEdgeId);
+                              if (!existing || existing.length === 0) {
+                                cyRef.current.add({
+                                  group: 'edges',
+                                  data: {
+                                    id: newEdgeId,
+                                    source: edgeSourceId,
+                                    target: selectedNode.id,
+                                    weight: defaultEdgeWeight
+                                  }
+                                });
+                              }
                             }
                             setLocalEdges(prev => [...prev, {
                               source: edgeSourceId,
@@ -1552,6 +1705,7 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
                         step="0.1"
                         className="w-full"
                       />
+                      <div className="text-xs text-muted-foreground">Edge weight influences the target node’s net input. CSV import format: source,target,weight.</div>
                     </div>
 
                     <div className="pt-4 border-t">
@@ -1681,7 +1835,7 @@ const NetworkGraph: React.FC<Props> = ({ networkId, refreshToken = 0, projectId 
       )}
     </div>
   );
-};
+});
 
 // Icon components
 const CursorIcon = () => (

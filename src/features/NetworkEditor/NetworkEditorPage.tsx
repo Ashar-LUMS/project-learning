@@ -1,8 +1,8 @@
 import type React from 'react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import NetworkEditorLayout from './layout';
 import ProjectTabComponent from './tabs/ProjectTab';
-import NetworkGraph from './NetworkGraph';
+import NetworkGraph, { type NetworkGraphHandle } from './NetworkGraph';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 // analysis node type is internal to the hook now
 import { useDeterministicAnalysis } from '@/hooks/useDeterministicAnalysis';
+import { performWeightedDeterministicAnalysis, edgesToMatrix, type WeightedNode, type WeightedEdge } from '@/lib/weightedDeterministicAnalysis';
 import { useProjectNetworks, type ProjectNetworkRecord } from '@/hooks/useProjectNetworks';
 import { Download, Play } from 'lucide-react';
 import AttractorGraph from './AttractorGraph';
@@ -48,6 +49,70 @@ export default function NetworkEditorPage() {
 
   const handleRunAnalysis = () => runFromEditorRules();
   const handleRunDeterministic = () => runDeterministic();
+  const [isWeightedAnalyzing, setIsWeightedAnalyzing] = useState(false);
+  const [weightedResult, setWeightedResult] = useState<any>(null);
+  const graphRef = useRef<NetworkGraphHandle | null>(null);
+  const handleDownloadWeightedResults = () => {
+    if (!weightedResult) return;
+    try {
+      const live = graphRef.current?.getLiveWeightedConfig();
+      const payload = {
+        meta: {
+          generatedAt: new Date().toISOString(),
+          projectNetworkId: selectedNetworkId ?? null,
+          projectNetworkName: selectedNetwork?.name ?? null,
+          nodeCount: weightedResult.nodeOrder.length,
+          mode: 'weighted',
+          tieBehavior: (live?.tieBehavior as any) ?? (selectedNetwork as any)?.data?.metadata?.tieBehavior ?? 'hold',
+        },
+        result: weightedResult,
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const date = new Date().toISOString().replace(/[:.]/g, '-');
+      a.download = `weighted_deterministic_analysis_${date}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      // swallow download error
+    }
+  };
+  const handleRunWeighted = () => {
+    try {
+      setIsWeightedAnalyzing(true);
+      // Prefer live config from editor (unsaved panel settings)
+      const live = graphRef.current?.getLiveWeightedConfig();
+      if (live && live.nodes && live.edges) {
+        const nodes: WeightedNode[] = live.nodes.map((n: any) => ({ id: String(n.id), label: String(n.label || n.id) }));
+        const edges: WeightedEdge[] = live.edges.map((e: any) => ({ source: String(e.source), target: String(e.target), weight: Number(e.weight ?? 1) }));
+        const W = edgesToMatrix(nodes, edges);
+        const biases = live.nodes.map((n: any) => Number(n.properties?.bias ?? 0));
+        const result = performWeightedDeterministicAnalysis({ nodes, weights: W, biases }, { tieBehavior: live.tieBehavior as any });
+        setWeightedResult(result);
+        return;
+      }
+      // Fallback to saved network data
+      if (!selectedNetwork?.data) return;
+      const data = selectedNetwork.data as any;
+      const nodes: WeightedNode[] = (Array.isArray(data.nodes) ? data.nodes : []).map((n: any) => ({ id: String(n.id), label: String(n.label || n.id) }));
+      const edges: WeightedEdge[] = (Array.isArray(data.edges) ? data.edges : []).map((e: any) => ({ source: String(e.source), target: String(e.target), weight: Number(e.weight ?? 1) }));
+      const W = edgesToMatrix(nodes, edges);
+      const biases = nodes.map((n: any) => Number(n.properties?.bias ?? 0));
+      const tieBehavior = (data.metadata?.tieBehavior as any) || 'hold';
+      const result = performWeightedDeterministicAnalysis({ nodes, weights: W, biases }, { tieBehavior });
+      // Reuse deterministic result presentation by setting local state
+      // We reassign analysisResult through the deterministic hook’s setter via clear + fake run
+      // Simpler: keep local result state for weighted (below)
+      setWeightedResult(result);
+    } catch (e) {
+    } finally {
+      setIsWeightedAnalyzing(false);
+    }
+  };
   const handleDownloadResults = () => downloadResults();
   const handleClear = () => clear();
 
@@ -79,6 +144,15 @@ export default function NetworkEditorPage() {
               Perform DA
             </Button>
             <Button
+              className="w-full justify-start gap-3 h-11 px-4"
+              onClick={handleRunWeighted}
+              disabled={isWeightedAnalyzing}
+              variant="secondary"
+            >
+              <Play className="w-4 h-4" />
+              Perform Weighted DA
+            </Button>
+            <Button
               variant="outline"
               className="w-full justify-start gap-3 h-11 px-4"
               onClick={handleDownloadResults}
@@ -86,6 +160,15 @@ export default function NetworkEditorPage() {
             >
               <Download className="w-4 h-4" />
               Download Results
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-3 h-11 px-4"
+              onClick={handleDownloadWeightedResults}
+              disabled={!weightedResult}
+            >
+              <Download className="w-4 h-4" />
+              Download Weighted Results
             </Button>
           </div>
         </CardContent>
@@ -170,7 +253,7 @@ export default function NetworkEditorPage() {
                 ) : selectedNetworkId ? (
                   <Card className="flex-1">
                     <CardContent className="p-6 h-full">
-                      <NetworkGraph networkId={selectedNetworkId} projectId={selectedProjectId} onSaved={(newNetwork) => {
+                      <NetworkGraph ref={graphRef} networkId={selectedNetworkId} projectId={selectedProjectId} onSaved={(newNetwork) => {
                         setNetworks(prev => [newNetwork, ...prev]);
                         selectNetwork(newNetwork.id);
                       }} />
@@ -300,6 +383,13 @@ export default function NetworkEditorPage() {
                       </AlertDescription>
                     </Alert>
                   )}
+                  {!isWeightedAnalyzing && weightedResult && (
+                    <Alert>
+                      <AlertDescription>
+                        Weighted analysis complete. Found {weightedResult.attractors.length} attractor(s) · Explored {weightedResult.exploredStateCount} states.
+                      </AlertDescription>
+                    </Alert>
+                  )}
                   <textarea
                     placeholder={"A = A\nB = A AND !C\nC = B OR A"}
                     className="font-mono text-sm h-48"
@@ -354,6 +444,58 @@ export default function NetworkEditorPage() {
                                       <tr key={si} className="odd:bg-muted/40">
                                         <td className="p-1 font-mono">{s.binary}</td>
                                         {analysisResult.nodeOrder.map(n => (
+                                          <td key={n} className="p-1 text-center">{s.values[n]}</td>
+                                        ))}
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                              <div className="min-h-[180px]">
+                                <AttractorGraph states={attr.states} />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {weightedResult && (
+                    <div className="flex-1 overflow-auto border rounded-md p-4 space-y-4 bg-muted/30">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <Stat label="Nodes" value={weightedResult.nodeOrder.length} />
+                        <Stat label="Explored States" value={weightedResult.exploredStateCount} />
+                        <Stat label="State Space" value={weightedResult.totalStateSpace} />
+                        <Stat label="Attractors" value={weightedResult.attractors.length} />
+                      </div>
+                      {weightedResult.warnings.length > 0 && (
+                        <div className="text-xs text-amber-600 space-y-1">
+                          {weightedResult.warnings.map((w: string, i: number) => <p key={i}>• {w}</p>)}
+                        </div>
+                      )}
+                      <div className="space-y-3">
+                        {weightedResult.attractors.map((attr: any) => (
+                          <div key={attr.id} className="border rounded-md p-3 bg-background/50">
+                            <div className="flex items-center justify-between mb-2">
+                              <h3 className="font-medium text-sm">Weighted Attractor #{attr.id + 1} ({attr.type})</h3>
+                              <span className="text-xs text-muted-foreground">Period {attr.period} • Basin { (attr.basinShare*100).toFixed(1) }%</span>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div className="overflow-auto">
+                                <table className="w-full text-xs border-collapse">
+                                  <thead>
+                                    <tr>
+                                      <th className="text-left p-1 font-semibold">State</th>
+                                      {weightedResult.nodeOrder.map((n: string) => (
+                                        <th key={n} className="p-1 font-medium">{weightedResult.nodeLabels[n]}</th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {attr.states.map((s: any, si: number) => (
+                                      <tr key={si} className="odd:bg-muted/40">
+                                        <td className="p-1 font-mono">{s.binary}</td>
+                                        {weightedResult.nodeOrder.map((n: string) => (
                                           <td key={n} className="p-1 text-center">{s.values[n]}</td>
                                         ))}
                                       </tr>

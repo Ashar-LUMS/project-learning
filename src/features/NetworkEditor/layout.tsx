@@ -41,8 +41,10 @@ interface NetworkEditorLayoutProps {
   inferenceSidebar?: React.ReactNode;
   inferenceActions?: {
     run?: () => void;
+    runWeighted?: () => void;
     download?: () => void;
     isRunning?: boolean;
+    isWeightedRunning?: boolean;
     hasResult?: boolean;
   };
 }
@@ -439,6 +441,16 @@ function NetworkAnalysisSidebar({ actions }: { actions?: NetworkEditorLayoutProp
               <Play className="w-4 h-4" />
               Perform DA
             </Button>
+            {actions?.runWeighted && (
+              <Button
+                className="w-full justify-start gap-3 h-11 px-4"
+                onClick={() => actions?.runWeighted?.()}
+                disabled={actions?.isWeightedRunning}
+              >
+                <Play className="w-4 h-4" />
+                Perform Weighted DA
+              </Button>
+            )}
             <Button
               variant="outline"
               className="w-full justify-start gap-3 h-11 px-4"

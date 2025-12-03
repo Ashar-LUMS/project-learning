@@ -6,6 +6,8 @@ Guidance for AI coding agents contributing to this Vite + React + TypeScript app
 - Routing: React Router in `src/routes.tsx` under `/app/*`. Main shell is `src/layouts/AppLayout.tsx`.
 - Feature focus: Network Editor in `src/features/NetworkEditor/*` with a shared sidebar `layout.tsx` and pages `NetworkEditorPage.tsx` and `ProjectVisualizationPage.tsx`.
 - Visualization: Cytoscape (`src/features/NetworkEditor/NetworkGraph.tsx`) for network editing and `AttractorGraph.tsx` for attractor cycles.
+  - Init-once + reconcile: Cytoscape is initialized once; a reconcile effect diffs desired elements against the live graph to add/update/remove without destroying the instance.
+  - Deterministic edge IDs: edges consistently use `edge:${source}:${target}` to prevent duplicates and enable stable updates/deletions.
 - Analysis engines:
   - Rule-based: `src/lib/deterministicAnalysis.ts` (operators AND/OR/XOR/NAND/NOR/NOT, shunting-yard parser, synchronous updates).
   - Weighted: `src/lib/weightedDeterministicAnalysis.ts` (N×N weight matrix + optional biases, configurable tie behavior; returns the same result shape as rule-based).
@@ -28,12 +30,14 @@ Guidance for AI coding agents contributing to this Vite + React + TypeScript app
 - Graph editing flow (`NetworkGraph.tsx`):
   - Local add/delete nodes/edges in component state; "Save As New" inserts network row; "Update Current" writes `network_data` back.
   - Edgehandles plugin for drawing edges; selection panels on the right for node/edge properties (including weights).
+  - Reconciliation: element changes are applied in place via diffing; layouts re-run opportunistically. When the rule editor is open, init/reconcile is skipped; default styles are restored when returning to weight-based mode.
 
 ## Conventions
 - Path alias `@` → `src` (see `vite.config.ts`). Prefer absolute imports like `@/hooks/...`.
 - Keep analysis logic in `src/lib/*` and UI in `src/features/*`.
 - When adding inference sidebar actions, wire them via `inferenceActions` rather than window globals.
 - Networks data shape is used widely; keep `{ nodes, edges, rules? }` stable when persisting to Supabase.
+ - Edge identity: use `edge:${source}:${target}` across creation, selection, and deletion logic.
 
 ## Dev Workflows
 - Install & run:
@@ -51,7 +55,7 @@ Guidance for AI coding agents contributing to this Vite + React + TypeScript app
 ## Gotchas
 - Analysis caps: both engines cap state/step counts (defaults 2^17). Large networks may be truncated; UI surfaces warnings.
 - Identifier resolution: rule-based parser maps labels/ids case-insensitively; ensure node ids in rules match or provide labels.
-- Cytoscape lifecycle: `NetworkGraph` reinitializes on element count change; avoid expensive re-renders by batching edits.
+- Cytoscape lifecycle: `NetworkGraph` initializes Cytoscape once and uses a reconcile effect to update elements without full reinit; avoid expensive re-renders by batching edits and checking for existing edges before adding.
 
 ## Key Files
 - `src/features/NetworkEditor/layout.tsx` (sidebar + tabs contract)
