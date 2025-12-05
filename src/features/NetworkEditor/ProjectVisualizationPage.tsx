@@ -8,6 +8,8 @@ import NetworkGraph from "./NetworkGraph";
 import { supabase } from "../../supabaseClient";
 import NetworkEditorLayout from "./layout";
 import { useDeterministicAnalysis } from '@/hooks/useDeterministicAnalysis';
+import { useWeightedAnalysis } from '@/hooks/useWeightedAnalysis';
+import type { AnalysisEdge, AnalysisNode, WeightedAnalysisOptions } from '@/lib/analysis/types';
 import AttractorGraph from './AttractorGraph';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -65,6 +67,59 @@ export default function ProjectVisualizationPage() {
     networkData: (selectedNetwork as any)?.data ?? null,
     rulesText,
   });
+
+  const {
+    result: weightedResult,
+    isRunning: isWeightedAnalyzing,
+    run: runWeightedAnalysis,
+  } = useWeightedAnalysis();
+
+  const normalizeNodesEdges = (payload: any): { nodes: AnalysisNode[]; edges: AnalysisEdge[]; options: WeightedAnalysisOptions } => {
+    const nodes: AnalysisNode[] = (Array.isArray(payload?.nodes) ? payload.nodes : []).map((n: any) => ({
+      id: String(n.id),
+      label: String(n.label || n.id),
+    }));
+    const edges: AnalysisEdge[] = (Array.isArray(payload?.edges) ? payload.edges : []).map((e: any) => ({
+      source: String(e.source),
+      target: String(e.target),
+      weight: Number(e.weight ?? 1),
+    }));
+    const biasesEntries = Array.isArray(payload?.nodes)
+      ? payload.nodes.map((n: any) => [String(n.id), Number(n.properties?.bias ?? 0)])
+      : [];
+    const biases = Object.fromEntries(biasesEntries);
+    const options: WeightedAnalysisOptions = {
+      tieBehavior: (payload?.tieBehavior as any) || 'zero-as-zero',
+      thresholdMultiplier: typeof payload?.thresholdMultiplier === 'number' ? payload.thresholdMultiplier : 0.5,
+      biases,
+    };
+    return { nodes, edges, options };
+  };
+
+  const handleRunWeighted = async () => {
+    if (!selectedNetwork) {
+      window.alert('No network selected. Please select a network first.');
+      return;
+    }
+
+    const networkData = (selectedNetwork as any).data || selectedNetwork;
+    const networkNodes = networkData?.nodes || [];
+    const networkEdges = networkData?.edges || [];
+
+    if (!networkNodes.length) {
+      window.alert('No nodes found in selected network. Please add nodes in the Network tab first.');
+      return;
+    }
+
+    const { nodes, edges, options } = normalizeNodesEdges({
+      nodes: networkNodes,
+      edges: networkEdges,
+      tieBehavior: networkData?.metadata?.tieBehavior,
+      thresholdMultiplier: networkData?.metadata?.thresholdMultiplier,
+    });
+
+    await runWeightedAnalysis(nodes, edges, options);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -533,6 +588,61 @@ export default function ProjectVisualizationPage() {
                 ) : (
                   <div className="text-sm text-muted-foreground">Use the sidebar actions to run deterministic analysis.</div>
                 )}
+
+                {isWeightedAnalyzing && (
+                  <div className="text-sm text-muted-foreground">Running weighted deterministic analysis…</div>
+                )}
+
+                {weightedResult && !isWeightedAnalyzing && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-[10px] uppercase tracking-wide text-muted-foreground">Nodes</span><span className="text-sm font-semibold">{weightedResult.nodeOrder.length}</span></div>
+                      <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-[10px] uppercase tracking-wide text-muted-foreground">Explored States</span><span className="text-sm font-semibold">{weightedResult.exploredStateCount}</span></div>
+                      <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-[10px] uppercase tracking-wide text-muted-foreground">State Space</span><span className="text-sm font-semibold">{weightedResult.totalStateSpace}</span></div>
+                      <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-[10px] uppercase tracking-wide text-muted-foreground">Attractors</span><span className="text-sm font-semibold">{weightedResult.attractors.length}</span></div>
+                    </div>
+                    {weightedResult.warnings.length > 0 && (
+                      <div className="text-xs text-amber-600 space-y-1">
+                        {weightedResult.warnings.map((w: string, i: number) => <p key={i}>• {w}</p>)}
+                      </div>
+                    )}
+                    {weightedResult.attractors.map((attr: any) => (
+                      <div key={attr.id} className="border rounded-md p-3 bg-background/50">
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="font-medium text-sm">Weighted Attractor #{attr.id + 1} ({attr.type})</h3>
+                          <span className="text-xs text-muted-foreground">Period {attr.period} • Basin {(attr.basinShare*100).toFixed(1)}%</span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="overflow-auto">
+                            <table className="w-full text-xs border-collapse">
+                              <thead>
+                                <tr>
+                                  <th className="text-left p-1 font-semibold">State</th>
+                                  {weightedResult.nodeOrder.map((n: string) => (
+                                    <th key={n} className="p-1 font-medium">{weightedResult.nodeLabels[n]}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {attr.states.map((s: any, si: number) => (
+                                  <tr key={si} className="odd:bg-muted/40">
+                                    <td className="p-1 font-mono">{s.binary}</td>
+                                    {weightedResult.nodeOrder.map((n: string) => (
+                                      <td key={n} className="p-1 text-center">{s.values[n]}</td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          <div className="min-h-[180px]">
+                            <AttractorGraph states={attr.states as any} />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -594,9 +704,11 @@ export default function ProjectVisualizationPage() {
       networkSidebar={networkSidebarContent}
       inferenceActions={{
         run: () => (rulesText ? runFromEditorRules() : runDeterministic()),
+        runWeighted: handleRunWeighted,
         download: downloadResults,
         isRunning: isAnalyzing,
-        hasResult: Boolean(analysisResult),
+        isWeightedRunning: isWeightedAnalyzing,
+        hasResult: Boolean(analysisResult || weightedResult),
       }}
     >
       {renderMainContent()}

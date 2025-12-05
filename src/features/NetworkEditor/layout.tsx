@@ -424,7 +424,6 @@ function NetworkAnalysisSidebar({ actions }: { actions?: NetworkEditorLayoutProp
     <div className="space-y-6">
       <div className="space-y-3">
         <h2 className="text-2xl font-bold tracking-tight text-foreground">Network Inference</h2>
-        <p className="text-sm text-muted-foreground">Deterministic Boolean analysis tools</p>
       </div>
       <Separator />
       <Card>
@@ -441,16 +440,22 @@ function NetworkAnalysisSidebar({ actions }: { actions?: NetworkEditorLayoutProp
               <Play className="w-4 h-4" />
               Perform DA
             </Button>
-            {actions?.runWeighted && (
-              <Button
-                className="w-full justify-start gap-3 h-11 px-4"
-                onClick={() => actions?.runWeighted?.()}
-                disabled={actions?.isWeightedRunning}
-              >
-                <Play className="w-4 h-4" />
-                Perform Weighted DA
-              </Button>
-            )}
+            <Button
+              className="w-full justify-start gap-3 h-11 px-4"
+              onClick={() => {
+                console.log('[NetworkAnalysisSidebar] Weighted DA button clicked', {
+                  hasRunWeighted: !!actions?.runWeighted,
+                  isWeightedRunning: actions?.isWeightedRunning,
+                  actions
+                });
+                actions?.runWeighted?.();
+              }}
+              disabled={actions?.isWeightedRunning}
+              variant="secondary"
+            >
+              <Play className="w-4 h-4" />
+              Perform Weighted DA
+            </Button>
             <Button
               variant="outline"
               className="w-full justify-start gap-3 h-11 px-4"

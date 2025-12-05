@@ -125,6 +125,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
   const [isApplyingRules, setIsApplyingRules] = useState(false);
   // Weighted analysis UI preferences
   const [tieBehavior, setTieBehavior] = useState<'zero-as-zero' | 'zero-as-one' | 'hold'>('hold');
+  const [cyInitError, setCyInitError] = useState<string | null>(null);
 
   // Default weights
   const defaultNodeWeight = 1;
@@ -630,7 +631,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
     });
   }, [showRuleEditor, graphMode]);
 
-  // Cytoscape initialization (initialize once)
+  // Cytoscape initialization (initialize once; retry when inputs change)
   useEffect(() => {
     console.log('[NetworkGraph] Cytoscape useEffect triggered', {
       elementsLength: elements.length,
@@ -658,6 +659,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
     }
 
     try {
+      setCyInitError(null);
       cyRef.current = cytoscape({
         container: containerRef.current,
         elements: elements as any,
@@ -981,8 +983,9 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
       };
     } catch (err) {
       console.error('Cytoscape initialization error:', err);
+      setCyInitError((err as any)?.message || 'Unknown Cytoscape init error');
     }
-  }, [showRuleEditor]); // Removed graphMode and activeRuleSet from dependencies; init once
+  }, [showRuleEditor, elements, graphMode, typeColors, activeRuleSet]);
 
   // Reconcile elements without full reinit
   useEffect(() => {
@@ -1398,6 +1401,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
                       <div className="text-muted-foreground">Fetched: {fetchedNodeCount} nodes • {fetchedEdgeCount} edges</div>
                       <div>NetworkId: {String(networkId ?? 'none')}</div>
                       <div>Cytoscape: {cyInitialized ? 'initialized' : 'not initialized'}</div>
+                      {cyInitError && <div className="text-red-600">Cy init error: {cyInitError}</div>}
                       <div>EdgeHandles: {ehLoaded ? (ehEnabled ? 'loaded & enabled' : 'loaded') : 'not loaded'}</div>
                       <div>Selected: {selectedNode ? selectedNode.id : (selectedEdge ? `${selectedEdge.source}-${selectedEdge.target}` : 'none')}</div>
                       <div>Cy elements: {cyElementsCount} • ids: {cyElementIds.join(', ') || 'none'}</div>

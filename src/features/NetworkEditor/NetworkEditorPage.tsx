@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 import NetworkEditorLayout from './layout';
 import ProjectTabComponent from './tabs/ProjectTab';
 import NetworkGraph, { type NetworkGraphHandle } from './NetworkGraph';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -12,14 +12,17 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 // analysis node type is internal to the hook now
 import { useDeterministicAnalysis } from '@/hooks/useDeterministicAnalysis';
-import { performWeightedDeterministicAnalysis, edgesToMatrix, type WeightedNode, type WeightedEdge } from '@/lib/weightedDeterministicAnalysis';
+import { useWeightedAnalysis } from '@/hooks/useWeightedAnalysis';
+import type { AnalysisEdge, AnalysisNode, WeightedAnalysisOptions } from '@/lib/analysis/types';
 import { useProjectNetworks, type ProjectNetworkRecord } from '@/hooks/useProjectNetworks';
-import { Download, Play } from 'lucide-react';
+
 import AttractorGraph from './AttractorGraph';
 
 // network type unified via hook's ProjectNetworkRecord
+// Last updated: 2025-12-05 - Added weighted analysis support
 
 export default function NetworkEditorPage() {
+  console.log('[NetworkEditorPage] Component mounting - weighted analysis enabled');
   const [activeTab, setActiveTab] = useState<'projects' | 'network' | 'therapeutics' | 'analysis' | 'results' | 'network-inference' | 'env' | 'cell-circuits' | 'cell-lines' | 'simulation'>('projects');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   // networks managed via hook now
@@ -49,69 +52,83 @@ export default function NetworkEditorPage() {
 
   const handleRunAnalysis = () => runFromEditorRules();
   const handleRunDeterministic = () => runDeterministic();
-  const [isWeightedAnalyzing, setIsWeightedAnalyzing] = useState(false);
-  const [weightedResult, setWeightedResult] = useState<any>(null);
+  const {
+    result: weightedResult,
+    isRunning: isWeightedAnalyzing,
+    run: runWeightedAnalysis,
+  } = useWeightedAnalysis();
   const graphRef = useRef<NetworkGraphHandle | null>(null);
-  const handleDownloadWeightedResults = () => {
-    if (!weightedResult) return;
-    try {
-      const live = graphRef.current?.getLiveWeightedConfig();
-      const payload = {
-        meta: {
-          generatedAt: new Date().toISOString(),
-          projectNetworkId: selectedNetworkId ?? null,
-          projectNetworkName: selectedNetwork?.name ?? null,
-          nodeCount: weightedResult.nodeOrder.length,
-          mode: 'weighted',
-          tieBehavior: (live?.tieBehavior as any) ?? (selectedNetwork as any)?.data?.metadata?.tieBehavior ?? 'hold',
-        },
-        result: weightedResult,
-      };
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      const date = new Date().toISOString().replace(/[:.]/g, '-');
-      a.download = `weighted_deterministic_analysis_${date}.json`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch {
-      // swallow download error
-    }
+  const normalizeNodesEdges = (payload: any): { nodes: AnalysisNode[]; edges: AnalysisEdge[]; options: WeightedAnalysisOptions } => {
+    const nodes: AnalysisNode[] = (Array.isArray(payload?.nodes) ? payload.nodes : []).map((n: any) => ({
+      id: String(n.id),
+      label: String(n.label || n.id),
+    }));
+    const edges: AnalysisEdge[] = (Array.isArray(payload?.edges) ? payload.edges : []).map((e: any) => ({
+      source: String(e.source),
+      target: String(e.target),
+      weight: Number(e.weight ?? 1),
+    }));
+    const biasesEntries = Array.isArray(payload?.nodes)
+      ? payload.nodes.map((n: any) => [String(n.id), Number(n.properties?.bias ?? 0)])
+      : [];
+    const biases = Object.fromEntries(biasesEntries);
+    const options: WeightedAnalysisOptions = {
+      tieBehavior: (payload?.tieBehavior as any) || 'zero-as-zero',
+      thresholdMultiplier: typeof payload?.thresholdMultiplier === 'number' ? payload.thresholdMultiplier : 0.5,
+      biases,
+    };
+    return { nodes, edges, options };
   };
-  const handleRunWeighted = () => {
-    try {
-      setIsWeightedAnalyzing(true);
-      // Prefer live config from editor (unsaved panel settings)
-      const live = graphRef.current?.getLiveWeightedConfig();
-      if (live && live.nodes && live.edges) {
-        const nodes: WeightedNode[] = live.nodes.map((n: any) => ({ id: String(n.id), label: String(n.label || n.id) }));
-        const edges: WeightedEdge[] = live.edges.map((e: any) => ({ source: String(e.source), target: String(e.target), weight: Number(e.weight ?? 1) }));
-        const W = edgesToMatrix(nodes, edges);
-        const biases = live.nodes.map((n: any) => Number(n.properties?.bias ?? 0));
-        const result = performWeightedDeterministicAnalysis({ nodes, weights: W, biases }, { tieBehavior: live.tieBehavior as any });
-        setWeightedResult(result);
-        return;
-      }
-      // Fallback to saved network data
-      if (!selectedNetwork?.data) return;
-      const data = selectedNetwork.data as any;
-      const nodes: WeightedNode[] = (Array.isArray(data.nodes) ? data.nodes : []).map((n: any) => ({ id: String(n.id), label: String(n.label || n.id) }));
-      const edges: WeightedEdge[] = (Array.isArray(data.edges) ? data.edges : []).map((e: any) => ({ source: String(e.source), target: String(e.target), weight: Number(e.weight ?? 1) }));
-      const W = edgesToMatrix(nodes, edges);
-      const biases = nodes.map((n: any) => Number(n.properties?.bias ?? 0));
-      const tieBehavior = (data.metadata?.tieBehavior as any) || 'hold';
-      const result = performWeightedDeterministicAnalysis({ nodes, weights: W, biases }, { tieBehavior });
-      // Reuse deterministic result presentation by setting local state
-      // We reassign analysisResult through the deterministic hook’s setter via clear + fake run
-      // Simpler: keep local result state for weighted (below)
-      setWeightedResult(result);
-    } catch (e) {
-    } finally {
-      setIsWeightedAnalyzing(false);
+
+
+
+  const handleRunWeighted = async () => {
+    console.log('[NetworkEditorPage] handleRunWeighted called', {
+      hasGraphRef: !!graphRef.current,
+      hasSelectedNetwork: !!selectedNetwork,
+      selectedNetworkKeys: selectedNetwork ? Object.keys(selectedNetwork) : [],
+    });
+
+    // Prefer live config from the graph (unsaved panel settings)
+    const live = graphRef.current?.getLiveWeightedConfig();
+    if (live && live.nodes && live.nodes.length > 0) {
+      console.log('[NetworkEditorPage] Using live graph config', { nodeCount: live.nodes.length, edgeCount: live.edges.length });
+      const { nodes, edges, options } = normalizeNodesEdges(live);
+      await runWeightedAnalysis(nodes, edges, options);
+      return;
     }
+
+    // Fallback to saved network data
+    if (!selectedNetwork) {
+      window.alert('No network selected. Please select a network first.');
+      return;
+    }
+
+    // Try multiple paths for network data
+    const networkData = (selectedNetwork as any).data || selectedNetwork;
+    const networkNodes = networkData?.nodes || [];
+    const networkEdges = networkData?.edges || [];
+
+    console.log('[NetworkEditorPage] Using saved network data', {
+      hasData: !!(selectedNetwork as any).data,
+      nodeCount: networkNodes.length,
+      edgeCount: networkEdges.length,
+    });
+
+    if (!networkNodes.length) {
+      window.alert('No nodes found in selected network. Please add nodes in the Network tab first.');
+      return;
+    }
+
+    const { nodes, edges, options } = normalizeNodesEdges({
+      nodes: networkNodes,
+      edges: networkEdges,
+      tieBehavior: networkData?.metadata?.tieBehavior,
+      thresholdMultiplier: networkData?.metadata?.thresholdMultiplier,
+    });
+
+    console.log('[NetworkEditorPage] Running weighted analysis', { nodeCount: nodes.length, edgeCount: edges.length, options });
+    await runWeightedAnalysis(nodes, edges, options);
   };
   const handleDownloadResults = () => downloadResults();
   const handleClear = () => clear();
@@ -125,66 +142,7 @@ export default function NetworkEditorPage() {
     setRulesText(example);
   };
 
-  // No global window handlers; actions are provided via injected sidebar below
-
-  const inferenceSidebarContent = (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium">Inference Actions</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="space-y-1">
-            <Button
-              className="w-full justify-start gap-3 h-11 px-4"
-              onClick={handleRunDeterministic}
-              disabled={isAnalyzing}
-            >
-              <Play className="w-4 h-4" />
-              Perform DA
-            </Button>
-            <Button
-              className="w-full justify-start gap-3 h-11 px-4"
-              onClick={handleRunWeighted}
-              disabled={isWeightedAnalyzing}
-              variant="secondary"
-            >
-              <Play className="w-4 h-4" />
-              Perform Weighted DA
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-3 h-11 px-4"
-              onClick={handleDownloadResults}
-              disabled={!analysisResult}
-            >
-              <Download className="w-4 h-4" />
-              Download Results
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-3 h-11 px-4"
-              onClick={handleDownloadWeightedResults}
-              disabled={!weightedResult}
-            >
-              <Download className="w-4 h-4" />
-              Download Weighted Results
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium">Status</CardTitle>
-        </CardHeader>
-        <CardContent className="text-xs text-muted-foreground space-y-1">
-          <div>Selected network: {selectedNetwork ? selectedNetwork.name : 'None'}</div>
-          <div>Nodes detected: {inferredNodes.length}</div>
-          <div>Result: {analysisResult ? `${analysisResult.attractors.length} attractor(s)` : '—'}</div>
-        </CardContent>
-      </Card>
-    </div>
-  );
+  // No global window handlers; actions are provided via inferenceActions prop below
 
   // removed local fetch effect in favor of shared hook
 
@@ -401,9 +359,15 @@ export default function NetworkEditorPage() {
                     <Button size="sm" variant="secondary" onClick={handleRunDeterministic} disabled={isAnalyzing}>
                       {isAnalyzing ? 'Analyzing…' : 'Deterministic Analysis'}
                     </Button>
+                    <Button size="sm" variant="secondary" onClick={handleRunWeighted} disabled={isWeightedAnalyzing}>
+                      {isWeightedAnalyzing ? 'Analyzing…' : 'Perform Weighted DA'}
+                    </Button>
                     <Button size="sm" variant="outline" onClick={handleExample}>Load Example</Button>
                     <Button size="sm" variant="ghost" onClick={handleClear} disabled={!analysisResult && !analysisError}>Clear</Button>
                     <Button size="sm" variant="outline" onClick={handleDownloadResults} disabled={!analysisResult}>Download Results</Button>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Weighted analysis uses the graph weights/biases; the rules text is ignored for weighted runs.
                   </div>
                   {analysisError && (
                     <div className="text-sm text-red-600">{analysisError}</div>
@@ -584,17 +548,22 @@ export default function NetworkEditorPage() {
     }
   };
 
+  const inferenceActionsObj = {
+    run: handleRunDeterministic,
+    runWeighted: handleRunWeighted,
+    download: handleDownloadResults,
+    isRunning: isAnalyzing,
+    isWeightedRunning: isWeightedAnalyzing,
+    hasResult: Boolean(analysisResult || weightedResult),
+  };
+
+  console.log('[NetworkEditorPage] Rendering with inferenceActions:', inferenceActionsObj);
+
   return (
     <NetworkEditorLayout
       activeTab={activeTab}
       onTabChange={setActiveTab}
-      inferenceSidebar={inferenceSidebarContent}
-      inferenceActions={{
-        run: handleRunDeterministic,
-        download: handleDownloadResults,
-        isRunning: isAnalyzing,
-        hasResult: Boolean(analysisResult),
-      }}
+      inferenceActions={inferenceActionsObj}
     >
       {renderMainContent()}
     </NetworkEditorLayout>
