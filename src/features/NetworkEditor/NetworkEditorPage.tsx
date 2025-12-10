@@ -1,19 +1,24 @@
 import type React from 'react';
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState } from 'react';
 import NetworkEditorLayout from './layout';
 import ProjectTabComponent from './tabs/ProjectTab';
 import NetworkGraph, { type NetworkGraphHandle } from './NetworkGraph';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 // Using native textarea (no shadcn textarea present)
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 // analysis node type is internal to the hook now
 import { useDeterministicAnalysis } from '@/hooks/useDeterministicAnalysis';
 import { useWeightedAnalysis } from '@/hooks/useWeightedAnalysis';
-import type { AnalysisEdge, AnalysisNode, WeightedAnalysisOptions } from '@/lib/analysis/types';
+import { useProbabilisticAnalysis } from '@/hooks/useProbabilisticAnalysis';
+import type { AnalysisEdge, AnalysisNode, ProbabilisticAnalysisOptions, WeightedAnalysisOptions } from '@/lib/analysis/types';
 import { useProjectNetworks, type ProjectNetworkRecord } from '@/hooks/useProjectNetworks';
 
 import AttractorGraph from './AttractorGraph';
@@ -56,9 +61,54 @@ export default function NetworkEditorPage() {
     result: weightedResult,
     isRunning: isWeightedAnalyzing,
     run: runWeightedAnalysis,
+    error: weightedError,
   } = useWeightedAnalysis();
+  const {
+    result: probabilisticResult,
+    isRunning: isProbabilisticAnalyzing,
+    error: probabilisticError,
+    run: runProbabilisticAnalysis,
+    reset: resetProbabilisticAnalysis,
+  } = useProbabilisticAnalysis();
+  const [isProbabilisticDialogOpen, setIsProbabilisticDialogOpen] = useState(false);
+  const [probabilisticForm, setProbabilisticForm] = useState({
+    noise: '0.25',
+    selfDegradation: '0.1',
+    maxIterations: '500',
+    tolerance: '1e-4',
+    initialProbability: '0.5',
+  });
+  const [probabilisticFormError, setProbabilisticFormError] = useState<string | null>(null);
+  const [inferenceMode, setInferenceMode] = useState<'deterministic' | 'weighted' | 'probabilistic'>('deterministic');
+  const probabilisticEntries = useMemo(() => {
+    if (!probabilisticResult) return [] as Array<[string, number]>;
+    return Object.entries(probabilisticResult.probabilities).sort(([, a], [, b]) => b - a);
+  }, [probabilisticResult]);
+  const probabilisticAverageProbability = useMemo(() => {
+    if (!probabilisticResult) return 0;
+    const values = Object.values(probabilisticResult.probabilities);
+    if (!values.length) return 0;
+    return values.reduce((sum, value) => sum + value, 0) / values.length;
+  }, [probabilisticResult]);
+  const probabilisticMinProbability = useMemo(() => {
+    if (!probabilisticResult) return 0;
+    const values = Object.values(probabilisticResult.probabilities);
+    if (!values.length) return 0;
+    return Math.min(...values);
+  }, [probabilisticResult]);
+  const probabilisticMaxPotentialEnergy = useMemo(() => {
+    if (!probabilisticResult) return 0;
+    const values = Object.values(probabilisticResult.potentialEnergies);
+    if (!values.length) return 0;
+    return Math.max(...values);
+  }, [probabilisticResult]);
+  const selectedNetworkData = selectedNetwork ? ((selectedNetwork as any).data ?? selectedNetwork ?? null) : null;
+  const selectedNetworkNodes: AnalysisNode[] = Array.isArray(selectedNetworkData?.nodes) ? selectedNetworkData.nodes : [];
+  const selectedNetworkEdges: AnalysisEdge[] = Array.isArray(selectedNetworkData?.edges) ? selectedNetworkData.edges : [];
+  const selectedNetworkRulesCount = Array.isArray(selectedNetworkData?.rules) ? selectedNetworkData.rules.length : 0;
+  const selectedNetworkMetadata: Record<string, any> = selectedNetworkData?.metadata ?? {};
   const graphRef = useRef<NetworkGraphHandle | null>(null);
-  const normalizeNodesEdges = (payload: any): { nodes: AnalysisNode[]; edges: AnalysisEdge[]; options: WeightedAnalysisOptions } => {
+  const normalizeNodesEdges = (payload: any): { nodes: AnalysisNode[]; edges: AnalysisEdge[]; options: WeightedAnalysisOptions; metadata: Record<string, any> } => {
     const nodes: AnalysisNode[] = (Array.isArray(payload?.nodes) ? payload.nodes : []).map((n: any) => ({
       id: String(n.id),
       label: String(n.label || n.id),
@@ -72,12 +122,22 @@ export default function NetworkEditorPage() {
       ? payload.nodes.map((n: any) => [String(n.id), Number(n.properties?.bias ?? 0)])
       : [];
     const biases = Object.fromEntries(biasesEntries);
+    const metadata = (payload && typeof payload.metadata === 'object' && payload.metadata !== null) ? payload.metadata : {};
+    const tieBehaviorCandidate = typeof payload?.tieBehavior === 'string' ? payload.tieBehavior : metadata.tieBehavior;
+    const thresholdCandidate = typeof payload?.thresholdMultiplier === 'number'
+      ? payload.thresholdMultiplier
+      : metadata.thresholdMultiplier;
     const options: WeightedAnalysisOptions = {
-      tieBehavior: (payload?.tieBehavior as any) || 'zero-as-zero',
-      thresholdMultiplier: typeof payload?.thresholdMultiplier === 'number' ? payload.thresholdMultiplier : 0.5,
+      tieBehavior:
+        tieBehaviorCandidate === 'zero-as-zero' ||
+        tieBehaviorCandidate === 'zero-as-one' ||
+        tieBehaviorCandidate === 'hold'
+          ? tieBehaviorCandidate
+          : 'zero-as-zero',
+      thresholdMultiplier: typeof thresholdCandidate === 'number' ? thresholdCandidate : 0.5,
       biases,
     };
-    return { nodes, edges, options };
+    return { nodes, edges, options, metadata };
   };
 
 
@@ -125,10 +185,153 @@ export default function NetworkEditorPage() {
       edges: networkEdges,
       tieBehavior: networkData?.metadata?.tieBehavior,
       thresholdMultiplier: networkData?.metadata?.thresholdMultiplier,
+      metadata: networkData?.metadata,
     });
 
     console.log('[NetworkEditorPage] Running weighted analysis', { nodeCount: nodes.length, edgeCount: edges.length, options });
     await runWeightedAnalysis(nodes, edges, options);
+  };
+
+  const runProbabilisticWithParams = async (params: {
+    noise: number;
+    selfDegradation: number;
+    maxIterations: number;
+    tolerance: number;
+    initialProbability: number;
+  }) => {
+    const toNumericMap = (source: any): Record<string, number> | undefined => {
+      if (!source || typeof source !== 'object') return undefined;
+      const numericEntries = Object.entries(source).reduce<Record<string, number>>((acc, [key, value]) => {
+        const num = Number(value);
+        if (Number.isFinite(num)) {
+          acc[key] = num;
+        }
+        return acc;
+      }, {});
+      return Object.keys(numericEntries).length ? numericEntries : undefined;
+    };
+
+    const runWithPayload = async (payload: any) => {
+      const { nodes, edges, options, metadata } = normalizeNodesEdges(payload);
+      if (!nodes.length) {
+        window.alert('No nodes found in the network. Please add nodes before running probabilistic analysis.');
+        return;
+      }
+
+      const probabilisticOptions: ProbabilisticAnalysisOptions = {
+        noise: params.noise,
+        selfDegradation: params.selfDegradation,
+        maxIterations: params.maxIterations,
+        tolerance: params.tolerance,
+        initialProbability: params.initialProbability,
+        biases: options.biases,
+      };
+
+      const metadataBasalSource = metadata && typeof metadata.basalActivity === 'object' && metadata.basalActivity !== null
+        ? metadata.basalActivity
+        : metadata?.probabilistic?.basalActivity;
+      const basalActivity = toNumericMap(metadataBasalSource);
+      if (basalActivity) {
+        probabilisticOptions.basalActivity = basalActivity;
+      }
+
+      const metadataInitialSource = metadata && typeof metadata.initialProbabilities === 'object' && metadata.initialProbabilities !== null
+        ? metadata.initialProbabilities
+        : metadata?.probabilistic?.initialProbabilities;
+      const initialProbabilities = toNumericMap(metadataInitialSource);
+      if (initialProbabilities) {
+        probabilisticOptions.initialProbabilities = initialProbabilities;
+      }
+
+      await runProbabilisticAnalysis(nodes, edges, probabilisticOptions);
+    };
+
+    resetProbabilisticAnalysis();
+
+    const live = graphRef.current?.getLiveWeightedConfig();
+    if (live && Array.isArray(live.nodes) && live.nodes.length > 0) {
+      await runWithPayload(live);
+      return;
+    }
+
+    if (!selectedNetwork) {
+      window.alert('No network selected. Please select a network first.');
+      return;
+    }
+
+    const networkData = (selectedNetwork as any).data || selectedNetwork;
+    const networkNodes = networkData?.nodes || [];
+    const networkEdges = networkData?.edges || [];
+
+    if (!networkNodes.length) {
+      window.alert('No nodes found in selected network. Please add nodes in the Network tab first.');
+      return;
+    }
+
+    await runWithPayload({
+      nodes: networkNodes,
+      edges: networkEdges,
+      tieBehavior: networkData?.metadata?.tieBehavior,
+      thresholdMultiplier: networkData?.metadata?.thresholdMultiplier,
+      metadata: networkData?.metadata,
+    });
+  };
+
+  const handleOpenProbabilisticDialog = () => {
+    setProbabilisticFormError(null);
+    setIsProbabilisticDialogOpen(true);
+  };
+
+  const handleProbabilisticSubmit = async () => {
+    const noise = Number(probabilisticForm.noise);
+    if (!Number.isFinite(noise) || noise <= 0) {
+      setProbabilisticFormError('Noise (µ) must be a positive number.');
+      return;
+    }
+
+    const selfDegradation = Number(probabilisticForm.selfDegradation);
+    if (!Number.isFinite(selfDegradation) || selfDegradation < 0 || selfDegradation > 1) {
+      setProbabilisticFormError('Self-degradation (c) must be between 0 and 1.');
+      return;
+    }
+
+    let maxIterations = Number(probabilisticForm.maxIterations);
+    if (!Number.isFinite(maxIterations) || maxIterations < 1) {
+      setProbabilisticFormError('Max iterations must be at least 1.');
+      return;
+    }
+    maxIterations = Math.max(1, Math.floor(maxIterations));
+
+    const tolerance = Number(probabilisticForm.tolerance);
+    if (!Number.isFinite(tolerance) || tolerance <= 0) {
+      setProbabilisticFormError('Tolerance must be a positive number.');
+      return;
+    }
+
+    const initialProbability = Number(probabilisticForm.initialProbability);
+    if (!Number.isFinite(initialProbability) || initialProbability < 0 || initialProbability > 1) {
+      setProbabilisticFormError('Initial probability must be between 0 and 1.');
+      return;
+    }
+
+    setProbabilisticFormError(null);
+    setIsProbabilisticDialogOpen(false);
+
+    await runProbabilisticWithParams({
+      noise,
+      selfDegradation,
+      maxIterations,
+      tolerance,
+      initialProbability,
+    });
+
+    setProbabilisticForm({
+      noise: String(noise),
+      selfDegradation: String(selfDegradation),
+      maxIterations: String(maxIterations),
+      tolerance: String(tolerance),
+      initialProbability: String(initialProbability),
+    });
   };
   const handleDownloadResults = () => downloadResults();
   const handleClear = () => clear();
@@ -432,24 +635,6 @@ export default function NetworkEditorPage() {
                         <Stat label="State Space" value={weightedResult.totalStateSpace} />
                         <Stat label="Attractors" value={weightedResult.attractors.length} />
                       </div>
-                      {/* Attractor landscape (weighted) shown inline with results */}
-                      {weightedResult.attractors.length > 0 && (
-                        <div className="space-y-2">
-                          <h3 className="text-sm font-semibold">Attractor Landscape (Weighted)</h3>
-                          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                            {weightedResult.attractors.slice(0, 9).map((attr: any) => (
-                              <div key={`weighted-landscape-${attr.id}`} className="border rounded-md p-2 bg-background text-xs">
-                                <div className="font-semibold">#{attr.id + 1} ({attr.type})</div>
-                                <div className="text-muted-foreground text-[11px] mb-1">Period {attr.period} • Basin {Math.round((attr.basinShare || 0) * 100)}%</div>
-                                <AttractorGraph
-                                  states={(attr.states || []).map((s: any) => ({ binary: s.binary }))}
-                                  className="w-full h-24"
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                       {weightedResult.warnings.length > 0 && (
                         <div className="text-xs text-amber-600 space-y-1">
                           {weightedResult.warnings.map((w: string, i: number) => <p key={i}>• {w}</p>)}
@@ -569,11 +754,11 @@ export default function NetworkEditorPage() {
   const inferenceActionsObj = {
     run: handleRunDeterministic,
     runWeighted: handleRunWeighted,
+    runProbabilistic: handleOpenProbabilisticDialog,
     download: handleDownloadResults,
     isRunning: isAnalyzing,
     isWeightedRunning: isWeightedAnalyzing,
     hasResult: Boolean(analysisResult || weightedResult),
-    weightedResult: weightedResult,
   };
 
   useEffect(() => {
@@ -590,7 +775,6 @@ export default function NetworkEditorPage() {
     <NetworkEditorLayout
       activeTab={activeTab}
       onTabChange={setActiveTab}
-      weightedResult={weightedResult}
       inferenceActions={inferenceActionsObj}
     >
       {renderMainContent()}

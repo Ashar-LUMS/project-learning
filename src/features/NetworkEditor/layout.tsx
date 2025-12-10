@@ -45,9 +45,11 @@ interface NetworkEditorLayoutProps {
   inferenceActions?: {
     run?: () => void;
     runWeighted?: () => void;
+    runProbabilistic?: () => void;
     download?: () => void;
     isRunning?: boolean;
     isWeightedRunning?: boolean;
+    isProbabilisticRunning?: boolean;
     hasResult?: boolean;
     /* Optional weighted result to render attractor landscape in the sidebar */
     weightedResult?: DeterministicAnalysisResult | null;
@@ -486,64 +488,58 @@ function NetworkAnalysisSidebar({ actions, weightedResult }: { actions?: Network
       <div className={`text-[10px] p-1 rounded border ${effectiveResult ? 'bg-green-100 border-green-300' : 'bg-red-100 border-red-300'}`}>
         Result: {effectiveResult ? '✓ FOUND' : '✗ NOT FOUND'} | Attractors: {effectiveResult?.attractors?.length ?? 0}
       </div>
-      {/* Attractor Landscape - HIGH PRIORITY, FULL-WIDTH */}
-      {effectiveResult && effectiveResult.attractors && effectiveResult.attractors.length > 0 && (
-        <div className="flex-shrink-0 overflow-y-auto max-h-[50vh] border rounded-lg bg-blue-50/30 p-3 space-y-2">
-          <h3 className="text-xs font-semibold text-blue-900">Attractor Landscape ({effectiveResult.attractors.length} total)</h3>
-          {effectiveResult.attractors.slice(0, 8).map((attr) => (
-            <div key={`attractor-${attr.id}`} className="border rounded-md p-2 bg-background text-xs">
-              <div className="font-semibold">#{attr.id + 1} ({attr.type})</div>
-              <div className="text-muted-foreground text-[10px]">Period {attr.period} • Basin {Math.round((attr.basinShare || 0) * 100)}%</div>
-              <AttractorGraph
-                key={`graph-${attr.id}`}
-                states={(attr.states || []).map((s: any) => ({ binary: s.binary }))}
-                className="w-full h-20"
-              />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Actions - Compact */}
-      <div className="flex-shrink-0 space-y-2">
-        <div className="text-xs font-medium text-muted-foreground">Quick Actions</div>
-        <div className="flex gap-1 flex-col">
-          <Button
-            size="sm"
-            className="h-9 text-xs justify-start gap-2"
-            onClick={() => actions?.run?.()}
-            disabled={actions?.isRunning}
-          >
-            <Play className="w-3 h-3" />
-            Rule-Based DA
-          </Button>
-          <Button
-            size="sm"
-            className="h-9 text-xs justify-start gap-2"
-            onClick={() => actions?.runWeighted?.()}
-            disabled={actions?.isWeightedRunning}
-            variant="secondary"
-          >
-            <Play className="w-3 h-3" />
-            Weighted DA
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-9 text-xs justify-start gap-2"
-            onClick={() => actions?.download?.()}
-            disabled={!actions?.hasResult}
-          >
-            <Download className="w-3 h-3" />
-            Download
-          </Button>
-        </div>
-      </div>
-
-      {/* Help Text */}
-      <div className="flex-shrink-0 text-[10px] text-muted-foreground p-2 rounded bg-muted/30 mt-auto">
-        <p>Run Weighted DA to see attractor landscape in the left panel. Results appear in main area.</p>
-      </div>
+      <Separator />
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">Actions</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="space-y-1">
+            <Button
+              className="w-full justify-start gap-3 h-11 px-4"
+              onClick={() => actions?.run?.()}
+              disabled={actions?.isRunning}
+            >
+              <Play className="w-4 h-4" />
+              Perform DA
+            </Button>
+            <Button
+              className="w-full justify-start gap-3 h-11 px-4"
+              onClick={() => {
+                console.log('[NetworkAnalysisSidebar] Weighted DA button clicked', {
+                  hasRunWeighted: !!actions?.runWeighted,
+                  isWeightedRunning: actions?.isWeightedRunning,
+                  actions
+                });
+                actions?.runWeighted?.();
+              }}
+              disabled={actions?.isWeightedRunning}
+              variant="secondary"
+            >
+              <Play className="w-4 h-4" />
+              Perform Weighted DA
+            </Button>
+            <Button
+              className="w-full justify-start gap-3 h-11 px-4"
+              onClick={() => actions?.runProbabilistic?.()}
+              disabled={actions?.isProbabilisticRunning}
+              variant="secondary"
+            >
+              <Play className="w-4 h-4" />
+              Perform Probabilistic Analysis
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-3 h-11 px-4"
+              onClick={() => actions?.download?.()}
+              disabled={!actions?.hasResult}
+            >
+              <Download className="w-4 h-4" />
+              Download Results
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

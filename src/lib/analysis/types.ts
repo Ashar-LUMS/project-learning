@@ -65,3 +65,31 @@ export interface WeightMatrix {
   thresholdMultiplier: number;
   tieBehavior: "zero-as-zero" | "zero-as-one" | "hold";
 }
+
+export interface ProbabilisticAnalysisOptions {
+  /** Noise parameter (mu) controlling sigmoid steepness. */
+  noise?: number;
+  /** Self-degradation constant (c) steering decay toward the inactive state. */
+  selfDegradation?: number;
+  /** Optional per-node basal activity offsets added to the weighted net input. */
+  basalActivity?: Record<string, number>;
+  /** Optional per-node biases (alias for basal activity). */
+  biases?: Record<string, number>;
+  /** Maximum number of kinetic update iterations before giving up (default 500). */
+  maxIterations?: number;
+  /** Convergence threshold on successive probability updates (default 1e-4). */
+  tolerance?: number;
+  /** Global initial probability (0..1) applied when per-node overrides are absent (default 0.5). */
+  initialProbability?: number;
+  /** Optional per-node overrides for initial probabilities. */
+  initialProbabilities?: Record<string, number>;
+}
+
+export interface ProbabilisticAnalysisResult {
+  nodeOrder: string[];
+  probabilities: Record<string, number>;
+  potentialEnergies: Record<string, number>;
+  iterations: number;
+  converged: boolean;
+  warnings: string[];
+}
