@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { inferRulesFromBiomolecules } from "@/lib/openRouter";
 import { useProjectNetworks, type ProjectNetworkRecord } from '@/hooks/useProjectNetworks';
+import ProbabilisticLandscape from './ProbabilisticLandscape';
 
 type ProjectRecord = {
   id: string;
@@ -736,61 +737,27 @@ export default function ProjectVisualizationPage() {
                       </div>
                     </div>
 
-                    {/* Probability Landscape Visualization */}
+                    {/* Probability Landscape - 3D Visualization */}
                     <div className="border rounded-md p-4 bg-background/50">
-                      <h4 className="font-medium text-sm mb-3">Probability Landscape</h4>
-                      <div className="space-y-2">
-                        {probabilisticResult.nodeOrder.map((nodeId: string) => {
-                          const prob = probabilisticResult.probabilities[nodeId] || 0;
-                          const percentage = prob * 100;
-                          return (
-                            <div key={nodeId} className="flex items-center gap-3">
-                              <div className="w-24 text-xs font-medium truncate" title={nodeId}>{nodeId}</div>
-                              <div className="flex-1 h-6 bg-muted rounded-full overflow-hidden">
-                                <div 
-                                  className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300 flex items-center justify-end pr-2"
-                                  style={{ width: `${percentage}%` }}
-                                >
-                                  {percentage > 20 && (
-                                    <span className="text-[10px] font-semibold text-white">{percentage.toFixed(1)}%</span>
-                                  )}
-                                </div>
-                              </div>
-                              {percentage <= 20 && (
-                                <span className="text-xs text-muted-foreground w-12 text-right">{percentage.toFixed(1)}%</span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
+                      <ProbabilisticLandscape
+                        nodeOrder={probabilisticResult.nodeOrder}
+                        probabilities={probabilisticResult.probabilities}
+                        potentialEnergies={probabilisticResult.potentialEnergies}
+                        type="probability"
+                        className="w-full"
+                      />
                     </div>
 
-                    {/* Potential Energy Landscape */}
+                    {/* Potential Energy Landscape - 3D Visualization */}
                     {Object.keys(probabilisticResult.potentialEnergies).length > 0 && (
                       <div className="border rounded-md p-4 bg-background/50">
-                        <h4 className="font-medium text-sm mb-3">Potential Energy Landscape</h4>
-                        <div className="space-y-2">
-                          {probabilisticResult.nodeOrder.map((nodeId: string) => {
-                            const energy = probabilisticResult.potentialEnergies[nodeId] || 0;
-                            const maxEnergy = Math.max(...Object.values(probabilisticResult.potentialEnergies));
-                            const minEnergy = Math.min(...Object.values(probabilisticResult.potentialEnergies));
-                            const normalizedEnergy = maxEnergy !== minEnergy 
-                              ? ((energy - minEnergy) / (maxEnergy - minEnergy)) * 100
-                              : 50;
-                            return (
-                              <div key={nodeId} className="flex items-center gap-3">
-                                <div className="w-24 text-xs font-medium truncate" title={nodeId}>{nodeId}</div>
-                                <div className="flex-1 h-6 bg-muted rounded-full overflow-hidden relative">
-                                  <div 
-                                    className="h-full bg-gradient-to-r from-green-500 via-yellow-500 to-red-500 transition-all duration-300"
-                                    style={{ width: `${normalizedEnergy}%` }}
-                                  />
-                                </div>
-                                <span className="text-xs text-muted-foreground w-16 text-right font-mono">{energy.toFixed(3)}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
+                        <ProbabilisticLandscape
+                          nodeOrder={probabilisticResult.nodeOrder}
+                          probabilities={probabilisticResult.probabilities}
+                          potentialEnergies={probabilisticResult.potentialEnergies}
+                          type="energy"
+                          className="w-full"
+                        />
                       </div>
                     )}
 
