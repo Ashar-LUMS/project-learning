@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { BooleanRulesPopup } from "../../components/BooleanRulesPopup";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +20,8 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { performDeterministicAnalysis, type DeterministicAnalysisResult } from "@/lib/deterministicAnalysis";
 
 // Types for Boolean network
 export type BooleanNode = {
@@ -74,6 +76,9 @@ export function RuleBasedGraph({
   const [autoSimulate, setAutoSimulate] = useState(false);
   const [simulationSpeed, setSimulationSpeed] = useState(1000);
   const [simulationInterval, setSimulationInterval] = useState<NodeJS.Timeout | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<DeterministicAnalysisResult | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // Initialize from initialRuleSet if provided
   useEffect(() => {
@@ -240,6 +245,9 @@ export function RuleBasedGraph({
     console.log('Parsed Boolean network:', network);
     setBooleanNetwork(network);
     setSimulationStep(0);
+    setAnalysisResult(null);
+    setAnalysisError(null);
+    setIsAnalyzing(false);
     
     // Stop auto simulation if running
     if (simulationInterval) {
@@ -266,6 +274,42 @@ export function RuleBasedGraph({
       onRulesApply(ruleSet);
     }
   };
+
+  useEffect(() => {
+    if (!booleanNetwork || !booleanNetwork.nodes.length || rules.length === 0) {
+      setAnalysisResult(null);
+      setAnalysisError(null);
+      setIsAnalyzing(false);
+      return;
+    }
+
+    const nodeCount = booleanNetwork.nodes.length;
+    if (nodeCount > 20) {
+      setAnalysisResult(null);
+      setAnalysisError('Boolean analysis supports up to 20 nodes.');
+      setIsAnalyzing(false);
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setAnalysisError(null);
+
+    try {
+      const analysisNodes = booleanNetwork.nodes.map(node => ({ id: node.id, label: node.label }));
+      const totalStates = Math.pow(2, nodeCount);
+      // Exhaustively traverse the full Boolean state space so attractors are exact.
+      const result = performDeterministicAnalysis(
+        { nodes: analysisNodes, rules },
+        { stateCap: totalStates, stepCap: totalStates },
+      );
+      setAnalysisResult(result);
+    } catch (error) {
+      setAnalysisResult(null);
+      setAnalysisError(error instanceof Error ? error.message : 'Failed to analyze Boolean network.');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [booleanNetwork, rules]);
 
   // Run one simulation step
   const runSimulationStep = () => {
@@ -375,6 +419,24 @@ export function RuleBasedGraph({
       }
     };
   }, [simulationInterval]);
+
+  const attractorSummary = useMemo(() => {
+    if (!analysisResult) return null;
+    const fixedPoints = analysisResult.attractors.filter(attr => attr.type === 'fixed-point').length;
+    const limitCycles = analysisResult.attractors.filter(attr => attr.type === 'limit-cycle').length;
+    const coverage = analysisResult.totalStateSpace > 0
+      ? analysisResult.exploredStateCount / analysisResult.totalStateSpace
+      : 0;
+    return {
+      fixedPoints,
+      limitCycles,
+      attractorCount: analysisResult.attractors.length,
+      coverage,
+    };
+  }, [analysisResult]);
+
+  const formatPercent = (value: number) => `${(value * 100).toFixed(1)}%`;
+  const hasFullCoverage = !!analysisResult && analysisResult.totalStateSpace > 0 && analysisResult.exploredStateCount === analysisResult.totalStateSpace;
 
   const stats = calculateStatistics();
 
@@ -559,6 +621,50 @@ export function RuleBasedGraph({
                 </CardContent>
               </Card>
               
+              <Card>
+                <CardHeader className="p-4">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4" />
+                    Attractor Summary
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 pt-0 space-y-3">
+                  {isAnalyzing ? (
+                    <div className="text-xs text-muted-foreground">Analyzing state space…</div>
+                  ) : analysisError ? (
+                    <div className="text-xs text-red-600">{analysisError}</div>
+                  ) : analysisResult ? (
+                    <>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <div className="text-muted-foreground uppercase tracking-wide">Attractors</div>
+                          <div className="text-sm font-semibold">{attractorSummary?.attractorCount ?? 0}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground uppercase tracking-wide">Fixed Points</div>
+                          <div className="text-sm font-semibold">{attractorSummary?.fixedPoints ?? 0}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground uppercase tracking-wide">Limit Cycles</div>
+                          <div className="text-sm font-semibold">{attractorSummary?.limitCycles ?? 0}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground uppercase tracking-wide">Coverage</div>
+                          <div className="text-sm font-semibold">{formatPercent(attractorSummary?.coverage ?? 0)}</div>
+                        </div>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {hasFullCoverage
+                          ? `Full coverage of all ${analysisResult.totalStateSpace.toLocaleString()} states.`
+                          : `Explored ${analysisResult.exploredStateCount.toLocaleString()} of ${analysisResult.totalStateSpace.toLocaleString()} states.`}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-xs text-muted-foreground">Define Boolean rules to analyze attractors.</div>
+                  )}
+                </CardContent>
+              </Card>
+
               <div className="flex-1">
                 <div className="text-sm font-medium mb-2">Boolean Rules ({rules.length})</div>
                 <div className="space-y-2 max-h-64 overflow-y-auto">
@@ -602,7 +708,7 @@ export function RuleBasedGraph({
           {booleanNetwork ? (
             <div className="h-full flex flex-col">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
-                <TabsList className="grid w-full max-w-md grid-cols-2 mb-4">
+                <TabsList className="grid w-full max-w-lg grid-cols-3 mb-4">
                   <TabsTrigger value="rules" className="flex items-center gap-2">
                     <Eye className="h-4 w-4" />
                     Node View
@@ -610,6 +716,10 @@ export function RuleBasedGraph({
                   <TabsTrigger value="graph" className="flex items-center gap-2">
                     <Network className="h-4 w-4" />
                     Graph View
+                  </TabsTrigger>
+                  <TabsTrigger value="analysis" className="flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4" />
+                    Attractors
                   </TabsTrigger>
                 </TabsList>
                 
@@ -744,6 +854,110 @@ export function RuleBasedGraph({
                         </div>
                       </div>
                     </div>
+                  </div>
+                </TabsContent>
+                <TabsContent value="analysis" className="h-[calc(100%-60px)] mt-0">
+                  <div className="h-full border rounded-lg bg-white p-4 flex flex-col">
+                    {isAnalyzing ? (
+                      <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+                        Analyzing attractors across the full state space…
+                      </div>
+                    ) : analysisError ? (
+                      <div className="flex-1">
+                        <Alert variant="destructive">
+                          <AlertDescription>{analysisError}</AlertDescription>
+                        </Alert>
+                      </div>
+                    ) : analysisResult ? (
+                      <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                          <div className="p-3 border rounded-lg bg-muted/30">
+                            <div className="text-xs text-muted-foreground uppercase tracking-wide">Attractors</div>
+                            <div className="text-lg font-semibold">{attractorSummary?.attractorCount ?? 0}</div>
+                          </div>
+                          <div className="p-3 border rounded-lg bg-muted/30">
+                            <div className="text-xs text-muted-foreground uppercase tracking-wide">Fixed Points</div>
+                            <div className="text-lg font-semibold">{attractorSummary?.fixedPoints ?? 0}</div>
+                          </div>
+                          <div className="p-3 border rounded-lg bg-muted/30">
+                            <div className="text-xs text-muted-foreground uppercase tracking-wide">Limit Cycles</div>
+                            <div className="text-lg font-semibold">{attractorSummary?.limitCycles ?? 0}</div>
+                          </div>
+                          <div className="p-3 border rounded-lg bg-muted/30">
+                            <div className="text-xs text-muted-foreground uppercase tracking-wide">State Coverage</div>
+                            <div className="text-lg font-semibold">{formatPercent(attractorSummary?.coverage ?? 0)}</div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {hasFullCoverage
+                                ? `Explored all ${analysisResult.totalStateSpace.toLocaleString()} states.`
+                                : `Explored ${analysisResult.exploredStateCount.toLocaleString()} of ${analysisResult.totalStateSpace.toLocaleString()} states.`}
+                            </div>
+                          </div>
+                        </div>
+
+                        {analysisResult.warnings.length > 0 && (
+                          <Alert className="border-amber-200 bg-amber-50 text-amber-900">
+                            <AlertDescription className="text-amber-900/90">
+                              <div className="space-y-1">
+                                {analysisResult.warnings.map((warning, index) => (
+                                  <div key={index} className="text-xs">• {warning}</div>
+                                ))}
+                              </div>
+                            </AlertDescription>
+                          </Alert>
+                        )}
+
+                        <div className="space-y-4">
+                          {analysisResult.attractors.length === 0 ? (
+                            <div className="text-sm text-muted-foreground">
+                              No attractors were found for the current Boolean rules.
+                            </div>
+                          ) : (
+                            analysisResult.attractors.map(attractor => (
+                              <Card key={attractor.id}>
+                                <CardHeader className="pb-2">
+                                  <CardTitle className="text-sm">
+                                    Attractor #{attractor.id + 1} · {attractor.type === 'fixed-point' ? 'Fixed Point' : 'Limit Cycle'}
+                                  </CardTitle>
+                                  <div className="text-xs text-muted-foreground">
+                                    Period {attractor.period} · Basin {formatPercent(attractor.basinShare)}
+                                  </div>
+                                </CardHeader>
+                                <CardContent className="space-y-3">
+                                  <div className="overflow-x-auto">
+                                    <table className="w-full text-xs border-collapse">
+                                      <thead>
+                                        <tr>
+                                          <th className="px-2 py-1 text-left font-semibold">Step</th>
+                                          {analysisResult.nodeOrder.map(nodeId => (
+                                            <th key={nodeId} className="px-2 py-1 text-left font-semibold">{nodeId}</th>
+                                          ))}
+                                          <th className="px-2 py-1 text-left font-semibold">Binary</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {attractor.states.map((state, index) => (
+                                          <tr key={index} className="border-t">
+                                            <td className="px-2 py-1 font-medium">{index + 1}</td>
+                                            {analysisResult.nodeOrder.map(nodeId => (
+                                              <td key={nodeId} className="px-2 py-1">{state.values[nodeId]}</td>
+                                            ))}
+                                            <td className="px-2 py-1 font-mono">{state.binary}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+                        Define Boolean rules to compute attractors.
+                      </div>
+                    )}
                   </div>
                 </TabsContent>
               </Tabs>

@@ -14,6 +14,8 @@ export type {
   DeterministicAnalysisOptions,
   WeightedAnalysisOptions,
   WeightMatrix,
+  ProbabilisticAnalysisOptions,
+  ProbabilisticAnalysisResult,
 } from './types';
 
 // Matrix utilities
@@ -21,3 +23,6 @@ export { edgesToMatrix, matrixToEdges, getInDegree, computeThreshold } from './m
 
 // Weighted analysis
 export { performWeightedAnalysis } from './weightedDeterministicAnalysis';
+
+// Probabilistic analysis
+export { performProbabilisticAnalysis } from './probabilisticAnalysis';
