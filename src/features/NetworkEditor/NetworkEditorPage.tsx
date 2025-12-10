@@ -1,9 +1,10 @@
 import type React from 'react';
-import { useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import NetworkEditorLayout from './layout';
+import type { NetworkEditorLayoutProps } from './layout';
 import ProjectTabComponent from './tabs/ProjectTab';
 import NetworkGraph, { type NetworkGraphHandle } from './NetworkGraph';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -13,7 +14,6 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 // analysis node type is internal to the hook now
 import { useDeterministicAnalysis } from '@/hooks/useDeterministicAnalysis';
 import { useWeightedAnalysis } from '@/hooks/useWeightedAnalysis';
@@ -27,7 +27,12 @@ import AttractorGraph from './AttractorGraph';
 // Last updated: 2025-12-05 - Added weighted analysis support
 
 export default function NetworkEditorPage() {
+  // TEST: Mark that component is rendering
+  (window as any).__networkEditorPageRenderCount = ((window as any).__networkEditorPageRenderCount || 0) + 1;
+  
   console.log('[NetworkEditorPage] Component mounting - weighted analysis enabled');
+  console.log('[NetworkEditorPage] === COMPONENT RENDER START ===');
+  console.log('[NetworkEditorPage] RENDER #' + (window as any).__networkEditorPageRenderCount);
   const [activeTab, setActiveTab] = useState<'projects' | 'network' | 'therapeutics' | 'analysis' | 'results' | 'network-inference' | 'env' | 'cell-circuits' | 'cell-lines' | 'simulation'>('projects');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   // networks managed via hook now
@@ -61,7 +66,6 @@ export default function NetworkEditorPage() {
     result: weightedResult,
     isRunning: isWeightedAnalyzing,
     run: runWeightedAnalysis,
-    error: weightedError,
   } = useWeightedAnalysis();
   const {
     result: probabilisticResult,
@@ -79,7 +83,6 @@ export default function NetworkEditorPage() {
     initialProbability: '0.5',
   });
   const [probabilisticFormError, setProbabilisticFormError] = useState<string | null>(null);
-  const [inferenceMode, setInferenceMode] = useState<'deterministic' | 'weighted' | 'probabilistic'>('deterministic');
   const probabilisticEntries = useMemo(() => {
     if (!probabilisticResult) return [] as Array<[string, number]>;
     return Object.entries(probabilisticResult.probabilities).sort(([, a], [, b]) => b - a);
@@ -102,11 +105,6 @@ export default function NetworkEditorPage() {
     if (!values.length) return 0;
     return Math.max(...values);
   }, [probabilisticResult]);
-  const selectedNetworkData = selectedNetwork ? ((selectedNetwork as any).data ?? selectedNetwork ?? null) : null;
-  const selectedNetworkNodes: AnalysisNode[] = Array.isArray(selectedNetworkData?.nodes) ? selectedNetworkData.nodes : [];
-  const selectedNetworkEdges: AnalysisEdge[] = Array.isArray(selectedNetworkData?.edges) ? selectedNetworkData.edges : [];
-  const selectedNetworkRulesCount = Array.isArray(selectedNetworkData?.rules) ? selectedNetworkData.rules.length : 0;
-  const selectedNetworkMetadata: Record<string, any> = selectedNetworkData?.metadata ?? {};
   const graphRef = useRef<NetworkGraphHandle | null>(null);
   const normalizeNodesEdges = (payload: any): { nodes: AnalysisNode[]; edges: AnalysisEdge[]; options: WeightedAnalysisOptions; metadata: Record<string, any> } => {
     const nodes: AnalysisNode[] = (Array.isArray(payload?.nodes) ? payload.nodes : []).map((n: any) => ({
@@ -199,6 +197,9 @@ export default function NetworkEditorPage() {
     tolerance: number;
     initialProbability: number;
   }) => {
+    // Clear previous errors up front so the user sees fresh status
+    setProbabilisticFormError(null);
+
     const toNumericMap = (source: any): Record<string, number> | undefined => {
       if (!source || typeof source !== 'object') return undefined;
       const numericEntries = Object.entries(source).reduce<Record<string, number>>((acc, [key, value]) => {
@@ -214,7 +215,8 @@ export default function NetworkEditorPage() {
     const runWithPayload = async (payload: any) => {
       const { nodes, edges, options, metadata } = normalizeNodesEdges(payload);
       if (!nodes.length) {
-        window.alert('No nodes found in the network. Please add nodes before running probabilistic analysis.');
+        const message = 'No nodes found in the network. Please add nodes before running probabilistic analysis.';
+        setProbabilisticFormError(message);
         return;
       }
 
@@ -243,7 +245,13 @@ export default function NetworkEditorPage() {
         probabilisticOptions.initialProbabilities = initialProbabilities;
       }
 
-      await runProbabilisticAnalysis(nodes, edges, probabilisticOptions);
+      try {
+        await runProbabilisticAnalysis(nodes, edges, probabilisticOptions);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Probabilistic analysis failed.';
+        setProbabilisticFormError(message);
+        throw err;
+      }
     };
 
     resetProbabilisticAnalysis();
@@ -255,7 +263,7 @@ export default function NetworkEditorPage() {
     }
 
     if (!selectedNetwork) {
-      window.alert('No network selected. Please select a network first.');
+      setProbabilisticFormError('No network selected. Please select a network first.');
       return;
     }
 
@@ -264,7 +272,7 @@ export default function NetworkEditorPage() {
     const networkEdges = networkData?.edges || [];
 
     if (!networkNodes.length) {
-      window.alert('No nodes found in selected network. Please add nodes in the Network tab first.');
+      setProbabilisticFormError('No nodes found in selected network. Please add nodes in the Network tab first.');
       return;
     }
 
@@ -278,12 +286,21 @@ export default function NetworkEditorPage() {
   };
 
   const handleOpenProbabilisticDialog = () => {
+    console.log('[DEBUG-BUTTON] Perform Probabilistic Analysis button CLICKED');
+    console.log('[DEBUG-BUTTON] Current state before opening dialog:', {
+      isProbabilisticDialogOpen,
+      isProbabilisticAnalyzing,
+      probabilisticResult: !!probabilisticResult,
+    });
     setProbabilisticFormError(null);
     setIsProbabilisticDialogOpen(true);
+    console.log('[DEBUG] Dialog open state changed to true');
   };
 
   const handleProbabilisticSubmit = async () => {
+    console.log('[DEBUG-SUBMIT] Submit clicked, form:', probabilisticForm);
     const noise = Number(probabilisticForm.noise);
+    console.log('[DEBUG-SUBMIT] Noise:', noise);
     if (!Number.isFinite(noise) || noise <= 0) {
       setProbabilisticFormError('Noise (µ) must be a positive number.');
       return;
@@ -315,15 +332,28 @@ export default function NetworkEditorPage() {
     }
 
     setProbabilisticFormError(null);
-    setIsProbabilisticDialogOpen(false);
+    // Don't close dialog yet - wait for the run to complete so we can show errors if needed
 
-    await runProbabilisticWithParams({
-      noise,
-      selfDegradation,
-      maxIterations,
-      tolerance,
-      initialProbability,
-    });
+    try {
+      await runProbabilisticWithParams({
+        noise,
+        selfDegradation,
+        maxIterations,
+        tolerance,
+        initialProbability,
+      });
+
+      console.log('[handleProbabilisticSubmit] Analysis completed');
+
+      // Only close dialog if there's no error
+      if (!probabilisticError) {
+        setIsProbabilisticDialogOpen(false);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Probabilistic analysis failed unexpectedly.';
+      setProbabilisticFormError(message);
+      console.error('[handleProbabilisticSubmit] Error:', err);
+    }
 
     setProbabilisticForm({
       noise: String(noise),
@@ -565,6 +595,9 @@ export default function NetworkEditorPage() {
                     <Button size="sm" variant="secondary" onClick={handleRunWeighted} disabled={isWeightedAnalyzing}>
                       {isWeightedAnalyzing ? 'Analyzing…' : 'Perform Weighted DA'}
                     </Button>
+                    <Button size="sm" variant="secondary" onClick={handleOpenProbabilisticDialog} disabled={isProbabilisticAnalyzing}>
+                      {isProbabilisticAnalyzing ? 'Analyzing…' : 'Probabilistic Analysis'}
+                    </Button>
                     <Button size="sm" variant="outline" onClick={handleExample}>Load Example</Button>
                     <Button size="sm" variant="ghost" onClick={handleClear} disabled={!analysisResult && !analysisError}>Clear</Button>
                     <Button size="sm" variant="outline" onClick={handleDownloadResults} disabled={!analysisResult}>Download Results</Button>
@@ -574,6 +607,9 @@ export default function NetworkEditorPage() {
                   </div>
                   {analysisError && (
                     <div className="text-sm text-red-600">{analysisError}</div>
+                  )}
+                  {probabilisticError && (
+                    <div className="text-sm text-red-600">{probabilisticError}</div>
                   )}
                   {analysisResult && (
                     <div className="flex-1 overflow-auto border rounded-md p-4 space-y-4 bg-muted/30">
@@ -679,6 +715,62 @@ export default function NetworkEditorPage() {
                       </div>
                     </div>
                   )}
+                  {probabilisticResult && (
+                    <div className="flex-1 overflow-auto border rounded-md p-4 space-y-4 bg-muted/30">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <Stat label="Nodes" value={probabilisticResult.nodeOrder.length} />
+                        <Stat label="Converged" value={probabilisticResult.converged ? 'Yes' : 'No'} />
+                        <Stat label="Iterations" value={probabilisticResult.iterations} />
+                        <Stat label="Avg P" value={probabilisticAverageProbability.toFixed(3)} />
+                      </div>
+                      {probabilisticResult.warnings.length > 0 && (
+                        <div className="text-xs text-amber-600 space-y-1">
+                          {probabilisticResult.warnings.map((w: string, i: number) => <p key={i}>• {w}</p>)}
+                        </div>
+                      )}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div className="space-y-2">
+                          <div className="font-semibold text-sm">Steady-state probabilities</div>
+                          <table className="w-full text-xs border-collapse">
+                            <thead>
+                              <tr>
+                                <th className="text-left p-1 font-semibold">Node</th>
+                                <th className="text-left p-1 font-semibold">Probability</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {probabilisticEntries.map(([nodeId, prob]: [string, number]) => (
+                                <tr key={nodeId} className="odd:bg-muted/40">
+                                  <td className="p-1 font-mono">{nodeId}</td>
+                                  <td className="p-1">{prob.toFixed(4)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="font-semibold text-sm">Potential energies (−ln P)</div>
+                          <table className="w-full text-xs border-collapse">
+                            <thead>
+                              <tr>
+                                <th className="text-left p-1 font-semibold">Node</th>
+                                <th className="text-left p-1 font-semibold">PE</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {probabilisticEntries.map(([nodeId]: [string, number]) => (
+                                <tr key={nodeId} className="odd:bg-muted/40">
+                                  <td className="p-1 font-mono">{nodeId}</td>
+                                  <td className="p-1">{probabilisticResult.potentialEnergies[nodeId].toFixed(4)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          <div className="text-xs text-muted-foreground">Min P = {probabilisticMinProbability.toFixed(4)} · Max PE = {probabilisticMaxPotentialEnergy.toFixed(4)}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
               <div className="w-full lg:w-80 space-y-6">
@@ -705,42 +797,6 @@ export default function NetworkEditorPage() {
             </div>
           </div>
         );
-        return (
-          <div className="h-full p-6">
-            <Card className="h-full">
-              <CardContent className="flex flex-col items-center justify-center h-full p-8 text-center">
-                <div className="max-w-md space-y-4">
-                  <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-                    <svg 
-                      className="w-8 h-8 text-primary" 
-                      fill="none" 
-                      stroke="currentColor" 
-                      viewBox="0 0 24 24"
-                    >
-                      <path 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round" 
-                        strokeWidth={1.5} 
-                        d="M13 10V3L4 14h7v7l9-11h-7z" 
-                      />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold mb-2 capitalize">
-                      {activeTab} Workspace
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      The {activeTab} module is currently under development and will be available soon.
-                    </p>
-                  </div>
-                  <Badge variant="outline" className="text-xs">
-                    Coming Soon
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        );
 
       default:
         return (
@@ -751,15 +807,31 @@ export default function NetworkEditorPage() {
     }
   };
 
-  const inferenceActionsObj = {
-    run: handleRunDeterministic,
-    runWeighted: handleRunWeighted,
-    runProbabilistic: handleOpenProbabilisticDialog,
-    download: handleDownloadResults,
-    isRunning: isAnalyzing,
-    isWeightedRunning: isWeightedAnalyzing,
-    hasResult: Boolean(analysisResult || weightedResult),
-  };
+  const inferenceActionsObj: NetworkEditorLayoutProps['inferenceActions'] = {};
+  inferenceActionsObj.run = handleRunDeterministic;
+  inferenceActionsObj.runWeighted = handleRunWeighted;
+  inferenceActionsObj.runProbabilistic = handleOpenProbabilisticDialog;
+  inferenceActionsObj.download = handleDownloadResults;
+  inferenceActionsObj.isRunning = isAnalyzing;
+  inferenceActionsObj.isWeightedRunning = isWeightedAnalyzing;
+  inferenceActionsObj.isProbabilisticRunning = isProbabilisticAnalyzing;
+  inferenceActionsObj.weightedResult = weightedResult;
+  inferenceActionsObj.hasResult = Boolean(analysisResult || weightedResult || probabilisticResult);
+
+  console.log('[NetworkEditorPage] CREATED ACTIONS OBJECT - PROPERTIES ADDED ONE BY ONE:', {
+    keys: Object.keys(inferenceActionsObj),
+    hasRunProbabilistic: 'runProbabilistic' in inferenceActionsObj,
+    hasIsProbabilisticRunning: 'isProbabilisticRunning' in inferenceActionsObj,
+    hasWeightedResult: 'weightedResult' in inferenceActionsObj,
+  });
+
+  useEffect(() => {
+    console.log('[NetworkEditorPage] inferenceActionsObj updated:', {
+      hasRunProbabilistic: !!inferenceActionsObj.runProbabilistic,
+      runProbabilisticName: inferenceActionsObj.runProbabilistic?.name,
+      isProbabilisticRunning: inferenceActionsObj.isProbabilisticRunning,
+    });
+  }, [inferenceActionsObj]);
 
   useEffect(() => {
     // eslint-disable-next-line no-console
@@ -769,16 +841,127 @@ export default function NetworkEditorPage() {
     });
   }, [weightedResult]);
 
-  console.log('[NetworkEditorPage] Rendering with inferenceActions:', inferenceActionsObj);
+  useEffect(() => {
+    if (!probabilisticResult) return;
+    // eslint-disable-next-line no-console
+    console.log('[NetworkEditorPage] probabilisticResult updated', {
+      converged: probabilisticResult.converged,
+      iterations: probabilisticResult.iterations,
+      nodeCount: probabilisticResult.nodeOrder.length,
+    });
+  }, [probabilisticResult]);
+
+  useEffect(() => {
+    console.log('[NetworkEditorPage] isProbabilisticAnalyzing changed:', isProbabilisticAnalyzing);
+  }, [isProbabilisticAnalyzing]);
+
+  console.log('[NetworkEditorPage] Rendering with inferenceActions keys:', Object.keys(inferenceActionsObj));
+  console.log('[NetworkEditorPage] Has runProbabilistic?', typeof inferenceActionsObj.runProbabilistic);
+  console.log('[NetworkEditorPage] Has isProbabilisticRunning?', typeof inferenceActionsObj.isProbabilisticRunning);
+  console.log('[NetworkEditorPage] FINAL CHECK BEFORE RETURN:', {
+    runProbabilistic: inferenceActionsObj.runProbabilistic?.name || 'MISSING',
+    isProbabilisticRunning: inferenceActionsObj.isProbabilisticRunning,
+    keysCount: Object.keys(inferenceActionsObj).length,
+  });
 
   return (
-    <NetworkEditorLayout
-      activeTab={activeTab}
-      onTabChange={setActiveTab}
-      inferenceActions={inferenceActionsObj}
-    >
-      {renderMainContent()}
-    </NetworkEditorLayout>
+    <>
+      <NetworkEditorLayout
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        inferenceActions={inferenceActionsObj}
+      >
+        {renderMainContent()}
+      </NetworkEditorLayout>
+
+      <Dialog open={isProbabilisticDialogOpen} onOpenChange={setIsProbabilisticDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Probabilistic Analysis</DialogTitle>
+            <DialogDescription>
+              Configure noise (µ), self-degradation (c), iteration cap, tolerance, and global initial probability.
+            </DialogDescription>
+          </DialogHeader>
+
+          {probabilisticFormError && (
+            <Alert variant="destructive">
+              <AlertDescription>{probabilisticFormError}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="noise">Noise (µ)</Label>
+              <Input
+                id="noise"
+                type="number"
+                step="0.01"
+                value={probabilisticForm.noise}
+                onChange={(e) => setProbabilisticForm((prev) => ({ ...prev, noise: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">Higher µ flattens responses.</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="selfDeg">Self-degradation (c)</Label>
+              <Input
+                id="selfDeg"
+                type="number"
+                step="0.01"
+                min="0"
+                max="1"
+                value={probabilisticForm.selfDegradation}
+                onChange={(e) => setProbabilisticForm((prev) => ({ ...prev, selfDegradation: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">0..1; higher pushes decay.</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="maxIter">Max iterations</Label>
+              <Input
+                id="maxIter"
+                type="number"
+                min="1"
+                step="1"
+                value={probabilisticForm.maxIterations}
+                onChange={(e) => setProbabilisticForm((prev) => ({ ...prev, maxIterations: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tolerance">Tolerance</Label>
+              <Input
+                id="tolerance"
+                type="number"
+                step="1e-5"
+                value={probabilisticForm.tolerance}
+                onChange={(e) => setProbabilisticForm((prev) => ({ ...prev, tolerance: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">Convergence threshold.</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="initialProb">Initial probability</Label>
+              <Input
+                id="initialProb"
+                type="number"
+                step="0.01"
+                min="0"
+                max="1"
+                value={probabilisticForm.initialProbability}
+                onChange={(e) => setProbabilisticForm((prev) => ({ ...prev, initialProbability: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">Fallback when per-node initial P is absent.</p>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setIsProbabilisticDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleProbabilisticSubmit} disabled={isProbabilisticAnalyzing}>
+              {isProbabilisticAnalyzing ? 'Running…' : 'Run Probabilistic Analysis'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

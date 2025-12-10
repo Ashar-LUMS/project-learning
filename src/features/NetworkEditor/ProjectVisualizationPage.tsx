@@ -9,7 +9,8 @@ import { supabase } from "../../supabaseClient";
 import NetworkEditorLayout from "./layout";
 import { useDeterministicAnalysis } from '@/hooks/useDeterministicAnalysis';
 import { useWeightedAnalysis } from '@/hooks/useWeightedAnalysis';
-import type { AnalysisEdge, AnalysisNode, WeightedAnalysisOptions } from '@/lib/analysis/types';
+import { useProbabilisticAnalysis } from '@/hooks/useProbabilisticAnalysis';
+import type { AnalysisEdge, AnalysisNode, ProbabilisticAnalysisOptions, WeightedAnalysisOptions } from '@/lib/analysis/types';
 import AttractorGraph from './AttractorGraph';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -40,6 +41,17 @@ export default function ProjectVisualizationPage() {
   const [recentNetworkIds, setRecentNetworkIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Probabilistic analysis dialog state
+  const [isProbabilisticDialogOpen, setIsProbabilisticDialogOpen] = useState(false);
+  const [probabilisticForm, setProbabilisticForm] = useState({
+    noise: '0.25',
+    selfDegradation: '0.1',
+    maxIterations: '500',
+    tolerance: '1e-4',
+    initialProbability: '0.5',
+  });
+  const [probabilisticFormError, setProbabilisticFormError] = useState<string | null>(null);
 
   // Import Network dialog state
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -73,6 +85,14 @@ export default function ProjectVisualizationPage() {
     isRunning: isWeightedAnalyzing,
     run: runWeightedAnalysis,
   } = useWeightedAnalysis();
+
+  const {
+    result: probabilisticResult,
+    isRunning: isProbabilisticAnalyzing,
+    error: probabilisticError,
+    run: runProbabilisticAnalysis,
+    reset: resetProbabilisticAnalysis,
+  } = useProbabilisticAnalysis();
 
   const normalizeNodesEdges = (payload: any): { nodes: AnalysisNode[]; edges: AnalysisEdge[]; options: WeightedAnalysisOptions } => {
     const nodes: AnalysisNode[] = (Array.isArray(payload?.nodes) ? payload.nodes : []).map((n: any) => ({
@@ -120,6 +140,62 @@ export default function ProjectVisualizationPage() {
 
     await runWeightedAnalysis(nodes, edges, options);
   };
+
+  const handleOpenProbabilisticDialog = () => {
+    setProbabilisticFormError(null);
+    setIsProbabilisticDialogOpen(true);
+  };
+
+  const handleProbabilisticSubmit = async () => {
+    if (!selectedNetwork) {
+      setProbabilisticFormError('No network selected. Please select a network first.');
+      return;
+    }
+
+    try {
+      const noise = parseFloat(probabilisticForm.noise);
+      const selfDegradation = parseFloat(probabilisticForm.selfDegradation);
+      const maxIterations = parseInt(probabilisticForm.maxIterations, 10);
+      const tolerance = parseFloat(probabilisticForm.tolerance);
+      const initialProbability = parseFloat(probabilisticForm.initialProbability);
+
+      if (isNaN(noise) || isNaN(selfDegradation) || isNaN(maxIterations) || isNaN(tolerance) || isNaN(initialProbability)) {
+        setProbabilisticFormError('Invalid parameters. Please check your inputs.');
+        return;
+      }
+
+      const networkData = (selectedNetwork as any).data || selectedNetwork;
+      const nodes: AnalysisNode[] = (Array.isArray(networkData?.nodes) ? networkData.nodes : []).map((n: any) => ({
+        id: String(n.id),
+        label: String(n.label || n.id),
+      }));
+      const edges: AnalysisEdge[] = (Array.isArray(networkData?.edges) ? networkData.edges : []).map((e: any) => ({
+        source: String(e.source),
+        target: String(e.target),
+        weight: Number(e.weight ?? 1),
+      }));
+
+      const probabilisticOptions: ProbabilisticAnalysisOptions = {
+        noise,
+        selfDegradation,
+        maxIterations,
+        tolerance,
+        initialProbability,
+      };
+
+      resetProbabilisticAnalysis();
+      await runProbabilisticAnalysis(nodes, edges, probabilisticOptions);
+      setIsProbabilisticDialogOpen(false);
+    } catch (error) {
+      setProbabilisticFormError(error instanceof Error ? error.message : 'Unknown error');
+    }
+  };
+
+  useEffect(() => {
+    if (probabilisticError) {
+      setProbabilisticFormError(probabilisticError);
+    }
+  }, [probabilisticError]);
 
   useEffect(() => {
     let isMounted = true;
@@ -643,6 +719,137 @@ export default function ProjectVisualizationPage() {
                     ))}
                   </div>
                 )}
+
+                {isProbabilisticAnalyzing && (
+                  <div className="text-sm text-muted-foreground">Running probabilistic analysis…</div>
+                )}
+
+                {probabilisticResult && !isProbabilisticAnalyzing && (
+                  <div className="space-y-4">
+                    <div className="border-t pt-4">
+                      <h3 className="font-semibold text-sm mb-3">Probabilistic Analysis Results</h3>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-[10px] uppercase tracking-wide text-muted-foreground">Nodes</span><span className="text-sm font-semibold">{probabilisticResult.nodeOrder.length}</span></div>
+                        <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-[10px] uppercase tracking-wide text-muted-foreground">Converged</span><span className="text-sm font-semibold">{probabilisticResult.converged ? 'Yes' : 'No'}</span></div>
+                        <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-[10px] uppercase tracking-wide text-muted-foreground">Iterations</span><span className="text-sm font-semibold">{probabilisticResult.iterations}</span></div>
+                        <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-[10px] uppercase tracking-wide text-muted-foreground">Avg P</span><span className="text-sm font-semibold">{(Object.values(probabilisticResult.probabilities).reduce((a, b) => a + b, 0) / probabilisticResult.nodeOrder.length * 100).toFixed(1)}%</span></div>
+                      </div>
+                    </div>
+
+                    {/* Probability Landscape Visualization */}
+                    <div className="border rounded-md p-4 bg-background/50">
+                      <h4 className="font-medium text-sm mb-3">Probability Landscape</h4>
+                      <div className="space-y-2">
+                        {probabilisticResult.nodeOrder.map((nodeId: string) => {
+                          const prob = probabilisticResult.probabilities[nodeId] || 0;
+                          const percentage = prob * 100;
+                          return (
+                            <div key={nodeId} className="flex items-center gap-3">
+                              <div className="w-24 text-xs font-medium truncate" title={nodeId}>{nodeId}</div>
+                              <div className="flex-1 h-6 bg-muted rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300 flex items-center justify-end pr-2"
+                                  style={{ width: `${percentage}%` }}
+                                >
+                                  {percentage > 20 && (
+                                    <span className="text-[10px] font-semibold text-white">{percentage.toFixed(1)}%</span>
+                                  )}
+                                </div>
+                              </div>
+                              {percentage <= 20 && (
+                                <span className="text-xs text-muted-foreground w-12 text-right">{percentage.toFixed(1)}%</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Potential Energy Landscape */}
+                    {Object.keys(probabilisticResult.potentialEnergies).length > 0 && (
+                      <div className="border rounded-md p-4 bg-background/50">
+                        <h4 className="font-medium text-sm mb-3">Potential Energy Landscape</h4>
+                        <div className="space-y-2">
+                          {probabilisticResult.nodeOrder.map((nodeId: string) => {
+                            const energy = probabilisticResult.potentialEnergies[nodeId] || 0;
+                            const maxEnergy = Math.max(...Object.values(probabilisticResult.potentialEnergies));
+                            const minEnergy = Math.min(...Object.values(probabilisticResult.potentialEnergies));
+                            const normalizedEnergy = maxEnergy !== minEnergy 
+                              ? ((energy - minEnergy) / (maxEnergy - minEnergy)) * 100
+                              : 50;
+                            return (
+                              <div key={nodeId} className="flex items-center gap-3">
+                                <div className="w-24 text-xs font-medium truncate" title={nodeId}>{nodeId}</div>
+                                <div className="flex-1 h-6 bg-muted rounded-full overflow-hidden relative">
+                                  <div 
+                                    className="h-full bg-gradient-to-r from-green-500 via-yellow-500 to-red-500 transition-all duration-300"
+                                    style={{ width: `${normalizedEnergy}%` }}
+                                  />
+                                </div>
+                                <span className="text-xs text-muted-foreground w-16 text-right font-mono">{energy.toFixed(3)}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Node probabilities table */}
+                    <div className="border rounded-md p-3 bg-background/50">
+                      <h4 className="font-medium text-sm mb-2">Node Steady-State Probabilities</h4>
+                      <div className="overflow-auto max-h-60">
+                        <table className="w-full text-xs border-collapse">
+                          <thead>
+                            <tr className="bg-muted/40">
+                              <th className="text-left p-2 font-semibold">Node</th>
+                              <th className="text-right p-2 font-semibold">Probability</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {probabilisticResult.nodeOrder.map((nodeId: string) => (
+                              <tr key={nodeId} className="border-t">
+                                <td className="p-2">{nodeId}</td>
+                                <td className="text-right p-2 font-mono">{(probabilisticResult.probabilities[nodeId] * 100).toFixed(2)}%</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* Potential energies table */}
+                    {Object.keys(probabilisticResult.potentialEnergies).length > 0 && (
+                      <div className="border rounded-md p-3 bg-background/50">
+                        <h4 className="font-medium text-sm mb-2">Potential Energies</h4>
+                        <div className="overflow-auto max-h-60">
+                          <table className="w-full text-xs border-collapse">
+                            <thead>
+                              <tr className="bg-muted/40">
+                                <th className="text-left p-2 font-semibold">Node</th>
+                                <th className="text-right p-2 font-semibold">Energy</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {probabilisticResult.nodeOrder.map((nodeId: string) => (
+                                <tr key={nodeId} className="border-t">
+                                  <td className="p-2">{nodeId}</td>
+                                  <td className="text-right p-2 font-mono">{probabilisticResult.potentialEnergies[nodeId]?.toFixed(4) ?? 'N/A'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {probabilisticResult.warnings.length > 0 && (
+                      <div className="text-xs text-amber-600 space-y-1 p-3 bg-amber-50 border border-amber-200 rounded-md">
+                        <p className="font-semibold">Warnings:</p>
+                        {probabilisticResult.warnings.map((w: string, i: number) => <p key={i}>• {w}</p>)}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -705,10 +912,12 @@ export default function ProjectVisualizationPage() {
       inferenceActions={{
         run: () => (rulesText ? runFromEditorRules() : runDeterministic()),
         runWeighted: handleRunWeighted,
+        runProbabilistic: handleOpenProbabilisticDialog,
         download: downloadResults,
         isRunning: isAnalyzing,
         isWeightedRunning: isWeightedAnalyzing,
-        hasResult: Boolean(analysisResult || weightedResult),
+        isProbabilisticRunning: isProbabilisticAnalyzing,
+        hasResult: Boolean(analysisResult || weightedResult || probabilisticResult),
       }}
     >
       {renderMainContent()}
@@ -770,6 +979,95 @@ export default function ProjectVisualizationPage() {
             </Button>
             <Button onClick={onSaveImportedNetwork} disabled={!importedNetwork || isSavingImport}>
               {isSavingImport ? 'Saving…' : 'Save & Link'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Probabilistic Analysis Dialog */}
+      <Dialog open={isProbabilisticDialogOpen} onOpenChange={setIsProbabilisticDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Probabilistic Analysis</DialogTitle>
+            <DialogDescription>
+              Configure noise (µ), self-degradation (c), iteration cap, tolerance, and global initial probability.
+            </DialogDescription>
+          </DialogHeader>
+
+          {probabilisticFormError && (
+            <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
+              {probabilisticFormError}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="noise">Noise (µ)</Label>
+              <Input
+                id="noise"
+                type="number"
+                step="0.01"
+                value={probabilisticForm.noise}
+                onChange={(e) => setProbabilisticForm((prev) => ({ ...prev, noise: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">Higher µ flattens responses.</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="selfDeg">Self-degradation (c)</Label>
+              <Input
+                id="selfDeg"
+                type="number"
+                step="0.01"
+                min="0"
+                max="1"
+                value={probabilisticForm.selfDegradation}
+                onChange={(e) => setProbabilisticForm((prev) => ({ ...prev, selfDegradation: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">0..1; higher pushes decay.</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="maxIter">Max iterations</Label>
+              <Input
+                id="maxIter"
+                type="number"
+                min="1"
+                step="1"
+                value={probabilisticForm.maxIterations}
+                onChange={(e) => setProbabilisticForm((prev) => ({ ...prev, maxIterations: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tolerance">Tolerance</Label>
+              <Input
+                id="tolerance"
+                type="number"
+                step="1e-5"
+                value={probabilisticForm.tolerance}
+                onChange={(e) => setProbabilisticForm((prev) => ({ ...prev, tolerance: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">Convergence threshold.</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="initialProb">Initial probability</Label>
+              <Input
+                id="initialProb"
+                type="number"
+                step="0.01"
+                min="0"
+                max="1"
+                value={probabilisticForm.initialProbability}
+                onChange={(e) => setProbabilisticForm((prev) => ({ ...prev, initialProbability: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">Fallback when per-node initial P is absent.</p>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setIsProbabilisticDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleProbabilisticSubmit} disabled={isProbabilisticAnalyzing}>
+              {isProbabilisticAnalyzing ? 'Running…' : 'Run Probabilistic Analysis'}
             </Button>
           </DialogFooter>
         </DialogContent>

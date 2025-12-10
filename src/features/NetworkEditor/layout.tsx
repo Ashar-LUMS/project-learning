@@ -31,11 +31,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 //import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import AttractorGraph from './AttractorGraph';
 import type { DeterministicAnalysisResult } from '@/lib/analysis/types';
 
 
-interface NetworkEditorLayoutProps {
+export interface NetworkEditorLayoutProps {
   children: React.ReactNode;
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
@@ -67,6 +66,23 @@ export default function NetworkEditorLayout({
   weightedResult,
   inferenceActions,
 }: NetworkEditorLayoutProps) {
+  // EARLY DEBUG: Check what we received
+  console.log('[NetworkEditorLayout] RECEIVED inferenceActions on props:', {
+    keys: Object.keys(inferenceActions || {}),
+    hasRunProbabilistic: 'runProbabilistic' in (inferenceActions || {}),
+    hasIsProbabilisticRunning: 'isProbabilisticRunning' in (inferenceActions || {}),
+  });
+
+  // WORKAROUND: If runProbabilistic is missing, add it
+  if (inferenceActions && !inferenceActions.runProbabilistic) {
+    console.log('[NetworkEditorLayout] WARNING: runProbabilistic is missing! Adding stub.');
+    inferenceActions.runProbabilistic = () => console.log('[NetworkEditorLayout] runProbabilistic stub called - this should not happen!');
+  }
+  if (inferenceActions && inferenceActions.isProbabilisticRunning === undefined) {
+    console.log('[NetworkEditorLayout] WARNING: isProbabilisticRunning is missing! Adding false.');
+    inferenceActions.isProbabilisticRunning = false;
+  }
+
   // Debug: log inference actions when weighted result changes
   useEffect(() => {
     if (!inferenceActions) return;
@@ -521,8 +537,19 @@ function NetworkAnalysisSidebar({ actions, weightedResult }: { actions?: Network
             </Button>
             <Button
               className="w-full justify-start gap-3 h-11 px-4"
-              onClick={() => actions?.runProbabilistic?.()}
-              disabled={actions?.isProbabilisticRunning}
+              onClick={() => {
+                if (!actions) {
+                  console.error('[layout.tsx] actions is null/undefined!');
+                  return;
+                }
+                console.log('[layout.tsx] === BUTTON CLICK DEBUG ===');
+                console.log('[layout.tsx] actions object keys:', Object.keys(actions));
+                console.log('[layout.tsx] Has runProbabilistic?', typeof actions.runProbabilistic);
+                console.log('[layout.tsx] Has isProbabilisticRunning?', typeof actions.isProbabilisticRunning);
+                console.log('[layout.tsx] Calling actions.runProbabilistic...');
+                actions?.runProbabilistic?.();
+              }}
+              disabled={Boolean(actions?.isProbabilisticRunning)}
               variant="secondary"
             >
               <Play className="w-4 h-4" />
