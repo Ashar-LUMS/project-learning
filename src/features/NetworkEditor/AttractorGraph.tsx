@@ -31,7 +31,7 @@ const AttractorGraph: React.FC<Props> = ({ states, className }) => {
       },
     }));
     const edges = period === 1
-      ? [{ data: { id: 'e-0', source: 's-0', target: 's-0' } }]
+      ? [{ data: { id: 'e-0', source: 's-0', target: 's-0' }, classes: 'self-loop' }]
       : states.map((_, i) => ({
           data: {
             id: `e-${i}`,
@@ -77,7 +77,7 @@ const AttractorGraph: React.FC<Props> = ({ states, className }) => {
             },
           },
           {
-            selector: 'edge[source = target]',
+            selector: 'edge.self-loop',
             style: {
               'curve-style': 'bezier',
               'control-point-step-size': 20,
@@ -86,7 +86,6 @@ const AttractorGraph: React.FC<Props> = ({ states, className }) => {
             },
           },
         ],
-        wheelSensitivity: 0.2,
       });
     }
 
@@ -108,8 +107,8 @@ const AttractorGraph: React.FC<Props> = ({ states, className }) => {
   }, [elements, period]);
 
   return (
-    <div className={className}>
-      <div ref={containerRef} className="w-full h-40 rounded-md border bg-white" />
+    <div className={className || "w-full h-40"}>
+      <div ref={containerRef} className="w-full h-full rounded-md border bg-white" />
       {period > 0 && (
         <div className="mt-1 text-[10px] text-muted-foreground">
           {period === 1 ? (

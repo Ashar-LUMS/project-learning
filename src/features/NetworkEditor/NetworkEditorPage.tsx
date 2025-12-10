@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import NetworkEditorLayout from './layout';
 import ProjectTabComponent from './tabs/ProjectTab';
 import NetworkGraph, { type NetworkGraphHandle } from './NetworkGraph';
@@ -432,6 +432,24 @@ export default function NetworkEditorPage() {
                         <Stat label="State Space" value={weightedResult.totalStateSpace} />
                         <Stat label="Attractors" value={weightedResult.attractors.length} />
                       </div>
+                      {/* Attractor landscape (weighted) shown inline with results */}
+                      {weightedResult.attractors.length > 0 && (
+                        <div className="space-y-2">
+                          <h3 className="text-sm font-semibold">Attractor Landscape (Weighted)</h3>
+                          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                            {weightedResult.attractors.slice(0, 9).map((attr: any) => (
+                              <div key={`weighted-landscape-${attr.id}`} className="border rounded-md p-2 bg-background text-xs">
+                                <div className="font-semibold">#{attr.id + 1} ({attr.type})</div>
+                                <div className="text-muted-foreground text-[11px] mb-1">Period {attr.period} • Basin {Math.round((attr.basinShare || 0) * 100)}%</div>
+                                <AttractorGraph
+                                  states={(attr.states || []).map((s: any) => ({ binary: s.binary }))}
+                                  className="w-full h-24"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       {weightedResult.warnings.length > 0 && (
                         <div className="text-xs text-amber-600 space-y-1">
                           {weightedResult.warnings.map((w: string, i: number) => <p key={i}>• {w}</p>)}
@@ -555,7 +573,16 @@ export default function NetworkEditorPage() {
     isRunning: isAnalyzing,
     isWeightedRunning: isWeightedAnalyzing,
     hasResult: Boolean(analysisResult || weightedResult),
+    weightedResult: weightedResult,
   };
+
+  useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log('[NetworkEditorPage] weightedResult updated', {
+      hasWeightedResult: !!weightedResult,
+      attractors: weightedResult?.attractors?.length ?? 0,
+    });
+  }, [weightedResult]);
 
   console.log('[NetworkEditorPage] Rendering with inferenceActions:', inferenceActionsObj);
 
@@ -563,6 +590,7 @@ export default function NetworkEditorPage() {
     <NetworkEditorLayout
       activeTab={activeTab}
       onTabChange={setActiveTab}
+      weightedResult={weightedResult}
       inferenceActions={inferenceActionsObj}
     >
       {renderMainContent()}

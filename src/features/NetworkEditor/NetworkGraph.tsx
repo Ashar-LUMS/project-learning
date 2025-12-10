@@ -733,7 +733,6 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
       const cy = cyRef.current;
       console.log('[NetworkGraph] Cytoscape instance created');
 
-      // Load edgehandles only once
       if (!ehLoaded) {
         (async () => {
           try {

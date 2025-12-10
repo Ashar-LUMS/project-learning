@@ -31,6 +31,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 //import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import AttractorGraph from './AttractorGraph';
+import type { DeterministicAnalysisResult } from '@/lib/analysis/types';
 
 
 interface NetworkEditorLayoutProps {
@@ -39,6 +41,7 @@ interface NetworkEditorLayoutProps {
   onTabChange: (tab: TabType) => void;
   networkSidebar?: React.ReactNode;
   inferenceSidebar?: React.ReactNode;
+  weightedResult?: DeterministicAnalysisResult | null;
   inferenceActions?: {
     run?: () => void;
     runWeighted?: () => void;
@@ -46,6 +49,8 @@ interface NetworkEditorLayoutProps {
     isRunning?: boolean;
     isWeightedRunning?: boolean;
     hasResult?: boolean;
+    /* Optional weighted result to render attractor landscape in the sidebar */
+    weightedResult?: DeterministicAnalysisResult | null;
   };
 }
 
@@ -57,8 +62,27 @@ export default function NetworkEditorLayout({
   onTabChange,
   networkSidebar,
   inferenceSidebar,
+  weightedResult,
   inferenceActions,
 }: NetworkEditorLayoutProps) {
+  // Debug: log inference actions when weighted result changes
+  useEffect(() => {
+    if (!inferenceActions) return;
+    // eslint-disable-next-line no-console
+    console.log('[NetworkEditorLayout] actions update', {
+      hasWeightedResult: !!inferenceActions.weightedResult,
+      attractorCount: inferenceActions.weightedResult?.attractors?.length ?? 0,
+    });
+  }, [inferenceActions?.weightedResult]);
+
+  // Debug: log weightedResult prop
+  useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log('[NetworkEditorLayout] weightedResult prop', {
+      hasWeightedResultProp: !!weightedResult,
+      attractorCount: weightedResult?.attractors?.length ?? 0,
+    });
+  }, [weightedResult]);
   const tabs = [
     { id: 'projects' as TabType, label: 'Projects', icon: Folder, color: 'text-blue-600' },
     { id: 'network' as TabType, label: 'Network', icon: Network, color: 'text-green-600' },
@@ -132,7 +156,7 @@ export default function NetworkEditorLayout({
         <div className="w-80 border-r bg-background overflow-hidden flex flex-col">
           <ScrollArea className="flex-1">
             <div className="p-6">
-              {renderTabContent(activeTab, networkSidebar, inferenceSidebar, inferenceActions)}
+              {renderTabContent(activeTab, networkSidebar, inferenceSidebar, inferenceActions, weightedResult)}
             </div>
           </ScrollArea>
         </div>
@@ -149,14 +173,14 @@ export default function NetworkEditorLayout({
   );
 }
 
-function renderTabContent(activeTab: TabType, networkSidebar?: React.ReactNode, inferenceSidebar?: React.ReactNode, inferenceActions?: NetworkEditorLayoutProps['inferenceActions']) {
+function renderTabContent(activeTab: TabType, networkSidebar?: React.ReactNode, inferenceSidebar?: React.ReactNode, inferenceActions?: NetworkEditorLayoutProps['inferenceActions'], weightedResult?: DeterministicAnalysisResult | null) {
   switch (activeTab) {
     case 'projects':
       return <ProjectsSidebar />;
     case 'network':
       return networkSidebar ?? <NetworkSidebar />;
     case 'network-inference':
-      return inferenceSidebar ?? <NetworkAnalysisSidebar actions={inferenceActions} />;
+      return inferenceSidebar ?? <NetworkAnalysisSidebar actions={inferenceActions} weightedResult={weightedResult} />;
     case 'therapeutics':
       return <TherapeuticsSidebar />;
     case 'env':
@@ -419,55 +443,107 @@ function NetworkSidebar() {
 }
 
 // Enhanced Network Analysis Sidebar
-function NetworkAnalysisSidebar({ actions }: { actions?: NetworkEditorLayoutProps['inferenceActions'] }) {
+function NetworkAnalysisSidebar({ actions, weightedResult }: { actions?: NetworkEditorLayoutProps['inferenceActions']; weightedResult?: DeterministicAnalysisResult | null }) {
+  const effectiveResult = actions?.weightedResult ?? weightedResult ?? null;
+  // Log presence of weightedResult for debugging visibility issues
+  React.useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log('[NetworkAnalysisSidebar] FULL DEBUG', {
+      hasActions: !!actions,
+      hasWeightedResult: !!effectiveResult,
+      attractorCount: effectiveResult?.attractors?.length ?? 0,
+      attractorData: JSON.stringify(effectiveResult?.attractors?.slice(0, 2)),
+    });
+  }, [actions?.weightedResult, effectiveResult]);
+
+  // Log every render with timestamp to catch timing issues
+  React.useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log('[NetworkAnalysisSidebar] RENDER EFFECT', {
+      timestamp: new Date().toISOString(),
+      hasWeightedResult: !!effectiveResult,
+      attractorLength: effectiveResult?.attractors?.length ?? 0,
+    });
+  });
   return (
-    <div className="space-y-6">
-      <div className="space-y-3">
+    <div className="flex flex-col h-full gap-4">
+      {/* Header */}
+      <div className="flex-shrink-0 space-y-2">
         <h2 className="text-2xl font-bold tracking-tight text-foreground">Network Inference</h2>
+        <div className="text-xs">
+          {effectiveResult ? (
+            <span className="text-green-600 font-medium">✓ Weighted: {effectiveResult.attractors?.length ?? 0} attractors</span>
+          ) : (
+            <span className="text-muted-foreground">No weighted result</span>
+          )}
+        </div>
+        <Separator />
       </div>
-      <Separator />
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium">Actions</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="space-y-1">
-            <Button
-              className="w-full justify-start gap-3 h-11 px-4"
-              onClick={() => actions?.run?.()}
-              disabled={actions?.isRunning}
-            >
-              <Play className="w-4 h-4" />
-              Perform DA
-            </Button>
-            <Button
-              className="w-full justify-start gap-3 h-11 px-4"
-              onClick={() => {
-                console.log('[NetworkAnalysisSidebar] Weighted DA button clicked', {
-                  hasRunWeighted: !!actions?.runWeighted,
-                  isWeightedRunning: actions?.isWeightedRunning,
-                  actions
-                });
-                actions?.runWeighted?.();
-              }}
-              disabled={actions?.isWeightedRunning}
-              variant="secondary"
-            >
-              <Play className="w-4 h-4" />
-              Perform Weighted DA
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-3 h-11 px-4"
-              onClick={() => actions?.download?.()}
-              disabled={!actions?.hasResult}
-            >
-              <Download className="w-4 h-4" />
-              Download Results
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+
+      {/* DEBUG: Show if condition is true */}
+
+      {/* DEBUG: Always show status */}
+      <div className={`text-[10px] p-1 rounded border ${effectiveResult ? 'bg-green-100 border-green-300' : 'bg-red-100 border-red-300'}`}>
+        Result: {effectiveResult ? '✓ FOUND' : '✗ NOT FOUND'} | Attractors: {effectiveResult?.attractors?.length ?? 0}
+      </div>
+      {/* Attractor Landscape - HIGH PRIORITY, FULL-WIDTH */}
+      {effectiveResult && effectiveResult.attractors && effectiveResult.attractors.length > 0 && (
+        <div className="flex-shrink-0 overflow-y-auto max-h-[50vh] border rounded-lg bg-blue-50/30 p-3 space-y-2">
+          <h3 className="text-xs font-semibold text-blue-900">Attractor Landscape ({effectiveResult.attractors.length} total)</h3>
+          {effectiveResult.attractors.slice(0, 8).map((attr) => (
+            <div key={`attractor-${attr.id}`} className="border rounded-md p-2 bg-background text-xs">
+              <div className="font-semibold">#{attr.id + 1} ({attr.type})</div>
+              <div className="text-muted-foreground text-[10px]">Period {attr.period} • Basin {Math.round((attr.basinShare || 0) * 100)}%</div>
+              <AttractorGraph
+                key={`graph-${attr.id}`}
+                states={(attr.states || []).map((s: any) => ({ binary: s.binary }))}
+                className="w-full h-20"
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Actions - Compact */}
+      <div className="flex-shrink-0 space-y-2">
+        <div className="text-xs font-medium text-muted-foreground">Quick Actions</div>
+        <div className="flex gap-1 flex-col">
+          <Button
+            size="sm"
+            className="h-9 text-xs justify-start gap-2"
+            onClick={() => actions?.run?.()}
+            disabled={actions?.isRunning}
+          >
+            <Play className="w-3 h-3" />
+            Rule-Based DA
+          </Button>
+          <Button
+            size="sm"
+            className="h-9 text-xs justify-start gap-2"
+            onClick={() => actions?.runWeighted?.()}
+            disabled={actions?.isWeightedRunning}
+            variant="secondary"
+          >
+            <Play className="w-3 h-3" />
+            Weighted DA
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-9 text-xs justify-start gap-2"
+            onClick={() => actions?.download?.()}
+            disabled={!actions?.hasResult}
+          >
+            <Download className="w-3 h-3" />
+            Download
+          </Button>
+        </div>
+      </div>
+
+      {/* Help Text */}
+      <div className="flex-shrink-0 text-[10px] text-muted-foreground p-2 rounded bg-muted/30 mt-auto">
+        <p>Run Weighted DA to see attractor landscape in the left panel. Results appear in main area.</p>
+      </div>
     </div>
   );
 }
