@@ -16,10 +16,9 @@ import RoleManagement from "./features/admin/AdminRoleManagement";
 import { UserProfile } from "./features/profile/Profile";
 import { AdminSettings } from "./features/admin/AdminSetting";
 import { ResetPasswordPage } from "./features/auth/reset-password";
-import NetworkEditorPage from "./features/NetworkEditor/NetworkEditorPage";
-import NetworkGraph from "./features/NetworkEditor/NetworkGraph";
-import ProjectVisualizationPage from "./features/NetworkEditor/ProjectVisualizationPage";
+// Network Editor removed; routes disabled
 import AdminProjectManagement from "./features/admin/AdminProjectManagement";
+import NetworkCanvasPage from "./features/NetworkCanvas/NetworkCanvasPage";
 
 
 const router = createBrowserRouter([
@@ -51,20 +50,9 @@ const router = createBrowserRouter([
         index: true,
         element: <HomePage />,
       },
-      {
-        path: "projects/:projectId",
-        element: <ProjectVisualizationPage />,
-      },
-      {
-        path: "network-editor",
-        element: <NetworkEditorPage />,
-        children: [
-          {
-            path: "graph",
-            element: <NetworkGraph />,
-          },
-        ],
-      },
+      // Projects visualization route temporarily disabled
+      // { path: "projects/:projectId", element: <ProjectVisualizationPage /> },
+      { path: "network-editor", element: <NetworkCanvasPage /> },
       {
         path: "services",
         element: <ServicesPage />,

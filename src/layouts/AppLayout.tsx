@@ -258,6 +258,13 @@ const AppLayout = () => {
               Projects
             </Link>
 
+            <Link
+              to="/app/network-editor"
+              className="text-gray-600 hover:text-blue-600 transition-colors duration-200 font-medium text-sm px-3 py-2 rounded-lg hover:bg-blue-50"
+            >
+              Network Editor
+            </Link>
+
             {/* Role Selector Dropdown */}
             {/* {!areRolesLoading && userRolesArray && userRolesArray.length > 0 && (
               <div className="relative flex items-center gap-2">
@@ -404,6 +411,15 @@ const AppLayout = () => {
               >
                 <Home size={18} className="text-blue-600" />
                 Projects
+              </Link>
+
+              <Link
+                to="/app/network-editor"
+                className="flex items-center gap-3 text-gray-700 hover:bg-blue-50 p-3 rounded-lg transition-colors font-medium"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <Home size={18} className="text-blue-600" />
+                Network Editor
               </Link>
 
               
