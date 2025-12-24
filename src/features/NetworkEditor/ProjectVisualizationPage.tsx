@@ -5,7 +5,7 @@ import { useParams } from "react-router-dom";
 import { useToast } from '@/components/ui/toast';
 import { cn } from "@/lib/utils";
 import { formatTimestamp } from '@/lib/format';
-import type { NetworkData, NetworkNode, NetworkEdge, Rule } from '@/types/network';
+import type { NetworkData, NetworkNode, NetworkEdge, Rule, CellFate } from '@/types/network';
 import NetworkGraph from "./NetworkGraph";
 import { supabase } from "../../supabaseClient";
 import NetworkEditorLayout from "./layout";
@@ -14,6 +14,7 @@ import { useProbabilisticAnalysis } from '@/hooks/useProbabilisticAnalysis';
 import { useDeterministicAnalysis } from '@/hooks/useDeterministicAnalysis';
 import type { AnalysisEdge, AnalysisNode, ProbabilisticAnalysisOptions, WeightedAnalysisOptions, DeterministicAttractor, StateSnapshot } from '@/lib/analysis/types';
 import AttractorGraph from './AttractorGraph';
+import AttractorLandscape from './AttractorLandscape';
 import RulesPage from './RulesPage';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -24,6 +25,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { inferRulesFromBiomolecules } from "@/lib/openRouter";
 import { useProjectNetworks, type ProjectNetworkRecord } from '@/hooks/useProjectNetworks';
 import ProbabilisticLandscape from './ProbabilisticLandscape';
+import { FateClassificationDialog, AttractorFateBadge } from './FateClassification';
 
 type ProjectRecord = {
   id: string;
@@ -79,8 +81,18 @@ function ProjectVisualizationPage() {
   const [isInferring, setIsInferring] = useState(false);
   const [isSavingImport, setIsSavingImport] = useState(false);
 
+  // Fate classification state
+  const [fateDialogOpen, setFateDialogOpen] = useState(false);
+  const [selectedAttractorId, setSelectedAttractorId] = useState<number | null>(null);
+
   // Minimal inference wiring so sidebar actions work here too
   const [rulesText, setRulesText] = useState('');
+
+  // Cell fates derived from selected network metadata (needed early for handlers)
+  const cellFates = useMemo<Record<string, CellFate>>(
+    () => selectedNetwork?.data?.metadata?.cellFates || {},
+    [selectedNetwork]
+  );
 
   const {
     result: weightedResult,
@@ -297,6 +309,111 @@ function ProjectVisualizationPage() {
       });
     }
   }, [selectedNetwork, runRuleBasedAnalysis, showToast]);
+
+  // Cell fate classification handlers
+  const handleOpenFateDialog = useCallback((attractorId: number) => {
+    setSelectedAttractorId(attractorId);
+    setFateDialogOpen(true);
+  }, []);
+
+  const handleSaveFate = useCallback(async (fate: CellFate) => {
+    if (!selectedNetwork || selectedAttractorId === null) return;
+
+    const attractorKey = String(selectedAttractorId);
+    const updatedCellFates = { ...cellFates, [attractorKey]: fate };
+
+    // Update network metadata in Supabase
+    const updatedMetadata = {
+      ...selectedNetwork.data?.metadata,
+      cellFates: updatedCellFates,
+    };
+
+    const { error } = await supabase
+      .from('networks')
+      .update({ network_data: { ...selectedNetwork.data, metadata: updatedMetadata } })
+      .eq('id', selectedNetwork.id);
+
+    if (error) {
+      showToast({
+        title: 'Save Failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } else {
+      showToast({
+        title: 'Fate Saved',
+        description: `Attractor ${selectedAttractorId} classified as "${fate.name}"`,
+      });
+      // Trigger refresh by updating networks
+      if (networks && selectedNetworkId) {
+        const updated: ProjectNetworkRecord[] = networks.map(n =>
+          n.id === selectedNetworkId
+            ? { 
+                ...n, 
+                data: { 
+                  nodes: n.data?.nodes || [],
+                  edges: n.data?.edges || [],
+                  rules: n.data?.rules,
+                  metadata: updatedMetadata 
+                } 
+              }
+            : n
+        );
+        setNetworks(updated);
+      }
+      setFateDialogOpen(false);
+    }
+  }, [selectedNetwork, selectedAttractorId, cellFates, networks, selectedNetworkId, setNetworks, showToast]);
+
+  const handleRemoveFate = useCallback(async () => {
+    if (!selectedNetwork || selectedAttractorId === null) return;
+
+    const attractorKey = String(selectedAttractorId);
+    const updatedCellFates = { ...cellFates };
+    delete updatedCellFates[attractorKey];
+
+    // Update network metadata in Supabase
+    const updatedMetadata = {
+      ...selectedNetwork.data?.metadata,
+      cellFates: updatedCellFates,
+    };
+
+    const { error } = await supabase
+      .from('networks')
+      .update({ network_data: { ...selectedNetwork.data, metadata: updatedMetadata } })
+      .eq('id', selectedNetwork.id);
+
+    if (error) {
+      showToast({
+        title: 'Remove Failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } else {
+      showToast({
+        title: 'Fate Removed',
+        description: `Classification removed from attractor ${selectedAttractorId}`,
+      });
+      // Trigger refresh
+      if (networks && selectedNetworkId) {
+        const updated: ProjectNetworkRecord[] = networks.map(n =>
+          n.id === selectedNetworkId
+            ? { 
+                ...n, 
+                data: { 
+                  nodes: n.data?.nodes || [],
+                  edges: n.data?.edges || [],
+                  rules: n.data?.rules,
+                  metadata: updatedMetadata 
+                } 
+              }
+            : n
+        );
+        setNetworks(updated);
+      }
+      setFateDialogOpen(false);
+    }
+  }, [selectedNetwork, selectedAttractorId, cellFates, networks, selectedNetworkId, setNetworks, showToast]);
 
   const handleOpenProbabilisticDialog = () => {
     setProbabilisticFormError(null);
@@ -886,11 +1003,37 @@ function ProjectVisualizationPage() {
                       <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-[10px] uppercase tracking-wide text-muted-foreground">State Space</span><span className="text-sm font-semibold">{ruleBasedResult.totalStateSpace}</span></div>
                       <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-[10px] uppercase tracking-wide text-muted-foreground">Attractors</span><span className="text-sm font-semibold">{ruleBasedResult.attractors.length}</span></div>
                     </div>
+
+                    {/* Attractor Landscape Visualization */}
+                    {ruleBasedResult.attractors.length > 0 && (
+                      <div className="border rounded-md p-4 bg-background/50">
+                        <h4 className="font-medium text-sm mb-3">Attractor Landscape</h4>
+                        <AttractorLandscape attractors={ruleBasedResult.attractors} />
+                      </div>
+                    )}
+
                     {ruleBasedResult.attractors.map((attr: DeterministicAttractor) => (
                       <div key={attr.id} className="border rounded-md p-3 bg-background/50">
                         <div className="flex items-center justify-between mb-2">
-                          <h3 className="font-medium text-sm">Rule-Based Attractor #{attr.id + 1} ({attr.type})</h3>
-                          <span className="text-xs text-muted-foreground">Period {attr.period} • Basin {(attr.basinShare*100).toFixed(1)}%</span>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-medium text-sm">Rule-Based Attractor #{attr.id + 1} ({attr.type})</h3>
+                            {cellFates[String(attr.id)] && (
+                              <AttractorFateBadge
+                                fate={cellFates[String(attr.id)]}
+                                onEdit={() => handleOpenFateDialog(attr.id)}
+                              />
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">Period {attr.period} • Basin {(attr.basinShare*100).toFixed(1)}%</span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleOpenFateDialog(attr.id)}
+                            >
+                              {cellFates[String(attr.id)] ? 'Edit' : 'Classify'}
+                            </Button>
+                          </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           <div className="overflow-auto">
@@ -946,8 +1089,25 @@ function ProjectVisualizationPage() {
                     {weightedResult.attractors.map((attr: DeterministicAttractor) => (
                       <div key={attr.id} className="border rounded-md p-3 bg-background/50">
                         <div className="flex items-center justify-between mb-2">
-                          <h3 className="font-medium text-sm">Weighted Attractor #{attr.id + 1} ({attr.type})</h3>
-                          <span className="text-xs text-muted-foreground">Period {attr.period} • Basin {(attr.basinShare*100).toFixed(1)}%</span>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-medium text-sm">Weighted Attractor #{attr.id + 1} ({attr.type})</h3>
+                            {cellFates[String(attr.id)] && (
+                              <AttractorFateBadge
+                                fate={cellFates[String(attr.id)]}
+                                onEdit={() => handleOpenFateDialog(attr.id)}
+                              />
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">Period {attr.period} • Basin {(attr.basinShare*100).toFixed(1)}%</span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleOpenFateDialog(attr.id)}
+                            >
+                              {cellFates[String(attr.id)] ? 'Edit' : 'Classify'}
+                            </Button>
+                          </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           <div className="overflow-auto">
@@ -1349,6 +1509,17 @@ function ProjectVisualizationPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Fate Classification Dialog */}
+      <FateClassificationDialog
+        open={fateDialogOpen}
+        onOpenChange={setFateDialogOpen}
+        attractorId={selectedAttractorId ?? 0}
+        currentFate={selectedAttractorId !== null ? cellFates[String(selectedAttractorId)] : undefined}
+        availableMarkers={selectedNetwork?.data?.nodes?.map(n => n.label || String(n.id)) || []}
+        onSave={handleSaveFate}
+        onRemove={handleRemoveFate}
+      />
     </NetworkEditorLayout>
   );
 }

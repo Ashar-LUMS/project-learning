@@ -23,9 +23,20 @@ export interface Rule {
   action?: string;
 }
 
+export interface CellFate {
+  name: string;
+  color: string;
+  markers?: string[];
+  confidence?: number;
+  description?: string;
+}
+
 export interface NetworkData {
   nodes: NetworkNode[];
   edges: NetworkEdge[];
   rules?: Rule[];
-  metadata?: Record<string, any>;
+  metadata?: {
+    cellFates?: Record<string, CellFate>;
+    [key: string]: any;
+  };
 }

@@ -174,7 +174,7 @@ export default function NetworkEditorLayout({
         <div className="w-80 border-r bg-background overflow-hidden flex flex-col">
           <ScrollArea className="flex-1">
             <div className="p-6">
-              {renderTabContent(activeTab, networkSidebar, inferenceSidebar, inferenceActions, weightedResult)}
+              {renderTabContent(activeTab, networkSidebar, inferenceSidebar, inferenceActions)}
             </div>
           </ScrollArea>
         </div>
@@ -191,7 +191,7 @@ export default function NetworkEditorLayout({
   );
 }
 
-function renderTabContent(activeTab: TabType, networkSidebar?: React.ReactNode, inferenceSidebar?: React.ReactNode, inferenceActions?: NetworkEditorLayoutProps['inferenceActions'], weightedResult?: DeterministicAnalysisResult | null) {
+function renderTabContent(activeTab: TabType, networkSidebar?: React.ReactNode, inferenceSidebar?: React.ReactNode, inferenceActions?: NetworkEditorLayoutProps['inferenceActions']) {
   switch (activeTab) {
     case 'projects':
       return <ProjectsSidebar />;
