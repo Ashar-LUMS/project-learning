@@ -1,517 +1,391 @@
-/*
-  Deterministic rule-based network analysis utilities.
-  Accepts a set of boolean update rules and enumerates synchronous dynamics
-  to detect attractors (fixed points and limit cycles).
-*/
+/**
+ * Rule-based deterministic analysis for Boolean networks.
+ * 
+ * Parses Boolean rules and performs synchronous state-space exploration
+ * to find attractors (fixed points and limit cycles).
+ * 
+ * Rule syntax:
+ * - TARGET = EXPRESSION
+ * - Operators: && (AND), || (OR), ! (NOT), parentheses
+ * - Also supports: AND, OR, XOR, NAND, NOR
+ * - Example: Mcm1 = (Clb12 || Clb56) && !Mcm1
+ */
 
-export interface AnalysisNode {
-  id: string;
-  label?: string | null;
+import type { DeterministicAnalysisResult, StateSnapshot } from './analysis/types';
+
+interface RuleParsed {
+  target: string;
+  expression: string;
+  tokens: Token[];
 }
 
-export interface AnalysisNetwork {
-  nodes: AnalysisNode[];
-  rules: string[];
+type TokenType = 'IDENTIFIER' | 'AND' | 'OR' | 'XOR' | 'NAND' | 'NOR' | 'NOT' | 'LPAREN' | 'RPAREN';
+
+interface Token {
+  type: TokenType;
+  value: string;
 }
 
-export interface DeterministicAnalysisOptions {
-  /** Maximum number of initial states to explore exhaustively (defaults to 2^17). */
-  stateCap?: number;
-  /** Hard ceiling for per-path traversal steps (defaults to 2^17). */
-  stepCap?: number;
-}
+/**
+ * Tokenize a boolean expression
+ */
+function tokenize(expr: string): Token[] {
+  const tokens: Token[] = [];
+  let i = 0;
+  const trimmed = expr.trim();
 
-import { decodeState, encodeState, formatState } from './stateEncoding';
-
-export interface StateSnapshot {
-  binary: string;
-  values: Record<string, 0 | 1>;
-}
-
-export type AttractorType = "fixed-point" | "limit-cycle";
-
-export interface DeterministicAttractor {
-  id: number;
-  type: AttractorType;
-  period: number;
-  states: StateSnapshot[];
-  basinSize: number;
-  basinShare: number;
-}
-
-export interface DeterministicAnalysisResult {
-  nodeOrder: string[];
-  nodeLabels: Record<string, string>;
-  attractors: DeterministicAttractor[];
-  exploredStateCount: number;
-  totalStateSpace: number;
-  truncated: boolean;
-  warnings: string[];
-  unresolvedStates: number;
-}
-
-type OperatorSymbol = "NOT" | "AND" | "OR" | "XOR" | "NAND" | "NOR";
-
-type OperatorDef = {
-  precedence: number;
-  associativity: "left" | "right";
-  arity: 1 | 2;
-  apply: (operands: number[]) => 0 | 1;
-};
-
-const OPERATOR_DEFS: Record<OperatorSymbol, OperatorDef> = {
-  NOT: {
-    precedence: 3,
-    associativity: "right",
-    arity: 1,
-    apply: ([value]) => (value ? 0 : 1),
-  },
-  AND: {
-    precedence: 2,
-    associativity: "left",
-    arity: 2,
-    apply: ([left, right]) => ((left && right) ? 1 : 0),
-  },
-  OR: {
-    precedence: 1,
-    associativity: "left",
-    arity: 2,
-    apply: ([left, right]) => ((left || right) ? 1 : 0),
-  },
-  XOR: {
-    precedence: 2,
-    associativity: "left",
-    arity: 2,
-    apply: ([left, right]) => ((left ^ right) ? 1 : 0),
-  },
-  NAND: {
-    precedence: 2,
-    associativity: "left",
-    arity: 2,
-    apply: ([left, right]) => ((left && right) ? 0 : 1),
-  },
-  NOR: {
-    precedence: 2,
-    associativity: "left",
-    arity: 2,
-    apply: ([left, right]) => ((left || right) ? 0 : 1),
-  },
-};
-
-type IdentifierToken = { kind: "identifier"; index: number };
-type ConstantToken = { kind: "constant"; value: 0 | 1 };
-type OperatorToken = { kind: "operator"; symbol: OperatorSymbol; def: OperatorDef };
-type ParenToken = { kind: "paren"; value: "(" | ")" };
-
-type Token = IdentifierToken | ConstantToken | OperatorToken | ParenToken;
-
-const DEFAULT_STATE_CAP = 131072;
-const DEFAULT_STEP_CAP = 131072;
-const MAX_SUPPORTED_NODES = 20;
-
-
-const constantToken = (value: 0 | 1): ConstantToken => ({ kind: "constant", value });
-
-const operatorToken = (symbol: OperatorSymbol): OperatorToken => ({
-  kind: "operator",
-  symbol,
-  def: OPERATOR_DEFS[symbol],
-});
-
-const isAlphaNumeric = (char: string): boolean => /[A-Za-z0-9_]/.test(char);
-
-const createNodeResolver = (nodes: AnalysisNode[]): Map<string, string> => {
-  const resolver = new Map<string, string>();
-  for (const node of nodes) {
-    const idKey = node.id.trim().toLowerCase();
-    if (idKey) resolver.set(idKey, node.id);
-    const label = node.label?.trim();
-    if (label) resolver.set(label.toLowerCase(), node.id);
-  }
-  return resolver;
-};
-
-const tokenizeExpression = (
-  expression: string,
-  resolver: Map<string, string>,
-  indexLookup: Map<string, number>,
-): Token[] => {
-  const result: Token[] = [];
-  const length = expression.length;
-  let position = 0;
-
-  while (position < length) {
-    const char = expression[position];
-
-    if (char === " ") {
-      position += 1;
+  while (i < trimmed.length) {
+    // Skip whitespace
+    if (/\s/.test(trimmed[i])) {
+      i++;
       continue;
     }
 
-    if (char === "(" || char === ")") {
-      result.push({ kind: "paren", value: char });
-      position += 1;
+    // Check for two-character operators first
+    const twoChar = trimmed.substring(i, i + 2);
+    if (twoChar === '&&') {
+      tokens.push({ type: 'AND', value: '&&' });
+      i += 2;
+      continue;
+    }
+    if (twoChar === '||') {
+      tokens.push({ type: 'OR', value: '||' });
+      i += 2;
       continue;
     }
 
-    if (char === "!" || char === "¬") {
-      result.push(operatorToken("NOT"));
-      position += 1;
+    // Single character operators and parentheses
+    if (trimmed[i] === '(') {
+      tokens.push({ type: 'LPAREN', value: '(' });
+      i++;
+      continue;
+    }
+    if (trimmed[i] === ')') {
+      tokens.push({ type: 'RPAREN', value: ')' });
+      i++;
+      continue;
+    }
+    if (trimmed[i] === '!') {
+      tokens.push({ type: 'NOT', value: '!' });
+      i++;
       continue;
     }
 
-    if ((char === "&" || char === "∧") && position + 1 < length && expression[position + 1] === "&") {
-      result.push(operatorToken("AND"));
-      position += 2;
+    // Multi-character operators and identifiers
+    let word = '';
+    while (i < trimmed.length && /[a-zA-Z0-9_]/.test(trimmed[i])) {
+      word += trimmed[i];
+      i++;
+    }
+
+    if (word) {
+      const upper = word.toUpperCase();
+      if (upper === 'AND') tokens.push({ type: 'AND', value: upper });
+      else if (upper === 'OR') tokens.push({ type: 'OR', value: upper });
+      else if (upper === 'XOR') tokens.push({ type: 'XOR', value: upper });
+      else if (upper === 'NAND') tokens.push({ type: 'NAND', value: upper });
+      else if (upper === 'NOR') tokens.push({ type: 'NOR', value: upper });
+      else tokens.push({ type: 'IDENTIFIER', value: word });
       continue;
     }
 
-    if ((char === "|" || char === "∨") && position + 1 < length && expression[position + 1] === "|") {
-      result.push(operatorToken("OR"));
-      position += 2;
-      continue;
-    }
-
-    if (isAlphaNumeric(char)) {
-      let end = position + 1;
-      while (end < length && isAlphaNumeric(expression[end])) end += 1;
-      const raw = expression.slice(position, end);
-      const upper = raw.toUpperCase();
-      position = end;
-
-      if ((upper === "TRUE") || (upper === "T") || (upper === "1")) {
-        result.push(constantToken(1));
-        continue;
-      }
-
-      if ((upper === "FALSE") || (upper === "F") || (upper === "0")) {
-        result.push(constantToken(0));
-        continue;
-      }
-
-      if ((upper in OPERATOR_DEFS) && Object.prototype.hasOwnProperty.call(OPERATOR_DEFS, upper)) {
-        result.push(operatorToken(upper as OperatorSymbol));
-        continue;
-      }
-
-      const resolvedId = resolver.get(raw.toLowerCase());
-      if (!resolvedId) {
-        throw new Error(`Unknown identifier in rule expression: ${raw}`);
-      }
-      const index = indexLookup.get(resolvedId);
-      if (index === undefined) {
-        throw new Error(`Identifier does not correspond to a known node: ${raw}`);
-      }
-      result.push({ kind: "identifier", index });
-      continue;
-    }
-
-    if (char === "+") {
-      result.push(operatorToken("OR"));
-      position += 1;
-      continue;
-    }
-
-    if (char === "*") {
-      result.push(operatorToken("AND"));
-      position += 1;
-      continue;
-    }
-
-    throw new Error(`Unexpected token in rule expression: ${char}`);
+    // Unknown character
+    throw new Error(`Unexpected character '${trimmed[i]}' at position ${i}`);
   }
 
-  return result;
-};
+  return tokens;
+}
 
-const toRpn = (tokens: Token[]): Token[] => {
-  const output: Token[] = [];
-  const stack: Token[] = [];
+/**
+ * Parse a single rule: TARGET = EXPRESSION
+ */
+function parseRule(rule: string): RuleParsed {
+  const match = rule.match(/^\s*([a-zA-Z0-9_]+)\s*=\s*(.+)\s*$/);
+  if (!match) {
+    throw new Error(`Invalid rule syntax: "${rule}". Expected format: TARGET = EXPRESSION`);
+  }
+
+  const target = match[1].trim();
+  const expression = match[2].trim();
+  const tokens = tokenize(expression);
+
+  return { target, expression, tokens };
+}
+
+/**
+ * Evaluate a boolean expression using shunting-yard algorithm
+ */
+function evaluateExpression(tokens: Token[], state: Record<string, 0 | 1>): 0 | 1 {
+  if (tokens.length === 0) return 0;
+
+  const outputQueue: (0 | 1)[] = [];
+  const operatorStack: Token[] = [];
+
+  const precedence: Record<TokenType, number> = {
+    'NOT': 4,
+    'AND': 3,
+    'NAND': 3,
+    'OR': 2,
+    'NOR': 2,
+    'XOR': 2,
+    'LPAREN': 0,
+    'RPAREN': 0,
+    'IDENTIFIER': 0,
+  };
+
+  const applyOperator = (op: Token) => {
+    if (op.type === 'NOT') {
+      const a = outputQueue.pop();
+      if (a === undefined) throw new Error('NOT operator requires one operand');
+      outputQueue.push(a === 1 ? 0 : 1);
+    } else {
+      const b = outputQueue.pop();
+      const a = outputQueue.pop();
+      if (a === undefined || b === undefined) {
+        throw new Error(`Binary operator ${op.type} requires two operands`);
+      }
+      
+      let result: 0 | 1;
+      switch (op.type) {
+        case 'AND': result = (a === 1 && b === 1) ? 1 : 0; break;
+        case 'OR': result = (a === 1 || b === 1) ? 1 : 0; break;
+        case 'XOR': result = (a !== b) ? 1 : 0; break;
+        case 'NAND': result = (a === 1 && b === 1) ? 0 : 1; break;
+        case 'NOR': result = (a === 1 || b === 1) ? 0 : 1; break;
+        default: throw new Error(`Unknown operator: ${op.type}`);
+      }
+      outputQueue.push(result);
+    }
+  };
 
   for (const token of tokens) {
-    if (token.kind === "identifier" || token.kind === "constant") {
-      output.push(token);
-      continue;
-    }
-
-    if (token.kind === "operator") {
-      while (stack.length > 0) {
-        const top = stack[stack.length - 1];
-        if (top.kind !== "operator") break;
-        const shouldPop =
-          (token.def.associativity === "left" && token.def.precedence <= top.def.precedence) ||
-          (token.def.associativity === "right" && token.def.precedence < top.def.precedence);
-        if (!shouldPop) break;
-        output.push(stack.pop() as OperatorToken);
+    if (token.type === 'IDENTIFIER') {
+      const value = state[token.value];
+      if (value === undefined) {
+        throw new Error(`Identifier "${token.value}" not found in state. Available: ${Object.keys(state).join(', ')}`);
       }
-      stack.push(token);
-      continue;
-    }
-
-    if (token.kind === "paren" && token.value === "(") {
-      stack.push(token);
-      continue;
-    }
-
-    if (token.kind === "paren" && token.value === ")") {
-      let found = false;
-      while (stack.length > 0) {
-        const top = stack.pop() as Token;
-        if (top.kind === "paren" && top.value === "(") {
-          found = true;
-          break;
-        }
-        output.push(top);
+      outputQueue.push(value);
+    } else if (token.type === 'LPAREN') {
+      operatorStack.push(token);
+    } else if (token.type === 'RPAREN') {
+      while (operatorStack.length > 0 && operatorStack[operatorStack.length - 1].type !== 'LPAREN') {
+        applyOperator(operatorStack.pop()!);
       }
-      if (!found) {
-        throw new Error("Mismatched parentheses in rule expression.");
+      if (operatorStack.length === 0) {
+        throw new Error('Mismatched parentheses');
       }
-      continue;
+      operatorStack.pop(); // Remove LPAREN
+    } else {
+      // Operator
+      while (
+        operatorStack.length > 0 &&
+        precedence[operatorStack[operatorStack.length - 1].type] >= precedence[token.type]
+      ) {
+        applyOperator(operatorStack.pop()!);
+      }
+      operatorStack.push(token);
     }
   }
 
-  while (stack.length > 0) {
-    const top = stack.pop() as Token;
-    if (top.kind === "paren") {
-      throw new Error("Mismatched parentheses in rule expression.");
+  while (operatorStack.length > 0) {
+    const op = operatorStack.pop()!;
+    if (op.type === 'LPAREN' || op.type === 'RPAREN') {
+      throw new Error('Mismatched parentheses');
     }
-    output.push(top);
+    applyOperator(op);
   }
 
-  return output;
-};
-
-const compileRule = (
-  expression: string,
-  resolver: Map<string, string>,
-  indexLookup: Map<string, number>,
-): ((state: Uint8Array) => 0 | 1) => {
-  const tokens = tokenizeExpression(expression, resolver, indexLookup);
-  const rpn = toRpn(tokens);
-
-  if (!rpn.length) {
-    return () => 0;
+  if (outputQueue.length !== 1) {
+    throw new Error('Invalid expression: too many operands');
   }
 
-  return (state: Uint8Array) => {
-    const stack: number[] = [];
-    for (const token of rpn) {
-      if (token.kind === "identifier") {
-        stack.push(state[token.index]);
-        continue;
-      }
-      if (token.kind === "constant") {
-        stack.push(token.value);
-        continue;
-      }
-      if (token.kind === "operator") {
-        const { arity, apply } = token.def;
-        if (arity === 1) {
-          if (stack.length < 1) throw new Error("Malformed expression: insufficient operands for unary operator.");
-          const operand = stack.pop() as number;
-          stack.push(apply([operand]));
-        } else {
-          if (stack.length < 2) throw new Error("Malformed expression: insufficient operands for binary operator.");
-          const right = stack.pop() as number;
-          const left = stack.pop() as number;
-          stack.push(apply([left, right]));
-        }
-        continue;
-      }
-      throw new Error("Unexpected token kind during evaluation.");
-    }
-    if (stack.length !== 1) {
-      throw new Error("Malformed expression: residual operands after evaluation.");
-    }
-    return stack[0] ? 1 : 0;
-  };
-};
+  return outputQueue[0];
+}
 
-// shared helpers imported from stateEncoding.ts
+/**
+ * Perform rule-based deterministic analysis
+ */
+export function performDeterministicAnalysis(
+  rules: string[],
+  options: {
+    stateCap?: number;
+    stepCap?: number;
+  } = {}
+): DeterministicAnalysisResult {
+  const stateCap = options.stateCap ?? 2 ** 17;
+  const stepCap = options.stepCap ?? 2 ** 17;
 
-export const performDeterministicAnalysis = (
-  network: AnalysisNetwork,
-  options?: DeterministicAnalysisOptions,
-): DeterministicAnalysisResult => {
+  // Parse all rules
+  const parsedRules: RuleParsed[] = [];
   const warnings: string[] = [];
 
-  if (!network) {
-    throw new Error("Network payload is required for analysis.");
-  }
-
-  const nodes = Array.isArray(network.nodes) ? network.nodes : [];
-  const rules = Array.isArray(network.rules) ? network.rules : [];
-
-  if (!nodes.length) {
-    return {
-      nodeOrder: [],
-      nodeLabels: {},
-      attractors: [],
-      exploredStateCount: 0,
-      totalStateSpace: 0,
-      truncated: false,
-      warnings: ["No nodes supplied; analysis skipped."],
-      unresolvedStates: 0,
-    };
-  }
-
-  if (nodes.length > MAX_SUPPORTED_NODES) {
-    throw new Error(`Deterministic analysis currently supports up to ${MAX_SUPPORTED_NODES} nodes.`);
-  }
-
-  const nodeOrder = nodes.map((node) => node.id);
-  const nodeLabels: Record<string, string> = {};
-  for (const node of nodes) {
-    const cleanLabel = node.label?.trim();
-    nodeLabels[node.id] = cleanLabel && cleanLabel.length ? cleanLabel : node.id;
-  }
-
-  const resolver = createNodeResolver(nodes);
-  const indexLookup = new Map<string, number>();
-  nodeOrder.forEach((id, index) => {
-    indexLookup.set(id, index);
-  });
-
-  const updateFns: Array<(state: Uint8Array) => 0 | 1> = nodeOrder.map((_, index) => {
-    return (state: Uint8Array): 0 | 1 => (state[index] ? 1 : 0);
-  });
-
-  // Build update functions per node.
-  for (const rawRule of rules) {
-    if (!rawRule || typeof rawRule !== "string") continue;
-    const [lhsRaw, rhsRaw] = rawRule.split("=");
-    if (!lhsRaw || !rhsRaw) {
-      warnings.push(`Skipping malformed rule: ${rawRule}`);
-      continue;
-    }
-    const targetKey = lhsRaw.trim().toLowerCase();
-    const resolvedId = resolver.get(targetKey);
-    if (!resolvedId) {
-      warnings.push(`Rule target not found in node list: ${lhsRaw.trim()}`);
-      continue;
-    }
-    const index = indexLookup.get(resolvedId);
-    if (index === undefined) {
-      warnings.push(`Rule target is not indexable: ${lhsRaw.trim()}`);
-      continue;
-    }
+  for (const rule of rules) {
+    const trimmed = rule.trim();
+    if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('//')) continue;
+    
     try {
-      const compiled = compileRule(rhsRaw.trim(), resolver, indexLookup);
-      updateFns[index] = compiled;
-    } catch (error) {
-      warnings.push(`Failed to compile rule for ${lhsRaw.trim()}: ${(error as Error).message}`);
+      parsedRules.push(parseRule(trimmed));
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      warnings.push(`Rule parse error: ${message}`);
     }
   }
 
-  const totalStateSpace = Math.pow(2, nodeOrder.length);
-  const stateCap = options?.stateCap ?? DEFAULT_STATE_CAP;
-  const stepCap = options?.stepCap ?? DEFAULT_STEP_CAP;
-  const truncated = totalStateSpace > stateCap;
+  if (parsedRules.length === 0) {
+    throw new Error('No valid rules found. Please provide at least one rule in the format: TARGET = EXPRESSION');
+  }
+
+  // Extract all unique node identifiers
+  const nodeIds = new Set<string>();
+  for (const rule of parsedRules) {
+    nodeIds.add(rule.target);
+    for (const token of rule.tokens) {
+      if (token.type === 'IDENTIFIER') {
+        nodeIds.add(token.value);
+      }
+    }
+  }
+
+  const nodeOrder = Array.from(nodeIds).sort();
+  const nodeLabels = Object.fromEntries(nodeOrder.map(id => [id, id]));
+
+  // Check node count
+  if (nodeOrder.length > 20) {
+    warnings.push(`Network has ${nodeOrder.length} nodes. Analysis may be slow for networks with > 20 nodes.`);
+  }
+
+  const totalStateSpace = 2 ** nodeOrder.length;
+  const maxStates = Math.min(stateCap, totalStateSpace);
+  const truncated = maxStates < totalStateSpace;
+
   if (truncated) {
-    warnings.push(`State space (${totalStateSpace}) exceeds cap (${stateCap}); analysis covers a subset.`);
+    warnings.push(`State space truncated: exploring ${maxStates.toLocaleString()} of ${totalStateSpace.toLocaleString()} possible states.`);
   }
 
-  const visitedStates = new Set<number>();
-  const stateToAttractor = new Map<number, number>();
-  const attractorCycles: number[][] = [];
-  const attractorBasins: number[] = [];
-  let unresolvedStates = 0;
+  // Build rule map
+  const ruleMap = new Map<string, RuleParsed>();
+  for (const rule of parsedRules) {
+    ruleMap.set(rule.target, rule);
+  }
 
-  const scratchCurrent = new Uint8Array(nodeOrder.length);
-  const scratchNext = new Uint8Array(nodeOrder.length);
-
-  const computeNextState = (value: number): number => {
-    decodeState(value, scratchCurrent);
-    for (let idx = 0; idx < nodeOrder.length; idx += 1) {
-      scratchNext[idx] = updateFns[idx](scratchCurrent);
-    }
-    return encodeState(scratchNext);
+  // Helper: encode state to binary string
+  const encodeState = (state: Record<string, 0 | 1>): string => {
+    return nodeOrder.map(id => state[id] ?? 0).join('');
   };
 
-  const initialLimit = truncated ? stateCap : totalStateSpace;
+  // Helper: decode binary string to state
+  const decodeState = (binary: string): Record<string, 0 | 1> => {
+    const state: Record<string, 0 | 1> = {};
+    for (let i = 0; i < nodeOrder.length; i++) {
+      state[nodeOrder[i]] = (binary[i] === '1' ? 1 : 0) as 0 | 1;
+    }
+    return state;
+  };
 
-  for (let baseState = 0; baseState < initialLimit; baseState += 1) {
-    if (stateToAttractor.has(baseState)) continue;
-
-    const path: number[] = [];
-    const indexByState = new Map<number, number>();
-    let current = baseState;
-    let steps = 0;
-    let resolved = false;
-
-    while (steps < stepCap) {
-      if (stateToAttractor.has(current)) {
-        const attractorId = stateToAttractor.get(current) as number;
-        for (const state of path) {
-          if (!stateToAttractor.has(state)) {
-            stateToAttractor.set(state, attractorId);
-            attractorBasins[attractorId] += 1;
-          }
+  // Helper: compute next state
+  const computeNextState = (current: Record<string, 0 | 1>): Record<string, 0 | 1> => {
+    const next: Record<string, 0 | 1> = { ...current };
+    
+    for (const nodeId of nodeOrder) {
+      const rule = ruleMap.get(nodeId);
+      if (rule) {
+        try {
+          next[nodeId] = evaluateExpression(rule.tokens, current);
+        } catch (e) {
+          const message = e instanceof Error ? e.message : String(e);
+          throw new Error(`Error evaluating rule for ${nodeId}: ${message}`);
         }
-        resolved = true;
+      }
+      // If no rule, node retains its value
+    }
+    
+    return next;
+  };
+
+  // State space exploration
+  const stateToAttractorId = new Map<string, number>();
+  const attractorData: Array<{
+    id: number;
+    states: StateSnapshot[];
+    basin: Set<string>;
+  }> = [];
+  let nextAttractorId = 0;
+
+  let exploredCount = 0;
+
+  for (let stateNum = 0; stateNum < maxStates; stateNum++) {
+    const binary = stateNum.toString(2).padStart(nodeOrder.length, '0');
+    
+    if (stateToAttractorId.has(binary)) continue;
+
+    // Follow trajectory
+    const path: string[] = [binary];
+    const visited = new Set<string>([binary]);
+    let current = decodeState(binary);
+
+    for (let step = 0; step < stepCap; step++) {
+      const next = computeNextState(current);
+      const nextBinary = encodeState(next);
+
+      if (stateToAttractorId.has(nextBinary)) {
+        // Reached known attractor
+        const attractorId = stateToAttractorId.get(nextBinary)!;
+        for (const s of path) {
+          stateToAttractorId.set(s, attractorId);
+          attractorData[attractorId].basin.add(s);
+        }
         break;
       }
 
-      if (indexByState.has(current)) {
-        const cycleStart = indexByState.get(current) as number;
-        const cycleStates = path.slice(cycleStart);
-        const attractorId = attractorCycles.length;
-        attractorCycles.push(cycleStates);
-        attractorBasins.push(cycleStates.length);
-        for (const state of cycleStates) {
-          stateToAttractor.set(state, attractorId);
+      if (visited.has(nextBinary)) {
+        // Found new attractor (cycle or fixed point)
+        const cycleStartIndex = path.indexOf(nextBinary);
+        const attractorStates = path.slice(cycleStartIndex);
+        
+        const attractor = {
+          id: nextAttractorId,
+          states: attractorStates.map(bin => ({
+            binary: bin,
+            values: decodeState(bin),
+          })),
+          basin: new Set<string>(path),
+        };
+        attractorData.push(attractor);
+
+        for (const s of path) {
+          stateToAttractorId.set(s, nextAttractorId);
         }
-        for (let i = 0; i < cycleStart; i += 1) {
-          const state = path[i];
-          stateToAttractor.set(state, attractorId);
-          attractorBasins[attractorId] += 1;
-        }
-        resolved = true;
+
+        nextAttractorId++;
         break;
       }
 
-      indexByState.set(current, path.length);
-      path.push(current);
-      visitedStates.add(current);
-      const nextState = computeNextState(current);
-      current = nextState;
-      steps += 1;
+      path.push(nextBinary);
+      visited.add(nextBinary);
+      current = next;
     }
 
-    if (!resolved) {
-      unresolvedStates += path.length + 1;
-      warnings.push(
-        `Traversal step cap reached while analyzing state ${baseState.toString(2).padStart(nodeOrder.length, "0")}.`,
-      );
-    }
+    exploredCount++;
   }
 
-  const exploredStateCount = visitedStates.size;
-
-  const attractors: DeterministicAttractor[] = attractorCycles.map((cycleStates, id) => {
-    const period = cycleStates.length;
-    const type: AttractorType = period === 1 ? "fixed-point" : "limit-cycle";
-    const states = cycleStates.map((state) => formatState(state, nodeOrder, nodeLabels));
-    const basinSize = attractorBasins[id] ?? cycleStates.length;
-    const basinShare = exploredStateCount > 0 ? basinSize / exploredStateCount : 0;
-    return {
-      id,
-      type,
-      period,
-      states,
-      basinSize,
-      basinShare,
-    };
-  });
+  // Format results
+  const attractors = attractorData.map(att => ({
+    id: att.id,
+    type: (att.states.length === 1 ? 'fixed-point' : 'limit-cycle') as 'fixed-point' | 'limit-cycle',
+    period: att.states.length,
+    states: att.states,
+    basinSize: att.basin.size,
+    basinShare: att.basin.size / totalStateSpace,
+  }));
 
   return {
     nodeOrder,
     nodeLabels,
     attractors,
-    exploredStateCount,
+    exploredStateCount: exploredCount,
     totalStateSpace,
     truncated,
     warnings,
-    unresolvedStates,
+    unresolvedStates: Math.max(0, maxStates - stateToAttractorId.size),
   };
-};
+}

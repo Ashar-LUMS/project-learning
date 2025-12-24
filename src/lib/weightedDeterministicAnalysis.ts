@@ -14,11 +14,33 @@
 
   The step threshold is zero; ties (exactly zero) are resolved via options.tieBehavior.
 
-  The output format mirrors DeterministicAnalysisResult so the UI can reuse
-  the same tables and visualizations for attractors and their cycles.
+  The output format uses standard analysis types for attractor visualization.
 */
 
-import type { DeterministicAttractor, DeterministicAnalysisResult } from './deterministicAnalysis';
+// Define analysis types locally
+type DeterministicAttractor = {
+  id?: number;
+  type: 'fixed' | 'cycle' | 'fixed-point' | 'limit-cycle';
+  states: number[][] | Array<{ binary: string; values: Record<string, 0 | 1> }>;
+  size?: number;
+  period?: number;
+  basinSize?: number;
+  basinShare?: number;
+};
+
+type DeterministicAnalysisResult = {
+  attractors: DeterministicAttractor[];
+  nodeOrder: string[];
+  nodeLabels?: Record<string, string>;
+  warnings: string[];
+  exploredStateCount?: number;
+  totalStateSpace?: number;
+  totalStatesExplored?: number;
+  runtime?: number;
+  truncated?: boolean;
+  unresolvedStates?: number;
+};
+
 import { decodeState, encodeState, formatState } from './stateEncoding';
 
 export interface WeightedNode {

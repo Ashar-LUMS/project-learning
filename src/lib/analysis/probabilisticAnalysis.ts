@@ -97,12 +97,13 @@ export function performProbabilisticAnalysis(
       let updatedProbability: number;
 
       if (Math.abs(netInput) < ZERO_TOLERANCE) {
-        // With zero net input, the transition relies solely on the degradation constant.
+        // With zero net input, the node degrades toward zero.
         updatedProbability = clamp01(probabilities[idx] * persistence);
       } else {
         const activationProbability = safeLogistic(netInput, noise);
-        // Blend the fresh activation probability with the existing state, tempered by degradation.
-        updatedProbability = clamp01(persistence * activationProbability + selfDegradation * probabilities[idx]);
+        // Apply persistence to current state, then blend in fresh activation tempered by degradation.
+        // This ensures the node's history (persistence * current) dominates over new signal.
+        updatedProbability = clamp01(persistence * probabilities[idx] + (1 - persistence) * activationProbability);
       }
 
       maxDelta = Math.max(maxDelta, Math.abs(updatedProbability - probabilities[idx]));

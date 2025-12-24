@@ -198,7 +198,7 @@ function renderTabContent(activeTab: TabType, networkSidebar?: React.ReactNode, 
     case 'network':
       return networkSidebar ?? <NetworkSidebar />;
     case 'network-inference':
-      return inferenceSidebar ?? <NetworkAnalysisSidebar actions={inferenceActions} weightedResult={weightedResult} />;
+      return inferenceSidebar ?? <NetworkAnalysisSidebar actions={inferenceActions} />;
     case 'therapeutics':
       return <TherapeuticsSidebar />;
     case 'env':
@@ -245,9 +245,11 @@ function ProjectsSidebar() {
     })();
   }, []);
 
-  const fetchProjects = useCallback(async () => {
+  const fetchProjects = useCallback(async (signal?: AbortSignal) => {
     // 'All' = assigned to me OR created by me. Requires current user id (and optional email fallback)
     if (!currentUserId && !currentUserEmail) return;
+    if (signal?.aborted) return;
+    
     setIsLoading(true); setError(null);
     try {
       const selects = 'id, name, assignees, created_at, created_by, creator_email, networks';
@@ -256,24 +258,40 @@ function ProjectsSidebar() {
         currentUserId ? supabase.from('projects').select(selects).eq('created_by', currentUserId).order('created_at', { ascending: false }) : Promise.resolve({ data: [], error: null } as any),
         currentUserEmail ? supabase.from('projects').select(selects).eq('creator_email', currentUserEmail).order('created_at', { ascending: false }) : Promise.resolve({ data: [], error: null } as any),
       ]);
+      
+      if (signal?.aborted) return;
+      
       if (a.error) throw a.error;
       if (b.error) throw b.error;
       if (c.error) throw c.error;
+      
       const mergedMap = new Map<string, SidebarProject>();
       for (const row of ([...(a.data || []), ...(b.data || []), ...(c.data || [])] as SidebarProject[])) {
         if (row?.id) mergedMap.set(row.id, row);
       }
       const merged = Array.from(mergedMap.values()).sort((x, y) => (y.created_at || '').localeCompare(x.created_at || ''));
-      setProjects(merged);
-    } catch (e: any) {
-      setError(e?.message || 'Failed to load projects');
-      setProjects([]);
+      
+      if (!signal?.aborted) {
+        setProjects(merged);
+      }
+    } catch (e) {
+      if (!signal?.aborted) {
+        const errorMessage = e instanceof Error ? e.message : 'Failed to load projects';
+        setError(errorMessage);
+        setProjects([]);
+      }
     } finally {
-      setIsLoading(false);
+      if (!signal?.aborted) {
+        setIsLoading(false);
+      }
     }
   }, [currentUserId, currentUserEmail]);
 
-  useEffect(() => { fetchProjects(); }, [fetchProjects]);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchProjects(controller.signal);
+    return () => controller.abort();
+  }, [fetchProjects]);
 
   const formatDate = (value?: string | null) => {
     if (!value) return 'Unknown';
@@ -461,50 +479,22 @@ function NetworkSidebar() {
 }
 
 // Enhanced Network Analysis Sidebar
-function NetworkAnalysisSidebar({ actions, weightedResult }: { actions?: NetworkEditorLayoutProps['inferenceActions']; weightedResult?: DeterministicAnalysisResult | null }) {
-  const effectiveResult = actions?.weightedResult ?? weightedResult ?? null;
-  // Log presence of weightedResult for debugging visibility issues
-  React.useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log('[NetworkAnalysisSidebar] FULL DEBUG', {
-      hasActions: !!actions,
-      hasWeightedResult: !!effectiveResult,
-      attractorCount: effectiveResult?.attractors?.length ?? 0,
-      attractorData: JSON.stringify(effectiveResult?.attractors?.slice(0, 2)),
-    });
-  }, [actions?.weightedResult, effectiveResult]);
-
-  // Log every render with timestamp to catch timing issues
-  React.useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log('[NetworkAnalysisSidebar] RENDER EFFECT', {
-      timestamp: new Date().toISOString(),
-      hasWeightedResult: !!effectiveResult,
-      attractorLength: effectiveResult?.attractors?.length ?? 0,
-    });
-  });
+function NetworkAnalysisSidebar({ actions }: { actions?: NetworkEditorLayoutProps['inferenceActions'] }) {
   return (
     <div className="flex flex-col h-full gap-4">
       {/* Header */}
       <div className="flex-shrink-0 space-y-2">
         <h2 className="text-2xl font-bold tracking-tight text-foreground">Network Inference</h2>
         <div className="text-xs">
-          {effectiveResult ? (
-            <span className="text-green-600 font-medium">✓ Weighted: {effectiveResult.attractors?.length ?? 0} attractors</span>
+          {actions?.hasResult ? (
+            <span className="text-green-600 font-medium">✓ Results available</span>
           ) : (
-            <span className="text-muted-foreground">No weighted result</span>
+            <span className="text-muted-foreground">Run analysis to see results</span>
           )}
         </div>
         <Separator />
       </div>
 
-      {/* DEBUG: Show if condition is true */}
-
-      {/* DEBUG: Always show status */}
-      <div className={`text-[10px] p-1 rounded border ${effectiveResult ? 'bg-green-100 border-green-300' : 'bg-red-100 border-red-300'}`}>
-        Result: {effectiveResult ? '✓ FOUND' : '✗ NOT FOUND'} | Attractors: {effectiveResult?.attractors?.length ?? 0}
-      </div>
-      <Separator />
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium">Actions</CardTitle>

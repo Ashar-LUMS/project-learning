@@ -1,11 +1,25 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Get your Supabase URL and anon key from your .env.local file
+// Get your Supabase URL and anon key from environment variables
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+// Validate environment variables
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Supabase URL and anon key must be provided.');
+  const missingVars = [];
+  if (!supabaseUrl) missingVars.push('VITE_SUPABASE_URL');
+  if (!supabaseAnonKey) missingVars.push('VITE_SUPABASE_ANON_KEY');
+  throw new Error(
+    `Missing required environment variables: ${missingVars.join(', ')}. ` +
+    'Please create a .env.local file with these values.'
+  );
+}
+
+// Validate URL format
+try {
+  new URL(supabaseUrl);
+} catch {
+  throw new Error('VITE_SUPABASE_URL must be a valid URL');
 }
 
 // Configure Supabase client with sessionStorage instead of localStorage

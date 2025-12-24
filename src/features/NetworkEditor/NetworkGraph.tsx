@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState, useCallback, forwardRef, useImperativeHandle } from "react";
-import cytoscape, { type Core, type StylesheetCSS } from "cytoscape";
+import React, { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react";
+import cytoscape, { type Core } from "cytoscape";
 import { supabase } from '../../supabaseClient';
 import { useNetworkData } from '../../hooks/useNetworkData';
 export { useNetworkData } from '../../hooks/useNetworkData';
@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import RuleBasedGraph from './RuleBasedGraph';
+import { useToast } from '@/components/ui/toast';
 
 type Node = {
   id: string;
@@ -31,19 +31,12 @@ type Edge = {
     [key: string]: any;
   };
 };
-type RuleSet = {
-  name: string;
-  rules: any[];
-  onRulesApply?: (ruleSet: RuleSet) => void;
-  onCancel?: () => void;
-  initialRuleSet?: RuleSet;
-};
 
 export type NetworkGraphHandle = {
   getLiveWeightedConfig: () => {
     nodes: Array<{ id: string; label: string; properties?: Record<string, any> }>
     edges: Array<{ source: string; target: string; weight?: number }>
-    tieBehavior: 'zero-as-zero' | 'zero-as-one' | 'hold'
+    tieBehavior: 'hold'
   } | null;
 };
 
@@ -55,9 +48,8 @@ type Props = {
   onSaved?: (network: { id: string; name: string; created_at: string | null; data: any }) => void;
 };
 
-type GraphMode = 'weight-based' | 'rule-based';
-
 const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refreshToken = 0, projectId = null, onSaved }, ref) => {
+  const { showToast, showConfirm, showPrompt } = useToast();
   console.log('[NetworkGraph] Component render', {
     networkId,
     refreshToken
@@ -70,18 +62,20 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
     effectiveRefresh
   );
 
-  // Load persisted rules from network_data if present
+  // Load network metadata if present
   useEffect(() => {
+    if (!network) return;
+    
     try {
-      const rules = (network && ((network as any).rules || (network as any).data?.rules)) || null;
-      if (Array.isArray(rules) && rules.length > 0) {
-        setActiveRuleSet((prev) => prev || { name: 'Loaded Rules', rules });
+      const networkType = (network as any).network_type || (network as any).data?.network_type;
+      
+      // Log network type for debugging
+      if (networkType) {
+        console.log(`[NetworkGraph] Loaded ${networkType} network`);
       }
-      const persistedTie = (network && ((network as any).metadata?.tieBehavior || (network as any).data?.metadata?.tieBehavior)) || null;
-      if (persistedTie === 'zero-as-zero' || persistedTie === 'zero-as-one' || persistedTie === 'hold') {
-        setTieBehavior(persistedTie);
-      }
-    } catch (e) { }
+    } catch (e) {
+      console.warn('[NetworkGraph] Error loading network metadata', e);
+    }
   }, [network]);
 
   useEffect(() => {
@@ -118,13 +112,8 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
     weight?: number;
   } | null>(null);
 
-  // Rule-based graph state
-  const [graphMode, setGraphMode] = useState<GraphMode>('weight-based');
-  const [showRuleEditor, setShowRuleEditor] = useState(false);
-  const [activeRuleSet, setActiveRuleSet] = useState<RuleSet | null>(null);
-  const [isApplyingRules, setIsApplyingRules] = useState(false);
-  // Weighted analysis UI preferences
-  const [tieBehavior, setTieBehavior] = useState<'zero-as-zero' | 'zero-as-one' | 'hold'>('hold');
+  // Weighted analysis: tieBehavior is permanently set to 'hold'
+  const tieBehavior = 'hold' as const;
   const [cyInitError, setCyInitError] = useState<string | null>(null);
 
   // Default weights
@@ -137,23 +126,37 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
   const [deletedNodeIds, setDeletedNodeIds] = useState<Set<string>>(new Set());
   const [deletedEdgeIds, setDeletedEdgeIds] = useState<Set<string>>(new Set());
 
-  // Get the current network data with all modifications applied
-  const getCurrentNetworkData = useMemo(() => {
+  // Get current nodes with all modifications applied
+  const currentNodes = useMemo(() => {
     const fetchedNodes = (network && (Array.isArray((network as any).nodes) ? (network as any).nodes : Array.isArray((network as any).data?.nodes) ? (network as any).data.nodes : [])) || [];
+    const localNodeMap = new Map(localNodes.map(n => [n.id, n]));
+
+    return [
+      ...fetchedNodes
+        .filter((n: any) => n && typeof n.id === 'string' && !deletedNodeIds.has(n.id))
+        .map((n: any) => localNodeMap.get(n.id) || n),
+      ...localNodes.filter(n => !fetchedNodes.some((fn: any) => fn.id === n.id))
+    ];
+  }, [network, localNodes, deletedNodeIds]);
+
+  // Get current edges with all modifications applied
+  const currentEdges = useMemo(() => {
     const fetchedEdges = (network && (Array.isArray((network as any).edges) ? (network as any).edges : Array.isArray((network as any).data?.edges) ? (network as any).data.edges : [])) || [];
+    const localEdgeMap = new Map(localEdges.map(e => [`${e.source}::${e.target}`, e]));
 
-    const currentNodes = [
-      ...fetchedNodes.filter((n: any) => n && typeof n.id === 'string' && !deletedNodeIds.has(n.id)),
-      ...localNodes
+    return [
+      ...fetchedEdges
+        .filter((e: any) => e && typeof e.source === 'string' && typeof e.target === 'string' && !deletedEdgeIds.has(`edge:${e.source}:${e.target}`))
+        .map((e: any) => localEdgeMap.get(`${e.source}::${e.target}`) || e),
+      ...localEdges.filter(e => !fetchedEdges.some((fe: any) => fe.source === e.source && fe.target === e.target))
     ];
+  }, [network, localEdges, deletedEdgeIds]);
 
-    const currentEdges = [
-      ...fetchedEdges.filter((e: any) => e && typeof e.source === 'string' && typeof e.target === 'string' && !deletedEdgeIds.has(`edge:${e.source}:${e.target}`)),
-      ...localEdges
-    ];
-
-    return { nodes: currentNodes, edges: currentEdges };
-  }, [network, localNodes, localEdges, deletedNodeIds, deletedEdgeIds]);
+  // Backwards compatibility: provide as object
+  const getCurrentNetworkData = useMemo(() => ({
+    nodes: currentNodes,
+    edges: currentEdges
+  }), [currentNodes, currentEdges]);
 
   // UPDATED: Include weight data in elements
   const elements = useMemo(() => {
@@ -254,9 +257,23 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
       const duplicateCount = edges.length - dedupedEdges.length;
       if (duplicateCount > 0) {
         console.warn(`[NetworkGraph] Removed ${duplicateCount} duplicate edges before save`);
-        try { window.alert(`Removed ${duplicateCount} duplicate edge(s) (same source→target) before saving.`); } catch {}
+        showToast({ 
+          title: 'Duplicate Edges Removed', 
+          description: `Removed ${duplicateCount} duplicate edge(s) (same source→target) before saving.`,
+          variant: 'default'
+        });
       }
-      const payload = { nodes, edges: dedupedEdges, rules: activeRuleSet?.rules, metadata: { tieBehavior } };
+      
+      // Preserve existing metadata and merge with current settings
+      const existingMetadata = (network && ((network as any).metadata || (network as any).data?.metadata)) || {};
+      const payload = { 
+        nodes, 
+        edges: dedupedEdges, 
+        metadata: { 
+          ...existingMetadata,
+          // Note: thresholdMultiplier would be added here when UI supports it
+        } 
+      };
 
       if (isUpdate && networkId) {
         const { data, error } = await supabase
@@ -268,7 +285,11 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
 
         if (error) {
           console.error('Failed to update network', error);
-          window.alert('Failed to update network: ' + (error.message || String(error)));
+          showToast({ 
+            title: 'Update Failed', 
+            description: 'Failed to update network: ' + (error.message || String(error)),
+            variant: 'destructive'
+          });
         } else {
           console.log('Updated network', data);
           const updatedNetwork = {
@@ -277,23 +298,38 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
             created_at: data.created_at ?? null,
             data: data.network_data ?? null
           };
+          // Clear local modifications after successful save
+          setLocalNodes([]);
+          setLocalEdges([]);
+          setDeletedNodeIds(new Set());
+          setDeletedEdgeIds(new Set());
+          // Trigger refresh to reload updated data from database
+          setManualRefresh(p => p + 1);
           try { onSaved?.(updatedNetwork); } catch (e) { }
-          window.alert('Network updated successfully');
+          showToast({ 
+            title: 'Success', 
+            description: 'Network updated successfully',
+            variant: 'success'
+          });
         }
       } else {
-        const name = window.prompt('Save network as (name):', `network-${Date.now()}`);
-        if (!name) return;
+        showPrompt('Save network as (name):', `network-${Date.now()}`, async (name) => {
+          if (!name) return;
 
-        const { data, error } = await supabase
-          .from('networks')
-          .insert({ name, network_data: payload })
-          .select()
-          .single();
+          const { data, error } = await supabase
+            .from('networks')
+            .insert({ name, network_data: payload })
+            .select()
+            .single();
 
-        if (error) {
-          console.error('Failed to save network', error);
-          window.alert('Failed to save network: ' + (error.message || String(error)));
-        } else {
+          if (error) {
+            console.error('Failed to save network', error);
+            showToast({ 
+              title: 'Save Failed', 
+              description: 'Failed to save network: ' + (error.message || String(error)),
+              variant: 'destructive'
+            });
+          } else {
           console.log('Saved network', data);
           const newNetwork = {
             id: data.id as string,
@@ -303,6 +339,11 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
           };
           try { onSaved?.(newNetwork); } catch (e) { }
 
+          // Clear local modifications after successful save
+          setLocalNodes([]);
+          setLocalEdges([]);
+          setDeletedNodeIds(new Set());
+          setDeletedEdgeIds(new Set());
           try {
             const newNetworkId = data.id as string;
             if (projectId) {
@@ -317,210 +358,26 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
               const { error: updateErr } = await supabase.from('projects').update({ networks: updatedIds }).eq('id', projectId);
               if (updateErr) throw updateErr;
             }
-          } catch (linkErr: any) {
-            console.warn('Saved network but failed to link to project', linkErr);
+            } catch (linkErr) {
+              console.warn('Saved network but failed to link to project', linkErr);
+            }
+            showToast({ 
+              title: 'Success', 
+              description: 'Network saved successfully',
+              variant: 'success'
+            });
           }
-          window.alert('Network saved successfully');
-        }
+        });
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Save network error', err);
-      window.alert('Save failed: ' + String(err?.message || err));
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      showConfirm(
+        `Save failed: ${errorMsg}\n\nWould you like to try again?`,
+        () => saveNetwork(isUpdate)
+      );
     }
   };
-
-  // Apply rule set function - FIXED
-  const applyRuleSet = useCallback((ruleSet: RuleSet) => {
-    console.log('[NetworkGraph] applyRuleSet called', {
-      ruleSetName: ruleSet.name,
-      isApplyingRules,
-      cyRefExists: !!cyRef.current
-    });
-
-    if (isApplyingRules || !cyRef.current) {
-      console.log('[NetworkGraph] applyRuleSet blocked', { isApplyingRules, cyRefExists: !!cyRef.current });
-      return;
-    }
-
-    // Batch state updates
-    setIsApplyingRules(true);
-    setActiveRuleSet(ruleSet);
-    setShowRuleEditor(false);
-    setGraphMode('rule-based');
-
-    console.log('[NetworkGraph] States updated, applying rules...');
-
-    const cy = cyRef.current;
-
-    // Reset all styling first by re-applying the default stylesheet
-    const defaultStylesheet: StylesheetCSS[] = [
-      {
-        selector: 'node',
-        css: {
-          'background-color': (ele: any) => typeColors.get(ele.data('type')) || '#6b7280',
-          'label': 'data(label)',
-          'color': '#111827',
-          'font-size': 14,
-          'text-valign': 'center',
-          'text-halign': 'center',
-          'width': 50,
-          'height': 50,
-          'border-width': 3,
-          'border-color': '#ffffff',
-        },
-      },
-      {
-        selector: 'edge',
-        css: {
-          'width': 4,
-          'line-color': '#9ca3af',
-          'target-arrow-color': '#9ca3af',
-          'target-arrow-shape': 'triangle',
-          'curve-style': 'bezier',
-          'arrow-scale': 1.2,
-        },
-      },
-      {
-        selector: '.edge-source',
-        css: {
-          'border-color': '#f59e0b',
-          'border-width': 4,
-        },
-      },
-      {
-        selector: '.delete-candidate',
-        css: {
-          'border-color': '#ef4444',
-          'border-width': 4,
-          'background-color': '#fee2e2',
-        },
-      },
-      {
-        selector: ':selected',
-        css: {
-          'border-width': 4,
-          'border-color': '#3b82f6',
-          'line-color': '#3b82f6',
-          'target-arrow-color': '#3b82f6',
-        },
-      },
-      {
-        selector: '.faded',
-
-        css: {
-          'opacity': 0.2
-        }
-      }
-    ];
-
-    // Apply the default stylesheet
-    cy.style(defaultStylesheet);
-    cy.elements().removeClass('faded');
-    cy.nodes().style('display', 'element');
-
-    try {
-      const enabledRules = ruleSet.rules.filter((rule: { enabled: any; }) => rule.enabled);
-      console.log(`[NetworkGraph] Applying ${enabledRules.length} enabled rules`);
-
-      enabledRules.sort((a: { priority: number; }, b: { priority: number; }) => a.priority - b.priority).forEach((rule: { name: any; target: string; condition: any; action: string; }, index: number) => {
-        console.log(`[NetworkGraph] Applying rule ${index + 1}: ${rule.name}`);
-        try {
-          // Create evaluation context
-          const context = {
-            highlightNode: (node: any, color: string) => {
-              node.style('background-color', color);
-              node.style('border-color', color);
-            },
-            setNodeSize: (node: any, size: number) => {
-              node.style('width', size);
-              node.style('height', size);
-            },
-            setNodeColor: (node: any, color: string) => {
-              node.style('background-color', color);
-            },
-            setEdgeWidth: (edge: any, width: number) => {
-              edge.style('width', Math.min(width, 20));
-            },
-            setEdgeColor: (edge: any, color: string) => {
-              edge.style('line-color', color);
-              edge.style('target-arrow-color', color);
-            },
-            showNeighbors: (node: any) => {
-              const neighborhood = node.closedNeighborhood();
-              cy.elements().removeClass('faded');
-              cy.elements().not(neighborhood).addClass('faded');
-            },
-            hideUnconnectedNodes: () => {
-              const connectedNodes = cy.edges().connectedNodes();
-              cy.nodes().forEach((node: any) => {
-                if (!connectedNodes.contains(node)) {
-                  node.style('display', 'none');
-                }
-              });
-            }
-          };
-
-          // Apply rule based on target
-          if (rule.target === 'nodes' || rule.target === 'both') {
-            cy.nodes().forEach((node: any) => {
-              const nodeData = node.data();
-
-              try {
-                const conditionMet = new Function(
-                  'node', 'edge', 'graph',
-                  `return ${rule.condition}`
-                )(nodeData, null, cy);
-
-                if (conditionMet) {
-                  new Function(
-                    'node', 'edge', 'graph', 'highlightNode', 'setNodeSize', 'setNodeColor',
-                    'setEdgeWidth', 'setEdgeColor', 'showNeighbors', 'hideUnconnectedNodes',
-                    rule.action
-                  )(
-                    nodeData, null, cy,
-                    context.highlightNode, context.setNodeSize, context.setNodeColor,
-                    context.setEdgeWidth, context.setEdgeColor, context.showNeighbors, context.hideUnconnectedNodes
-                  );
-                }
-              } catch (error) {
-                console.warn(`Error applying rule "${rule.name}" to node ${nodeData.id}:`, error);
-              }
-            });
-          }
-
-          if (rule.target === 'edges' || rule.target === 'both') {
-            cy.edges().forEach((edge: any) => {
-              const edgeData = edge.data();
-
-              try {
-                const conditionMet = new Function(
-                  'node', 'edge', 'graph',
-                  `return ${rule.condition}`
-                )(null, edgeData, cy);
-
-                if (conditionMet) {
-                  new Function(
-                    'node', 'edge', 'graph', 'setEdgeWidth', 'setEdgeColor',
-                    rule.action
-                  )(null, edgeData, cy, context.setEdgeWidth, context.setEdgeColor);
-                }
-              } catch (error) {
-                console.warn(`Error applying rule "${rule.name}" to edge ${edgeData.id}:`, error);
-              }
-            });
-          }
-
-        } catch (error) {
-          console.error(`Error processing rule "${rule.name}":`, error);
-        }
-      });
-    } catch (error) {
-      console.error('Error applying rule set:', error);
-    } finally {
-      setIsApplyingRules(false);
-      console.log('[NetworkGraph] Rule application complete');
-    }
-  }, [isApplyingRules, typeColors]);
 
   // Handle node creation
   const handleAddNodeWithMode = (evt: any) => {
@@ -544,111 +401,15 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
     setManualRefresh(prev => prev + 1);
   };
 
-  // Reset to weight-based mode
-  const resetToWeightBased = () => {
-    console.log('[NetworkGraph] resetToWeightBased called');
-    setGraphMode('weight-based');
-    setShowRuleEditor(false);
-    setActiveRuleSet(null);
-    if (cyRef.current) {
-      // Re-apply default styles
-      cyRef.current.style([
-        {
-          selector: 'node',
-          css: {
-            'background-color': (ele: any) => typeColors.get(ele.data('type')) || '#6b7280',
-            'label': 'data(label)',
-            'color': '#111827',
-            'font-size': 14,
-            'text-valign': 'center',
-            'text-halign': 'center',
-            'width': 50,
-            'height': 50,
-            'border-width': 3,
-            'border-color': '#ffffff',
-          },
-        },
-        {
-          selector: 'edge',
-          css: {
-            'width': 4,
-            'line-color': '#9ca3af',
-            'target-arrow-color': '#9ca3af',
-            'target-arrow-shape': 'triangle',
-            'curve-style': 'bezier',
-            'arrow-scale': 1.2,
-          },
-        },
-        {
-          selector: '.edge-source',
-          css: {
-            'border-color': '#f59e0b',
-            'border-width': 4,
-          },
-        },
-        {
-          selector: '.delete-candidate',
-          css: {
-            'border-color': '#ef4444',
-            'border-width': 4,
-            'background-color': '#fee2e2',
-          },
-        },
-        {
-          selector: ':selected',
-          css: {
-            'border-width': 4,
-            'border-color': '#3b82f6',
-            'line-color': '#3b82f6',
-            'target-arrow-color': '#3b82f6',
-          },
-        },
-        {
-          selector: '.faded',
-          css: {
-            'opacity': 0.2
-          }
-        }
-      ]);
-      cyRef.current.elements().removeClass('faded');
-      cyRef.current.nodes().style('display', 'element');
-    }
-  };
-
-  // Add useEffects to log state changes
-  useEffect(() => {
-    console.log('[NetworkGraph] graphMode changed', {
-      graphMode,
-      showRuleEditor,
-      activeRuleSet: activeRuleSet?.name
-    });
-  }, [graphMode, showRuleEditor, activeRuleSet]);
-
-  useEffect(() => {
-    console.log('[NetworkGraph] showRuleEditor changed', {
-      showRuleEditor,
-      graphMode
-    });
-  }, [showRuleEditor, graphMode]);
-
   // Cytoscape initialization (initialize once; retry when inputs change)
   useEffect(() => {
     console.log('[NetworkGraph] Cytoscape useEffect triggered', {
       elementsLength: elements.length,
-      graphMode,
-      showRuleEditor,
-      containerRef: !!containerRef.current,
-      activeRuleSet: activeRuleSet?.name
+      containerRef: !!containerRef.current
     });
 
     if (!containerRef.current) {
       console.log('[NetworkGraph] No container ref, returning');
-      return;
-    }
-
-    // Skip initialization if in rule editor mode
-    if (showRuleEditor) {
-      console.log('[NetworkGraph] Skipping cytoscape init - in rule editor mode');
       return;
     }
 
@@ -770,17 +531,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
                     }
                   }
                 });
-                try {
-                  cy.on('ehcomplete', (evt: any) => {
-                    try {
-                      const src = String(evt.source.id());
-                      const tgt = String(evt.target.id());
-                      setLocalEdges(prev => [...prev, { source: src, target: tgt, weight: defaultEdgeWeight }]);
-                    } catch (e) {
-                      console.log('[NetworkGraph] cy ehcomplete handler error', e);
-                    }
-                  });
-                } catch (e) { }
+                // Removed duplicate ehcomplete handler to prevent duplicate edge creation
                 try { ehRef.current.disable(); } catch { }
                 setEhLoaded(true);
                 console.log('[NetworkGraph] Edgehandles loaded');
@@ -984,11 +735,11 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
       console.error('Cytoscape initialization error:', err);
       setCyInitError((err as any)?.message || 'Unknown Cytoscape init error');
     }
-  }, [showRuleEditor, elements, graphMode, typeColors, activeRuleSet]);
+  }, [elements, typeColors]);
 
   // Reconcile elements without full reinit
   useEffect(() => {
-    if (!cyRef.current || showRuleEditor) return;
+    if (!cyRef.current) return;
     const cy = cyRef.current;
     try {
       const desired = elements as any[];
@@ -1070,7 +821,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
   // Check if there are any modifications
   const hasModifications = localNodes.length > 0 || localEdges.length > 0 || deletedNodeIds.size > 0 || deletedEdgeIds.size > 0;
 
-  // Expose live weighted configuration (nodes/edges from current Cytoscape view + panel tieBehavior)
+  // Expose live weighted configuration (nodes/edges from current Cytoscape view, tieBehavior always 'hold')
   useImperativeHandle(ref, () => ({
     getLiveWeightedConfig: () => {
       if (!cyRef.current) return null;
@@ -1091,7 +842,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
         return null;
       }
     }
-  }), [tieBehavior]);
+  }), []);
 
   if (isLoading) {
     return (
@@ -1151,31 +902,6 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
                     <span className="text-gray-600">Edges:</span>
                     <Badge variant="secondary">{edgesCount}</Badge>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-600">Mode:</span>
-                    <Badge
-                      variant={graphMode === 'rule-based' ? 'default' : 'outline'}
-                      className="cursor-pointer"
-                      onClick={() => {
-                        if (graphMode === 'weight-based') {
-                          console.log('[NetworkGraph] Switching to rule-based mode');
-                          setGraphMode('rule-based');
-                          setShowRuleEditor(true);
-                        } else {
-                          resetToWeightBased();
-                        }
-                      }}
-                    >
-                      {graphMode === 'rule-based' ? 'Rule-Based' : 'Weight-Based'}
-                      {isApplyingRules && <span className="ml-2 animate-spin">⟳</span>}
-                    </Badge>
-                  </div>
-                  {activeRuleSet && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-600">Active Rules:</span>
-                      <Badge variant="outline">{activeRuleSet.name}</Badge>
-                    </div>
-                  )}
                   {selectedNode && (
                     <div className="flex items-center gap-2">
                       <span className="text-gray-600">Selected:</span>
@@ -1195,33 +921,6 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Rule-based controls */}
-            {graphMode === 'rule-based' && !showRuleEditor && (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    console.log('[NetworkGraph] Edit Rules button clicked');
-                    setShowRuleEditor(true);
-                  }}
-                  disabled={isApplyingRules}
-                >
-                  {activeRuleSet ? 'Edit Rules' : 'Create Rules'}
-                </Button>
-                {activeRuleSet && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={resetToWeightBased}
-                    disabled={isApplyingRules}
-                  >
-                    Clear Rules
-                  </Button>
-                )}
-              </>
-            )}
-
             {hasModifications && (
               <Button
                 variant="outline"
@@ -1360,43 +1059,20 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
 
         {/* Main Canvas Area */}
         <div className="flex-1 relative min-w-0 min-h-0">
-          {/* Show Rule Editor when showRuleEditor is true */}
-          {showRuleEditor ? (
-            <div className="w-full h-full bg-white" key="rule-editor">
-              <RuleBasedGraph
-                onRulesApply={(ruleSet: RuleSet) => {
-                  console.log('[NetworkGraph] RuleBasedGraph onRulesApply called', {
-                    ruleSetName: ruleSet.name,
-                    rulesCount: ruleSet.rules.length
-                  });
-                  applyRuleSet(ruleSet);
-                }}
-                onCancel={() => {
-                  console.log('[NetworkGraph] RuleBasedGraph onCancel called');
-                  setShowRuleEditor(false);
-                  if (!activeRuleSet) {
-                    resetToWeightBased();
-                  }
-                }}
-                initialRuleSet={activeRuleSet || undefined}
-              />
-            </div>
-          ) : (
-            <>
-              {/* Cytoscape container - Takes full available space */}
-              <div
-                ref={containerRef}
-                className="w-full h-full bg-gradient-to-br from-gray-50 to-gray-100"
-                aria-label="Project network visualization"
-                key="cytoscape-container"
-              />
+          {/* Cytoscape container */}
+          <div
+            ref={containerRef}
+            className="w-full h-full bg-gradient-to-br from-gray-50 to-gray-100"
+            aria-label="Project network visualization"
+            key="cytoscape-container"
+          />
 
-              {/* Debug Panel - Bottom left */}
-              <div className="absolute left-4 bottom-4 z-30 max-w-md">
+          {/* Debug Panel - Bottom left */}
+          <div className="absolute left-4 bottom-4 z-30 max-w-md">
                 <Card className="bg-white/95 backdrop-blur-sm max-h-64 overflow-y-auto">
                   <CardContent className="p-3">
                     <div className="space-y-1 text-xs">
-                      <div className="font-mono">Mode: {tool} • Graph Mode: {graphMode} • Nodes: {nodesCount} • Edges: {edgesCount}</div>
+                      <div className="font-mono">Mode: {tool} • Nodes: {nodesCount} • Edges: {edgesCount}</div>
                       <div className="text-muted-foreground">Fetched: {fetchedNodeCount} nodes • {fetchedEdgeCount} edges</div>
                       <div>NetworkId: {String(networkId ?? 'none')}</div>
                       <div>Cytoscape: {cyInitialized ? 'initialized' : 'not initialized'}</div>
@@ -1452,12 +1128,10 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
                   </Card>
                 </div>
               )}
-            </>
-          )}
         </div>
 
         {/* Right Sidebar - Node/Edge Properties */}
-        {(selectedNode || selectedEdge) && !showRuleEditor && (
+        {(selectedNode || selectedEdge) && (
           <div className="w-80 bg-white border-l flex-shrink-0 z-20">
             <Card className="h-full border-0 rounded-none">
               <CardHeader className="pb-3 border-b">
@@ -1483,20 +1157,6 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
               </CardHeader>
 
               <CardContent className="p-4 space-y-4">
-                {/* Weighted analysis controls (panel-level) */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Tie Behavior</label>
-                  <select
-                    className="w-full border rounded px-2 py-1 text-sm"
-                    value={tieBehavior}
-                    onChange={(e) => setTieBehavior(e.target.value as any)}
-                  >
-                    <option value="zero-as-zero">Zero → 0</option>
-                    <option value="zero-as-one">Zero → 1</option>
-                    <option value="hold">Zero → hold</option>
-                  </select>
-                  <div className="text-xs text-muted-foreground">When net input equals 0: choose 0, 1, or hold previous state.</div>
-                </div>
                 {selectedNode && (
                   <>
                     <div className="space-y-2">
@@ -1551,10 +1211,21 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
                               node.data('weight', newWeight);
                             }
                           }
-                          if (selectedNode.id.startsWith('n-')) {
+                          const isLocal = localNodes.some(n => n.id === selectedNode.id);
+                          if (isLocal) {
+                            // Update existing local node
                             setLocalNodes(prev =>
                               prev.map(n => n.id === selectedNode.id ? { ...n, weight: newWeight } : n)
                             );
+                          } else {
+                            // Node from network, add to local modifications only if not already there
+                            setLocalNodes(prev => {
+                              const alreadyModified = prev.find(n => n.id === selectedNode.id);
+                              if (alreadyModified) {
+                                return prev.map(n => n.id === selectedNode.id ? { ...n, weight: newWeight } : n);
+                              }
+                              return [...prev, { ...selectedNode, weight: newWeight }];
+                            });
                           }
                         }}
                         min="0"
@@ -1572,11 +1243,23 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
                         onChange={(e) => {
                           const newBias = parseFloat(e.target.value) || 0;
                           setSelectedNode(prev => prev ? { ...prev, properties: { ...(prev.properties || {}), bias: newBias } } : null);
-                          // Keep local state in sync for newly added nodes
-                          if (selectedNode.id.startsWith('n-')) {
+                          
+                          const isLocal = localNodes.some(n => n.id === selectedNode.id);
+                          if (isLocal) {
+                            // Update existing local node
                             setLocalNodes(prev => prev.map(n => (
                               n.id === selectedNode.id ? { ...n, properties: { ...(n.properties || {}), bias: newBias } } : n
                             )));
+                          } else {
+                            // Node from network - add to modifications if not already there
+                            const updatedNode = { ...selectedNode, properties: { ...(selectedNode.properties || {}), bias: newBias } };
+                            setLocalNodes(prev => {
+                              const alreadyModified = prev.find(n => n.id === selectedNode.id);
+                              if (alreadyModified) {
+                                return prev.map(n => n.id === selectedNode.id ? updatedNode : n);
+                              }
+                              return [...prev, updatedNode];
+                            });
                           }
                         }}
                         step="0.1"
@@ -1645,9 +1328,10 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
                       <Button
                         variant="destructive"
                         onClick={() => {
-                          if (window.confirm(`Are you sure you want to delete node "${selectedNode.label}"?`)) {
-                            deleteNode(selectedNode.id);
-                          }
+                          showConfirm(
+                            `Are you sure you want to delete node "${selectedNode.label}"?`,
+                            () => deleteNode(selectedNode.id)
+                          );
                         }}
                         className="w-full"
                       >
@@ -1694,7 +1378,9 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
                             });
                           }
                           const edgeKey = `${selectedEdge.source}-${selectedEdge.target}`;
-                          if (localEdges.some(e => `${e.source}-${e.target}` === edgeKey)) {
+                          const isLocal = localEdges.some(e => `${e.source}-${e.target}` === edgeKey);
+                          if (isLocal) {
+                            // Update existing local edge
                             setLocalEdges(prev =>
                               prev.map(e =>
                                 e.source === selectedEdge.source && e.target === selectedEdge.target
@@ -1702,6 +1388,15 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
                                   : e
                               )
                             );
+                          } else {
+                            // Edge from network - add to modifications if not already there
+                            setLocalEdges(prev => {
+                              const alreadyModified = prev.find(e => e.source === selectedEdge.source && e.target === selectedEdge.target);
+                              if (alreadyModified) {
+                                return prev.map(e => e.source === selectedEdge.source && e.target === selectedEdge.target ? { ...e, weight: newWeight } : e);
+                              }
+                              return [...prev, { source: selectedEdge.source, target: selectedEdge.target, weight: newWeight }];
+                            });
                           }
                         }}
                         min="0"
@@ -1747,7 +1442,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
       </div>
 
       {/* Node creation form - Modal overlay */}
-      {newNodeDraft && !showRuleEditor && (
+      {newNodeDraft && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50">
           <Card className="w-80">
             <CardHeader>
@@ -1758,7 +1453,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
                 <label className="text-sm font-medium">Label</label>
                 <Input
                   value={newNodeDraft.label}
-                  onChange={(e) => setNewNodeDraft({ ...newNodeDraft, label: e.target.value })}
+                  onChange={(e) => setNewNodeDraft(prev => prev ? { ...prev, label: e.target.value } : null)}
                   placeholder="Enter node label"
                   autoFocus
                 />
@@ -1768,7 +1463,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
                 <label className="text-sm font-medium">Type</label>
                 <Input
                   value={newNodeDraft.type}
-                  onChange={(e) => setNewNodeDraft({ ...newNodeDraft, type: e.target.value })}
+                  onChange={(e) => setNewNodeDraft(prev => prev ? { ...prev, type: e.target.value } : null)}
                   placeholder="Enter node type"
                 />
               </div>
@@ -1778,7 +1473,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
                 <Input
                   type="number"
                   value={newNodeDraft.weight ?? defaultNodeWeight}
-                  onChange={(e) => setNewNodeDraft({ ...newNodeDraft, weight: parseFloat(e.target.value) || defaultNodeWeight })}
+                  onChange={(e) => setNewNodeDraft(prev => prev ? { ...prev, weight: parseFloat(e.target.value) || defaultNodeWeight } : null)}
                   placeholder="Enter node weight"
                   min="0"
                   step="0.1"
@@ -1878,4 +1573,15 @@ const TrashIcon = () => (
   </svg>
 );
 
-export default NetworkGraph;
+NetworkGraph.displayName = 'NetworkGraph';
+
+// Memoize to prevent unnecessary re-renders
+export default React.memo(NetworkGraph, (prevProps, nextProps) => {
+  // Custom comparison for performance
+  return (
+    prevProps.networkId === nextProps.networkId &&
+    prevProps.refreshToken === nextProps.refreshToken &&
+    prevProps.projectId === nextProps.projectId &&
+    prevProps.height === nextProps.height
+  );
+});

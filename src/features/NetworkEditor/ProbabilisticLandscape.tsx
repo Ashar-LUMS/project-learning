@@ -2,6 +2,12 @@ import React, { useEffect, useRef } from 'react';
 
 declare const Plotly: any;
 
+declare global {
+  interface Window {
+    Plotly?: any;
+  }
+}
+
 interface ProbabilisticLandscapeProps {
   nodeOrder: string[];
   probabilities: Record<string, number>;

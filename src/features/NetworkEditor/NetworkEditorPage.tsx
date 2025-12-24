@@ -1,5 +1,5 @@
-import type React from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useToast } from '@/components/ui/toast';
 import NetworkEditorLayout from './layout';
 import type { NetworkEditorLayoutProps } from './layout';
 import ProjectTabComponent from './tabs/ProjectTab';
@@ -15,9 +15,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 // analysis node type is internal to the hook now
-import { useDeterministicAnalysis } from '@/hooks/useDeterministicAnalysis';
 import { useWeightedAnalysis } from '@/hooks/useWeightedAnalysis';
 import { useProbabilisticAnalysis } from '@/hooks/useProbabilisticAnalysis';
+import { useDeterministicAnalysis } from '@/hooks/useDeterministicAnalysis';
 import type { AnalysisEdge, AnalysisNode, ProbabilisticAnalysisOptions, WeightedAnalysisOptions } from '@/lib/analysis/types';
 import { useProjectNetworks, type ProjectNetworkRecord } from '@/hooks/useProjectNetworks';
 
@@ -26,13 +26,13 @@ import AttractorGraph from './AttractorGraph';
 // network type unified via hook's ProjectNetworkRecord
 // Last updated: 2025-12-05 - Added weighted analysis support
 
-export default function NetworkEditorPage() {
-  // TEST: Mark that component is rendering
-  (window as any).__networkEditorPageRenderCount = ((window as any).__networkEditorPageRenderCount || 0) + 1;
-  
-  console.log('[NetworkEditorPage] Component mounting - weighted analysis enabled');
-  console.log('[NetworkEditorPage] === COMPONENT RENDER START ===');
-  console.log('[NetworkEditorPage] RENDER #' + (window as any).__networkEditorPageRenderCount);
+function NetworkEditorPage() {
+  // Development logging
+  if (import.meta.env.DEV) {
+    (window as any).__networkEditorPageRenderCount = ((window as any).__networkEditorPageRenderCount || 0) + 1;
+    console.log('[NetworkEditorPage] Render #' + (window as any).__networkEditorPageRenderCount);
+  }
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<'projects' | 'network' | 'therapeutics' | 'analysis' | 'results' | 'network-inference' | 'env' | 'cell-circuits' | 'cell-lines' | 'simulation'>('projects');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   // networks managed via hook now
@@ -40,28 +40,8 @@ export default function NetworkEditorPage() {
   // analysis managed via hook
 
   // use shared hook for project networks
-  const { networks, selectedNetworkId, selectedNetwork, isLoading: isLoadingNetworks, error: networksError, selectNetwork, setNetworks } = useProjectNetworks({ projectId: selectedProjectId });
+  const { networks, selectedNetworkId, selectedNetwork, isLoading: isLoadingNetworks, error: networksError, selectNetwork, refresh: refreshNetworks } = useProjectNetworks({ projectId: selectedProjectId });
 
-  const {
-    inferredNodes,
-    isAnalyzing,
-    analysisResult,
-    analysisError,
-    runDeterministic,
-    runFromEditorRules,
-    downloadResults,
-    clear,
-  } = useDeterministicAnalysis({
-    selectedNetworkId: selectedNetworkId,
-    selectedNetworkName: selectedNetwork?.name ?? null,
-    networkData: (selectedNetwork as any)?.data ?? null,
-    rulesText,
-  });
-
-  
-
-  const handleRunAnalysis = () => runFromEditorRules();
-  const handleRunDeterministic = () => runDeterministic();
   const {
     result: weightedResult,
     isRunning: isWeightedAnalyzing,
@@ -74,6 +54,29 @@ export default function NetworkEditorPage() {
     run: runProbabilisticAnalysis,
     reset: resetProbabilisticAnalysis,
   } = useProbabilisticAnalysis();
+  const {
+    result: deterministicResult,
+    isRunning: _isDeterministicAnalyzing,
+    error: deterministicError,
+    downloadResults: _downloadDeterministicResults,
+  } = useDeterministicAnalysis();
+
+  // Log deterministic state for debugging
+  useEffect(() => {
+    if (deterministicResult || deterministicError) {
+      console.log('[NetworkEditorPage] Deterministic analysis state:', { hasResult: !!deterministicResult, error: deterministicError });
+    }
+  }, [deterministicResult, deterministicError]);
+
+  // Stub values for removed deterministic analysis
+  const inferredNodes: any[] = [];
+  const isAnalyzing = false;
+  const analysisResult: any = null;  // Type as any to avoid type errors in disabled UI
+  const analysisError: any = null;
+  const downloadResults = () => {};
+  const clear = () => {};
+  const handleRunAnalysis = () => {};
+  const handleRunDeterministic = () => {};
   const [isProbabilisticDialogOpen, setIsProbabilisticDialogOpen] = useState(false);
   const [probabilisticForm, setProbabilisticForm] = useState({
     noise: '0.25',
@@ -121,17 +124,11 @@ export default function NetworkEditorPage() {
       : [];
     const biases = Object.fromEntries(biasesEntries);
     const metadata = (payload && typeof payload.metadata === 'object' && payload.metadata !== null) ? payload.metadata : {};
-    const tieBehaviorCandidate = typeof payload?.tieBehavior === 'string' ? payload.tieBehavior : metadata.tieBehavior;
     const thresholdCandidate = typeof payload?.thresholdMultiplier === 'number'
       ? payload.thresholdMultiplier
       : metadata.thresholdMultiplier;
     const options: WeightedAnalysisOptions = {
-      tieBehavior:
-        tieBehaviorCandidate === 'zero-as-zero' ||
-        tieBehaviorCandidate === 'zero-as-one' ||
-        tieBehaviorCandidate === 'hold'
-          ? tieBehaviorCandidate
-          : 'zero-as-zero',
+      tieBehavior: 'hold',
       thresholdMultiplier: typeof thresholdCandidate === 'number' ? thresholdCandidate : 0.5,
       biases,
     };
@@ -158,7 +155,11 @@ export default function NetworkEditorPage() {
 
     // Fallback to saved network data
     if (!selectedNetwork) {
-      window.alert('No network selected. Please select a network first.');
+      showToast({ 
+        title: 'No Network Selected', 
+        description: 'Please select a network first.',
+        variant: 'destructive'
+      });
       return;
     }
 
@@ -174,14 +175,17 @@ export default function NetworkEditorPage() {
     });
 
     if (!networkNodes.length) {
-      window.alert('No nodes found in selected network. Please add nodes in the Network tab first.');
+      showToast({ 
+        title: 'No Nodes Found', 
+        description: 'Please add nodes in the Network tab first.',
+        variant: 'destructive'
+      });
       return;
     }
 
     const { nodes, edges, options } = normalizeNodesEdges({
       nodes: networkNodes,
       edges: networkEdges,
-      tieBehavior: networkData?.metadata?.tieBehavior,
       thresholdMultiplier: networkData?.metadata?.thresholdMultiplier,
       metadata: networkData?.metadata,
     });
@@ -279,7 +283,6 @@ export default function NetworkEditorPage() {
     await runWithPayload({
       nodes: networkNodes,
       edges: networkEdges,
-      tieBehavior: networkData?.metadata?.tieBehavior,
       thresholdMultiplier: networkData?.metadata?.thresholdMultiplier,
       metadata: networkData?.metadata,
     });
@@ -345,10 +348,13 @@ export default function NetworkEditorPage() {
 
       console.log('[handleProbabilisticSubmit] Analysis completed');
 
-      // Only close dialog if there's no error
-      if (!probabilisticError) {
-        setIsProbabilisticDialogOpen(false);
-      }
+      // Check if analysis completed successfully before closing
+      // Wait a tick to let error state update
+      setTimeout(() => {
+        if (!probabilisticError && probabilisticResult) {
+          setIsProbabilisticDialogOpen(false);
+        }
+      }, 100);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Probabilistic analysis failed unexpectedly.';
       setProbabilisticFormError(message);
@@ -445,7 +451,8 @@ export default function NetworkEditorPage() {
                   <Card className="flex-1">
                     <CardContent className="p-6 h-full">
                       <NetworkGraph ref={graphRef} networkId={selectedNetworkId} projectId={selectedProjectId} onSaved={(newNetwork) => {
-                        setNetworks(prev => [newNetwork, ...prev]);
+                        // Refresh the network list to sync with Supabase
+                        refreshNetworks();
                         selectNetwork(newNetwork.id);
                       }} />
                     </CardContent>
@@ -621,11 +628,11 @@ export default function NetworkEditorPage() {
                       </div>
                       {analysisResult.warnings.length > 0 && (
                         <div className="text-xs text-amber-600 space-y-1">
-                          {analysisResult.warnings.map((w,i) => <p key={i}>• {w}</p>)}
+                          {analysisResult.warnings.map((w: any, i: number) => <p key={i}>• {w}</p>)}
                         </div>
                       )}
                       <div className="space-y-3">
-                        {analysisResult.attractors.map(attr => (
+                        {analysisResult.attractors.map((attr: any) => (
                           <div key={attr.id} className="border rounded-md p-3 bg-background/50">
                             <div className="flex items-center justify-between mb-2">
                               <h3 className="font-medium text-sm">Attractor #{attr.id + 1} ({attr.type})</h3>
@@ -637,16 +644,16 @@ export default function NetworkEditorPage() {
                                   <thead>
                                     <tr>
                                       <th className="text-left p-1 font-semibold">State</th>
-                                      {analysisResult.nodeOrder.map(n => (
+                                      {analysisResult.nodeOrder.map((n: any) => (
                                         <th key={n} className="p-1 font-medium">{analysisResult.nodeLabels[n]}</th>
                                       ))}
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {attr.states.map((s, si) => (
+                                    {attr.states.map((s: any, si: number) => (
                                       <tr key={si} className="odd:bg-muted/40">
                                         <td className="p-1 font-mono">{s.binary}</td>
-                                        {analysisResult.nodeOrder.map(n => (
+                                        {analysisResult.nodeOrder.map((n: any) => (
                                           <td key={n} className="p-1 text-center">{s.values[n]}</td>
                                         ))}
                                       </tr>
@@ -974,3 +981,6 @@ function Stat({ label, value }: { label: string; value: string | number }) {
     </div>
   );
 }
+
+// Memoize to prevent unnecessary re-renders
+export default React.memo(NetworkEditorPage);

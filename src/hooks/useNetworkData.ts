@@ -78,9 +78,10 @@ export function useNetworkData(networkId?: string, refreshToken: number = 0) {
             setData(networkData?.network_data || null);
           }
         }
-      } catch (err: any) {
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
         if (!controller.signal.aborted && isMounted) {
-          setError(err?.message || String(err));
+          setError(errorMessage);
           setData(null);
         }
       } finally {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/supabaseClient';
+import type { NetworkData } from '@/types/network';
 
 interface UseProjectNetworksOptions {
   projectId?: string | null;
@@ -10,7 +11,7 @@ export interface ProjectNetworkRecord {
   id: string;
   name: string;
   created_at: string | null;
-  data: any;
+  data: NetworkData | null;
 }
 
 // internal state interface removed (not used)
@@ -20,6 +21,11 @@ export function useProjectNetworks({ projectId, autoSelectFirst = true }: UsePro
   const [selectedNetworkId, setSelectedNetworkId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const refresh = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -41,7 +47,7 @@ export function useProjectNetworks({ projectId, autoSelectFirst = true }: UsePro
           .maybeSingle();
         if (projectError) throw projectError;
         const networkIds = Array.isArray(projectRow?.networks)
-          ? projectRow!.networks.filter((id: any): id is string => typeof id === 'string')
+          ? projectRow!.networks.filter((id: unknown): id is string => typeof id === 'string')
           : [];
         if (networkIds.length === 0) {
           if (isMounted) {
@@ -72,11 +78,12 @@ export function useProjectNetworks({ projectId, autoSelectFirst = true }: UsePro
             return autoSelectFirst ? (ordered[0]?.id ?? null) : null;
           });
         }
-      } catch (e: any) {
+      } catch (e) {
+        const errorMessage = e instanceof Error ? e.message : 'Failed to load networks';
         if (isMounted) {
           setNetworks([]);
           setSelectedNetworkId(null);
-          setError(e?.message || 'Failed to load networks');
+          setError(errorMessage);
         }
       } finally {
         if (isMounted) setIsLoading(false);
@@ -84,7 +91,7 @@ export function useProjectNetworks({ projectId, autoSelectFirst = true }: UsePro
     };
     fetchNetworks();
     return () => { isMounted = false; };
-  }, [projectId, autoSelectFirst]);
+  }, [projectId, autoSelectFirst, refreshTrigger]);
 
   const selectedNetwork = useMemo(
     () => networks.find(n => n.id === selectedNetworkId) || null,
@@ -103,5 +110,6 @@ export function useProjectNetworks({ projectId, autoSelectFirst = true }: UsePro
     error,
     selectNetwork,
     setNetworks, // expose for creation/import flows
+    refresh, // expose to manually trigger refetch
   } as const;
 }
