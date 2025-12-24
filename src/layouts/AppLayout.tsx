@@ -37,17 +37,34 @@ const AppLayout = () => {
 
   // Fetch user data
   useEffect(() => {
+    let active = true;
+    
     const getUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user || null);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (active) {
+          setUser(session?.user || null);
+        }
+      } catch (error) {
+        console.error('Failed to fetch user:', error);
+        if (active) {
+          setUser(null);
+        }
+      }
     };
+    
     getUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null);
+      if (active) {
+        setUser(session?.user || null);
+      }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -67,6 +84,7 @@ const AppLayout = () => {
   // Fetch user metadata to determine lock status
   useEffect(() => {
     let cancelled = false;
+    let timeoutId: NodeJS.Timeout;
 
     const applyLockState = (lockedValue: boolean | null) => {
       if (cancelled) return;
@@ -81,14 +99,33 @@ const AppLayout = () => {
 
     const bootstrap = async () => {
       setCheckingLock(true);
+      
+      // Set a timeout to prevent infinite loading
+      timeoutId = setTimeout(() => {
+        if (!cancelled) {
+          console.warn('Lock check timed out, proceeding without lock status');
+          setCheckingLock(false);
+        }
+      }, 3000); // 3 second timeout
+      
       const stored = readStoredLockStatus();
       if (stored !== null) {
+        clearTimeout(timeoutId);
         applyLockState(stored);
         return;
       }
 
       const { data: { session } } = await supabase.auth.getSession();
       if (cancelled) return;
+      
+      clearTimeout(timeoutId);
+      
+      // If no session, just proceed without lock check
+      if (!session) {
+        setCheckingLock(false);
+        return;
+      }
+      
       const locked = extractIsLocked(session?.user);
       if (locked === null) {
         clearStoredLockStatus();
@@ -103,6 +140,15 @@ const AppLayout = () => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (cancelled) return;
+      
+      // If no session, clear lock status
+      if (!session) {
+        clearStoredLockStatus();
+        setIsLocked(null);
+        setCheckingLock(false);
+        return;
+      }
+      
       const locked = extractIsLocked(session?.user);
       if (locked === null) {
         clearStoredLockStatus();
@@ -113,7 +159,11 @@ const AppLayout = () => {
       }
     });
 
-    return () => { cancelled = true; subscription.unsubscribe(); };
+    return () => { 
+      cancelled = true; 
+      if (timeoutId) clearTimeout(timeoutId);
+      subscription.unsubscribe(); 
+    };
   }, [navigate, location.pathname]);
 
   // Load admin settings once and expose as global data-* attributes
@@ -173,19 +223,41 @@ const AppLayout = () => {
   // Check for authentication state and redirect if not authenticated
   useEffect(() => {
     let active = true;
+    let timeoutId: NodeJS.Timeout;
     
     const checkAuthState = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!active) return;
-      
-      if (!session) {
-        navigate("/", { replace: true });
+      try {
+        // Add timeout for session check
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error('Session check timeout')), 5000);
+        });
+        
+        const { data: { session } } = await Promise.race([
+          sessionPromise,
+          timeoutPromise
+        ]) as any;
+        
+        clearTimeout(timeoutId);
+        
+        if (!active) return;
+        
+        if (!session) {
+          navigate("/", { replace: true });
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        if (active) {
+          // If session check fails, redirect to login
+          navigate("/", { replace: true });
+        }
       }
     };
     
     checkAuthState();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return;
       if (!session) {
         navigate("/", { replace: true });
       }
@@ -193,6 +265,7 @@ const AppLayout = () => {
 
     return () => {
       active = false;
+      if (timeoutId) clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
   }, [navigate]);
