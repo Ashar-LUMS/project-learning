@@ -480,6 +480,13 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
             style: {
               'opacity': 0.2
             }
+          },
+          {
+            selector: '.connected',
+            style: {
+              'border-color': '#60a5fa',
+              'border-width': 4
+            }
           }
         ],
         layout: {
@@ -649,8 +656,10 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
 
         node.select();
         const neighborhood = node.closedNeighborhood();
-        cy.elements().removeClass('faded');
+        cy.elements().removeClass('faded').removeClass('connected');
         cy.elements().not(neighborhood).addClass('faded');
+        // Add 'connected' class to neighbors (excluding the selected node itself)
+        neighborhood.nodes().not(node).addClass('connected');
 
         const data = node.data();
         setSelectedNode({
@@ -676,7 +685,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
         });
 
         const connectedNodes = edge.connectedNodes();
-        cy.elements().removeClass('faded');
+        cy.elements().removeClass('faded').removeClass('connected');
         cy.elements().not(connectedNodes).not(edge).addClass('faded');
       });
 
@@ -685,7 +694,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
         const isEdge = evt.target && typeof evt.target.isEdge === 'function' && evt.target.isEdge();
 
         if (!isNode && !isEdge) {
-          cy.elements().removeClass('faded');
+          cy.elements().removeClass('faded').removeClass('connected');
           cy.elements().unselect();
           setSelectedNode(null);
           setSelectedEdge(null);

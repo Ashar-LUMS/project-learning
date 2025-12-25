@@ -25,7 +25,11 @@ import {
   Download,
   Play,
   BarChart3,
-  Database
+  Database,
+  Plus as PlusIcon,
+  Calendar,
+  Users,
+  User
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -299,91 +303,129 @@ function ProjectsSidebar() {
     catch { return value as string; }
   };
   return (
-    <div className="space-y-6">
-      <div className="space-y-4">
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-            Projects
-          </h2>
-          <Badge variant="secondary" className="px-2 py-1 text-xs">
-            {isLoading ? '...' : projects.length} total
-          </Badge>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Folder className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold tracking-tight text-foreground">
+                My Projects
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                {isLoading ? 'Loading...' : `${projects.length} ${projects.length === 1 ? 'project' : 'projects'}`}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
-      <Separator />
+      <Separator className="bg-border/50" />
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-2 gap-3">
-        <Button className="h-11 gap-2" variant="default">
-          <PlusIcon className="w-4 h-4" />
-          New Project
-        </Button>
-        <Button className="h-11 gap-2" variant="outline">
-          <Upload className="w-4 h-4" />
-          Import
-        </Button>
+      <div className="space-y-2">
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">
+          Quick Actions
+        </p>
+        <div className="grid gap-2">
+          <Button className="h-10 gap-2 justify-start shadow-sm hover:shadow-md transition-shadow" variant="default">
+            <PlusIcon className="w-4 h-4" />
+            <span>New Project</span>
+          </Button>
+          <Button className="h-10 gap-2 justify-start" variant="outline">
+            <Upload className="w-4 h-4" />
+            <span>Import Project</span>
+          </Button>
+        </div>
       </div>
 
-      {/* Enhanced Project List */}
-      <Card>
-        <CardHeader className="pb-4">
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <div className="w-1.5 h-1.5 bg-primary rounded-full" />
-            Projects
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {isLoading || rolesLoading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="space-y-2">
-                  <Skeleton className="h-4 w-48" />
-                  <div className="flex gap-2">
-                    <Skeleton className="h-3 w-20" />
-                    <Skeleton className="h-3 w-24" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {projects.map((project) => (
-                <Card
-                  key={project.id}
-                  className="p-4 hover:bg-muted/30 cursor-pointer transition-all duration-200 hover:shadow-sm border-l-2 border-l-transparent hover:border-l-primary group"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-medium text-sm truncate group-hover:text-primary transition-colors">
-                          {project.name || 'Untitled'}
-                        </h3>
-                        <Badge variant="secondary" className="shrink-0 text-xs">
-                          {(project.assignees || []).length} users
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span>{Array.isArray(project.networks) ? project.networks.length : 0} networks</span>
-                        <span>{formatDate(project.created_at)}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {project.creator_email || project.created_by || 'Unknown owner'}
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-              {projects.length === 0 && (
-                <div className="p-4 text-xs text-muted-foreground">No projects found.</div>
-              )}
-              {error && (
-                <div className="p-4 text-xs text-red-600">{error}</div>
-              )}
-            </div>
+      <Separator className="bg-border/50" />
+
+      {/* Project List */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            Recent Projects
+          </p>
+          {!isLoading && projects.length > 0 && (
+            <Badge variant="secondary" className="px-2 py-0.5 text-[10px] font-medium">
+              {projects.length}
+            </Badge>
           )}
-        </CardContent>
-      </Card>
+        </div>
+
+        {isLoading || rolesLoading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="p-3 rounded-lg border bg-card space-y-2">
+                <Skeleton className="h-4 w-3/4" />
+                <div className="flex gap-2">
+                  <Skeleton className="h-3 w-16" />
+                  <Skeleton className="h-3 w-20" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : error ? (
+          <div className="p-4 rounded-lg border border-destructive/20 bg-destructive/5">
+            <p className="text-xs text-destructive">{error}</p>
+          </div>
+        ) : projects.length === 0 ? (
+          <div className="p-6 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 text-center space-y-2">
+            <Folder className="w-8 h-8 mx-auto text-muted-foreground/40" />
+            <p className="text-sm text-muted-foreground font-medium">No projects yet</p>
+            <p className="text-xs text-muted-foreground">Create your first project to get started</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {projects.map((project) => (
+              <Card
+                key={project.id}
+                className="p-3 hover:bg-accent/50 cursor-pointer transition-all duration-200 hover:shadow-md border hover:border-primary/30 group relative overflow-hidden"
+              >
+                {/* Hover gradient effect */}
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/0 via-primary/0 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                
+                <div className="relative space-y-2">
+                  {/* Project Name */}
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-semibold text-sm truncate group-hover:text-primary transition-colors flex-1">
+                      {project.name || 'Untitled Project'}
+                    </h3>
+                    <Badge variant="outline" className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 border-primary/20 bg-primary/5 text-primary">
+                      <Users className="w-2.5 h-2.5 mr-1" />
+                      {(project.assignees || []).length}
+                    </Badge>
+                  </div>
+                  
+                  {/* Metadata */}
+                  <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Network className="w-3 h-3" />
+                      {Array.isArray(project.networks) ? project.networks.length : 0}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3 h-3" />
+                      {formatDate(project.created_at)}
+                    </span>
+                  </div>
+                  
+                  {/* Owner */}
+                  {project.creator_email && (
+                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <User className="w-3 h-3" />
+                      <span className="truncate">{project.creator_email}</span>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -761,13 +803,7 @@ function ResultsSidebar() {
   );
 }
 
-// Icon Components (keep the same as before)
-const PlusIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-  </svg>
-);
-
+// Icon Components
 const SaveIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />

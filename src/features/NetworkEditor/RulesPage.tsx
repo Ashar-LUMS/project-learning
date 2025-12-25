@@ -2,12 +2,8 @@ import { useState, useCallback, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Alert } from '@/components/ui/alert';
-import { useDeterministicAnalysis } from '@/hooks/useDeterministicAnalysis';
 import { useToast } from '@/components/ui/toast';
-import AttractorGraph from './AttractorGraph';
-import { Download, Play, Trash2, Save, Plus } from 'lucide-react';
+import { Play, Trash2, Save, Plus } from 'lucide-react';
 import { supabase } from '@/supabaseClient';
 import type { ProjectNetworkRecord } from '@/hooks/useProjectNetworks';
 import type { NetworkData } from '@/types/network';
@@ -30,7 +26,6 @@ export default function RulesPage({
   const [rulesText, setRulesText] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const { result, isRunning, error, run, reset, downloadResults } = useDeterministicAnalysis();
   const { showToast } = useToast();
 
   // Load rules from selected network
@@ -40,29 +35,18 @@ export default function RulesPage({
         ? selectedNetwork.data.rules.map(r => typeof r === 'string' ? r : r.name || '').join('\n')
         : '';
       setRulesText(loadedRules);
-    } else if (selectedNetworkId) {
-      // Clear rules when network has no rules
-      setRulesText('');
+    } else if (selectedNetworkId && selectedNetwork) {
+      // Only clear rules when we have confirmed the network loaded and it has no rules
+      // Don't clear on initial load before network data arrives
+      if (selectedNetwork.data !== undefined) {
+        setRulesText('');
+      }
     }
-  }, [selectedNetworkId, selectedNetwork]);
-
-  const handleRun = useCallback(async () => {
-    if (!rulesText.trim()) {
-      return;
-    }
-
-    const rules = rulesText
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line && !line.startsWith('#') && !line.startsWith('//'));
-
-    await run(rules);
-  }, [rulesText, run]);
+  }, [selectedNetworkId, selectedNetwork?.data]);
 
   const handleClear = useCallback(() => {
-    reset();
     setRulesText('');
-  }, [reset]);
+  }, []);
 
   const handleSaveToNetwork = useCallback(async () => {
     if (!selectedNetworkId || !selectedNetwork) {
@@ -157,7 +141,14 @@ export default function RulesPage({
       showToast({ title: 'Success', description: `Rules saved with ${nodes.length} nodes and ${edges.length} edges` });
       
       if (data && onNetworkUpdated) {
-        onNetworkUpdated(data as ProjectNetworkRecord);
+        // Map network_data to data property for ProjectNetworkRecord interface
+        const networkRecord: ProjectNetworkRecord = {
+          id: data.id,
+          name: data.name,
+          created_at: data.created_at,
+          data: data.network_data || null,
+        };
+        onNetworkUpdated(networkRecord);
       }
     } catch (err) {
       console.error('Failed to save rules:', err);
@@ -257,7 +248,14 @@ export default function RulesPage({
       showToast({ title: 'Success', description: `Created network "${networkName}"` });
 
       if (onNetworkCreated) {
-        onNetworkCreated(newNetwork as ProjectNetworkRecord);
+        // Map network_data to data property for ProjectNetworkRecord interface
+        const networkRecord: ProjectNetworkRecord = {
+          id: newNetwork.id,
+          name: newNetwork.name,
+          created_at: newNetwork.created_at,
+          data: newNetwork.network_data || null,
+        };
+        onNetworkCreated(networkRecord);
       }
     } catch (err) {
       console.error('Failed to create network:', err);
@@ -325,7 +323,7 @@ Clb56 = Mcm1`;
                   variant="outline" 
                   size="sm"
                   onClick={handleClear}
-                  disabled={!rulesText && !result}
+                  disabled={!rulesText}
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
                   Clear
@@ -341,153 +339,39 @@ Clb56 = Mcm1`;
               onChange={(e) => setRulesText(e.target.value)}
             />
 
-            <div className="flex items-center justify-between">
-              <div className="text-xs text-muted-foreground">
-                {rulesText.split('\n').filter(l => l.trim() && !l.trim().startsWith('#') && !l.trim().startsWith('//')).length} rules defined
-              </div>
-              <Button 
-                onClick={handleRun}
-                disabled={isRunning || !rulesText.trim()}
-                className="gap-2"
-              >
-                <Play className="w-4 h-4" />
-                {isRunning ? 'Analyzing...' : 'Run Analysis'}
-              </Button>
+            <div className="text-xs text-muted-foreground">
+              {rulesText.split('\n').filter(l => l.trim() && !l.trim().startsWith('#') && !l.trim().startsWith('//')).length} rules defined
             </div>
-
-            {error && (
-              <Alert variant="destructive">
-                <div className="text-sm">{error}</div>
-              </Alert>
-            )}
           </CardContent>
         </Card>
 
-        {/* Right: Results */}
+        {/* Info Panel */}
         <Card className="flex-1 flex flex-col">
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Analysis Results</CardTitle>
-              {result && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={downloadResults}
-                  className="gap-2"
-                >
-                  <Download className="w-4 h-4" />
-                  Export
-                </Button>
-              )}
-            </div>
+            <CardTitle>Run Analysis in Inference Tab</CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 flex flex-col space-y-4">
-            {!result ? (
-              <div className="flex-1 flex items-center justify-center text-center text-muted-foreground">
-                <div>
-                  <p className="text-sm">No results yet</p>
-                  <p className="text-xs mt-1">Define rules and run analysis to see attractors</p>
-                </div>
+          <CardContent className="flex-1 flex items-center justify-center">
+            <div className="text-center space-y-4 max-w-md">
+              <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
+                <Play className="w-8 h-8 text-primary" />
               </div>
-            ) : (
-              <>
-                {/* Summary Stats */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="text-2xl font-bold">{result.attractors.length}</div>
-                      <div className="text-xs text-muted-foreground">Attractors</div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="text-2xl font-bold">{result.nodeOrder.length}</div>
-                      <div className="text-xs text-muted-foreground">Nodes</div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="text-2xl font-bold">
-                        {result.attractors.filter(a => a.type === 'fixed-point').length}
-                      </div>
-                      <div className="text-xs text-muted-foreground">Fixed Points</div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="text-2xl font-bold">
-                        {result.attractors.filter(a => a.type === 'limit-cycle').length}
-                      </div>
-                      <div className="text-xs text-muted-foreground">Limit Cycles</div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Warnings */}
-                {result.warnings && result.warnings.length > 0 && (
-                  <Alert>
-                    <div className="space-y-1">
-                      {result.warnings.map((warning, i) => (
-                        <div key={i} className="text-xs">{warning}</div>
-                      ))}
-                    </div>
-                  </Alert>
-                )}
-
-                {/* Attractors */}
-                <div className="flex-1 overflow-auto">
-                  <h3 className="text-sm font-semibold mb-3">Attractors</h3>
-                  <div className="space-y-3">
-                    {result.attractors.map((attractor) => (
-                      <Card key={attractor.id}>
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <Badge variant={attractor.type === 'fixed-point' ? 'default' : 'secondary'}>
-                                {attractor.type === 'fixed-point' ? 'Fixed Point' : `Cycle (${attractor.period})`}
-                              </Badge>
-                              <span className="text-xs text-muted-foreground">
-                                Basin: {(attractor.basinShare * 100).toFixed(1)}%
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="space-y-1">
-                            {attractor.states.slice(0, 5).map((state, i) => (
-                              <div key={i} className="flex items-center gap-2 text-xs font-mono">
-                                <span className="text-muted-foreground">{i}:</span>
-                                <code className="bg-muted px-2 py-0.5 rounded">
-                                  {state.binary}
-                                </code>
-                                <span className="text-muted-foreground">
-                                  {Object.entries(state.values)
-                                    .filter(([, v]) => v === 1)
-                                    .map(([k]) => k)
-                                    .join(', ') || 'none'}
-                                </span>
-                              </div>
-                            ))}
-                            {attractor.states.length > 5 && (
-                              <div className="text-xs text-muted-foreground">
-                                ... and {attractor.states.length - 5} more states
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Attractor Visualization */}
-                          <div className="mt-4">
-                            <AttractorGraph
-                              states={attractor.states}
-                              className="h-32"
-                            />
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
+              <div className="space-y-2">
+                <h3 className="text-lg font-semibold">Analysis Available in Inference Tab</h3>
+                <p className="text-sm text-muted-foreground">
+                  After saving your rules, switch to the <strong>Inference</strong> tab to run deterministic analysis and view attractor results.
+                </p>
+              </div>
+              <div className="pt-4 space-y-2 text-xs text-muted-foreground text-left">
+                <p>💡 <strong>Tip:</strong> Save your rules first using the "Save to Network" button above</p>
+                <p>📊 The Inference tab provides comprehensive analysis including:</p>
+                <ul className="list-disc list-inside pl-4 space-y-1">
+                  <li>Rule-based deterministic analysis</li>
+                  <li>Weighted network analysis</li>
+                  <li>Probabilistic analysis</li>
+                  <li>Attractor visualization</li>
+                </ul>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>

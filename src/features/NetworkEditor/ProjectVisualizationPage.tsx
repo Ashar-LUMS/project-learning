@@ -51,6 +51,7 @@ function ProjectVisualizationPage() {
   const [recentNetworkIds, setRecentNetworkIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [networkGraphRefreshToken, setNetworkGraphRefreshToken] = useState(0);
 
   // Probabilistic analysis dialog state
 
@@ -903,7 +904,11 @@ function ProjectVisualizationPage() {
                     Link a network to this project to get started.
                   </div>
                 ) : (
-                  <NetworkGraph networkId={selectedNetworkId} projectId={projectId} onSaved={(newNetwork) => {
+                  <NetworkGraph 
+                    networkId={selectedNetworkId} 
+                    projectId={projectId} 
+                    refreshToken={networkGraphRefreshToken}
+                    onSaved={(newNetwork) => {
                     setNetworks(prev => {
                       const existingIndex = prev.findIndex(n => n.id === newNetwork.id);
                       if (existingIndex >= 0) {
@@ -942,6 +947,8 @@ function ProjectVisualizationPage() {
                       }
                       return prev;
                     });
+                    // Trigger NetworkGraph to refetch data from DB
+                    setNetworkGraphRefreshToken(prev => prev + 1);
                   }}
                 />
               </TabsContent>
