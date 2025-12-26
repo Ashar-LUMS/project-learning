@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Loader2, Eye, EyeOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../supabaseClient.ts';
@@ -55,6 +55,7 @@ const Signup = ({
   });
   const [errors, setErrors] = useState({ name: '', email: '', password: '', roles: '', general: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
@@ -313,17 +314,27 @@ const Signup = ({
                     <Label htmlFor="password" className="text-xs sm:text-sm font-medium text-gray-700">
                       Password
                     </Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      disabled={isSubmitting}
-                      aria-invalid={!!errors.password}
-                      className="h-10 sm:h-12 text-sm sm:text-base transition-all duration-200 border-2 focus:border-[#2f5597] focus:ring-2 focus:ring-blue-100 rounded-lg sm:rounded-xl px-3 sm:px-4"
-                      formNoValidate
-                    />
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        disabled={isSubmitting}
+                        aria-invalid={!!errors.password}
+                        className="h-10 sm:h-12 text-sm sm:text-base pr-10 sm:pr-12 transition-all duration-200 border-2 focus:border-[#2f5597] focus:ring-2 focus:ring-blue-100 rounded-lg sm:rounded-xl px-3 sm:px-4"
+                        formNoValidate
+                      />
+                      <button
+                        type="button"
+                        className="absolute inset-y-0 right-0 px-3 sm:px-4 text-gray-400 hover:text-[#2f5597] transition-all duration-200 hover:scale-110"
+                        onClick={() => setShowPassword((v) => !v)}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? <EyeOff size={16} className="w-4 h-4 sm:w-5 sm:h-5" /> : <Eye size={16} className="w-4 h-4 sm:w-5 sm:h-5" />}
+                      </button>
+                    </div>
                     {errors.password && (
                       <p className="text-red-600 text-xs animate-fade-in flex items-center gap-1">
                         <span>•</span>{errors.password}
@@ -375,45 +386,6 @@ const Signup = ({
           </div>
         </div>
       </div>
-
-      <style>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-10px) rotate(5deg); }
-        }
-        
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          25% { transform: translateX(-5px); }
-          75% { transform: translateX(5px); }
-        }
-        
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateY(-5px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        
-        @keyframes pulse-slow {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.8; }
-        }
-        
-        .animate-float {
-          animation: float 6s ease-in-out infinite;
-        }
-        
-        .animate-shake {
-          animation: shake 0.5s ease-in-out;
-        }
-        
-        .animate-fade-in {
-          animation: fade-in 0.3s ease-out;
-        }
-        
-        .animate-pulse-slow {
-          animation: pulse-slow 4s ease-in-out infinite;
-        }
-      `}</style>
     </section>
   );
 };

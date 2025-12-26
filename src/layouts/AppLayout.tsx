@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger, 
 } from "@/components/ui/dropdown-menu";
-import { AuthDebug } from "../components/auth-debug";
+// Auth debug removed for production
 import { loadAdminSettings } from "../config/adminSettings";
 import {
   extractIsLocked,
@@ -310,45 +310,24 @@ const AppLayout = () => {
       ) : null}
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100">
-  <div className="container mx-auto px-6 py-3 flex justify-between items-center">
+        <div className="container mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           {/* Logo Section */}
-          <div className="flex items-center space-x-3">
-            <Link to="/app" className="flex items-center space-x-3 no-underline">
-              <img 
-                src="https://tison.lums.edu.pk/Icons/Tison%20Logo%20Horizontal%20Blue.png" 
-                alt="TISON Logo" 
-                className="h-8 w-auto object-contain"
-              />
-            </Link>
-          </div>
+          <Link to="/app" className="flex items-center shrink-0">
+            <img 
+              src="https://tison.lums.edu.pk/Icons/Tison%20Logo%20Horizontal%20Blue.png" 
+              alt="TISON Logo" 
+              className="h-7 sm:h-8 w-auto object-contain"
+            />
+          </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-6 flex-1 justify-end">
+          <nav className="hidden md:flex items-center gap-2">
             <Link
               to="/app"
-              className="text-gray-600 hover:text-blue-600 transition-colors duration-200 font-medium text-sm px-3 py-2 rounded-lg hover:bg-blue-50"
+              className="text-gray-600 hover:text-[#2f5597] transition-colors duration-200 font-medium text-sm px-3 py-2 rounded-lg hover:bg-blue-50"
             >
               Projects
             </Link>
-
-            {/* Role Selector Dropdown */}
-            {/* {!areRolesLoading && userRolesArray && userRolesArray.length > 0 && (
-              <div className="relative flex items-center gap-2">
-                <Users className="text-gray-400" size={18} />
-                <select
-                  value={activeRole || ""}
-                  onChange={(e) => setActiveRole(e.target.value)}
-                  className="px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-all cursor-pointer"
-                  aria-label="Select active role"
-                >
-                  {userRolesArray.map((role) => (
-                    <option key={role} value={role}>
-                      {role}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )} */}
 
             {/* User Avatar Dropdown */}
             <DropdownMenu>
@@ -413,10 +392,10 @@ const AppLayout = () => {
             {/* Mobile Avatar */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-9 w-9 rounded-full border border-gray-200 p-0">
-                  <Avatar className="h-8 w-8">
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full border border-gray-200 p-0">
+                  <Avatar className="h-7 w-7">
                     <AvatarImage src={user?.user_metadata?.avatar_url} alt={user?.user_metadata?.name} />
-                    <AvatarFallback className="bg-gradient-to-br from-blue-100 to-blue-200 text-blue-700 text-sm font-medium">
+                    <AvatarFallback className="bg-gradient-to-br from-blue-100 to-blue-200 text-blue-700 text-xs font-medium">
                       {getUserInitials()}
                     </AvatarFallback>
                   </Avatar>
@@ -445,7 +424,12 @@ const AppLayout = () => {
                   </>
                 )}
 
-          
+                <DropdownMenuItem asChild className="p-2 cursor-pointer rounded-lg m-1 focus:bg-blue-50">
+                  <Link to="/app/user-profile" className="flex items-center gap-3 w-full text-gray-700">
+                    <UserRoundPen size={16} className="text-gray-600" />
+                    <span className="text-sm">Profile</span>
+                  </Link>
+                </DropdownMenuItem>
 
                 <DropdownMenuSeparator className="bg-gray-100" />
                 <DropdownMenuItem
@@ -460,7 +444,7 @@ const AppLayout = () => {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(!isMenuOpen)} aria-label="Toggle navigation menu" className="h-9 w-9 rounded-lg border border-gray-200 hover:bg-gray-50 p-0">
+            <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(!isMenuOpen)} aria-label="Toggle navigation menu" className="h-8 w-8 rounded-lg border border-gray-200 hover:bg-gray-50 p-0">
               <Menu className="h-4 w-4" />
             </Button>
           </div>
@@ -475,11 +459,9 @@ const AppLayout = () => {
                 className="flex items-center gap-3 text-gray-700 hover:bg-blue-50 p-3 rounded-lg transition-colors font-medium"
                 onClick={() => setIsMenuOpen(false)}
               >
-                <Home size={18} className="text-blue-600" />
+                <Home size={18} className="text-[#2f5597]" />
                 Projects
               </Link>
-
-              
 
               {activeRole === "Admin" && userRolesArray?.includes("Admin") && (
                 <Link
@@ -491,25 +473,6 @@ const AppLayout = () => {
                   Admin Panel
                 </Link>
               )}
-
-              {/* Mobile Role Selector Dropdown */}
-              {/* {!areRolesLoading && userRolesArray && userRolesArray.length > 0 && (
-                <div className="relative flex items-center gap-3 p-3">
-                  <Users className="text-gray-400" size={18} />
-                  <select
-                    value={activeRole || ""}
-                    onChange={(e) => setActiveRole(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-all"
-                    aria-label="Select active role"
-                  >
-                    {userRolesArray.map((role) => (
-                      <option key={role} value={role}>
-                        {role}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )} */}
 
               <Button
                 className="w-full rounded-lg mt-2 flex items-center gap-3 h-11 bg-white border border-gray-200 text-red-600 hover:bg-red-50 hover:text-red-700 font-medium"
@@ -529,8 +492,7 @@ const AppLayout = () => {
       {/* Main Outlet */}
       <Outlet context={{ activeRole }} />
 
-      {/* Auth Debug Component (Development Only) */}
-      <AuthDebug />
+      {/* Auth Debug removed */}
 
       {/* Footer */}
       <footer className="bg-white border-t border-gray-100 py-6 mt-auto">

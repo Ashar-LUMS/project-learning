@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
+import type { NetworkData } from '@/types/network';
 
 type Node = {
   id: string;
@@ -38,6 +39,9 @@ export type NetworkGraphHandle = {
     edges: Array<{ source: string; target: string; weight?: number }>
     tieBehavior: 'hold'
   } | null;
+  fitToView: () => void;
+  saveAsNew: () => void;
+  updateCurrent: () => void;
 };
 
 type Props = {
@@ -46,40 +50,42 @@ type Props = {
   refreshToken?: number;
   projectId?: string | null;
   onSaved?: (network: { id: string; name: string; created_at: string | null; data: any }) => void;
+  overrideNetworkData?: NetworkData | null;
+  readOnly?: boolean;
+  hideControls?: boolean;
+  hideHeaderActions?: boolean;
+  highlightNodeIds?: string[];
 };
 
-const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refreshToken = 0, projectId = null, onSaved }, ref) => {
+const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
+  networkId,
+  refreshToken = 0,
+  projectId = null,
+  onSaved,
+  overrideNetworkData = null,
+  readOnly = false,
+  hideControls = false,
+  hideHeaderActions = false,
+  highlightNodeIds = []
+}, ref) => {
   const { showToast, showConfirm, showPrompt } = useToast();
-  console.log('[NetworkGraph] Component render', {
-    networkId,
-    refreshToken
-  });
 
   const [manualRefresh, setManualRefresh] = useState(0);
   const effectiveRefresh = (refreshToken ?? 0) + manualRefresh;
+  
+  // Only fetch from database if no override data is provided
+  const shouldFetch = !overrideNetworkData && networkId;
   const { data: network, isLoading, error } = useNetworkData(
-    networkId ?? undefined,
+    shouldFetch ? networkId : undefined,
     effectiveRefresh
   );
 
   // Load network metadata if present
   useEffect(() => {
     if (!network) return;
-    
-    try {
-      const networkType = (network as any).network_type || (network as any).data?.network_type;
-      
-      // Log network type for debugging
-      if (networkType) {
-        console.log(`[NetworkGraph] Loaded ${networkType} network`);
-      }
-    } catch (e) {
-      console.warn('[NetworkGraph] Error loading network metadata', e);
-    }
   }, [network]);
 
   useEffect(() => {
-    console.log('[NetworkGraph] networkId changed, triggering manual refresh');
     setManualRefresh((p) => p + 1);
   }, [networkId]);
 
@@ -104,7 +110,6 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
   const nodeCounterRef = useRef(0);
   const ehRef = useRef<any>(null);
   const [ehLoaded, setEhLoaded] = useState(false);
-  const [ehEnabled, setEhEnabled] = useState(false);
   const [newNodeDraft, setNewNodeDraft] = useState<{
     modelPos: { x: number; y: number };
     label: string;
@@ -114,7 +119,6 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
 
   // Weighted analysis: tieBehavior is permanently set to 'hold'
   const tieBehavior = 'hold' as const;
-  const [cyInitError, setCyInitError] = useState<string | null>(null);
 
   // Default weights
   const defaultNodeWeight = 1;
@@ -126,9 +130,101 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
   const [deletedNodeIds, setDeletedNodeIds] = useState<Set<string>>(new Set());
   const [deletedEdgeIds, setDeletedEdgeIds] = useState<Set<string>>(new Set());
 
+  // Use override data if provided, otherwise use fetched network data
+  const effectiveNetworkData = overrideNetworkData || network;
+
+  // Parse rules to determine inhibitor relationships
+  // Returns a Set of "source::target" strings where source inhibits target
+  const inhibitorEdges = useMemo(() => {
+    const inhibitors = new Set<string>();
+    const rules = (effectiveNetworkData as any)?.rules || [];
+    
+    for (const rule of rules) {
+      // Handle both { name, action } format and { name: "A = B" } format
+      let target: string;
+      let expression: string;
+      
+      if (typeof rule === 'string') {
+        const match = rule.match(/^([a-zA-Z0-9_]+)\s*=\s*(.+)$/);
+        if (!match) continue;
+        target = match[1];
+        expression = match[2];
+      } else if (rule.action) {
+        target = rule.name;
+        expression = rule.action;
+      } else if (rule.name && rule.name.includes('=')) {
+        const match = rule.name.match(/^([a-zA-Z0-9_]+)\s*=\s*(.+)$/);
+        if (!match) continue;
+        target = match[1];
+        expression = match[2];
+      } else {
+        continue;
+      }
+      
+      // Parse the expression to find negated identifiers
+      // Strategy: find all identifiers that appear after a ! or within !(...) 
+      // We'll use a simple approach: track negation context
+      
+      // Track nested negation using parenthesis counting
+      let negationDepth = 0;
+      let pos = 0;
+      
+      while (pos < expression.length) {
+        // Check for !( pattern
+        if (expression[pos] === '!' && expression[pos + 1] === '(') {
+          negationDepth++;
+          pos += 2;
+          continue;
+        }
+        
+        // Check for simple ! before identifier
+        if (expression[pos] === '!' && /[a-zA-Z_]/.test(expression[pos + 1] || '')) {
+          // Find the identifier
+          const rest = expression.slice(pos + 1);
+          const idMatch = rest.match(/^([a-zA-Z_][a-zA-Z0-9_]*)/);
+          if (idMatch) {
+            const sourceNode = idMatch[1];
+            if (!['AND', 'OR', 'XOR', 'NAND', 'NOR', 'NOT'].includes(sourceNode.toUpperCase())) {
+              inhibitors.add(`${sourceNode}::${target}`);
+            }
+            pos += 1 + idMatch[1].length;
+            continue;
+          }
+        }
+        
+        // Check for closing paren that ends negation
+        if (expression[pos] === ')' && negationDepth > 0) {
+          negationDepth--;
+          pos++;
+          continue;
+        }
+        
+        // Check for identifier
+        if (/[a-zA-Z_]/.test(expression[pos])) {
+          const rest = expression.slice(pos);
+          const idMatch = rest.match(/^([a-zA-Z_][a-zA-Z0-9_]*)/);
+          if (idMatch) {
+            const sourceNode = idMatch[1];
+            if (!['AND', 'OR', 'XOR', 'NAND', 'NOR', 'NOT'].includes(sourceNode.toUpperCase())) {
+              if (negationDepth > 0) {
+                inhibitors.add(`${sourceNode}::${target}`);
+              }
+            }
+            pos += idMatch[1].length;
+            continue;
+          }
+        }
+        
+        pos++;
+      }
+    }
+    
+    return inhibitors;
+  }, [effectiveNetworkData]);
+
   // Get current nodes with all modifications applied
   const currentNodes = useMemo(() => {
-    const fetchedNodes = (network && (Array.isArray((network as any).nodes) ? (network as any).nodes : Array.isArray((network as any).data?.nodes) ? (network as any).data.nodes : [])) || [];
+    const fetchedNodes = (effectiveNetworkData && (Array.isArray((effectiveNetworkData as any).nodes) ? (effectiveNetworkData as any).nodes : Array.isArray((effectiveNetworkData as any).data?.nodes) ? (effectiveNetworkData as any).data.nodes : [])) || [];
     const localNodeMap = new Map(localNodes.map(n => [n.id, n]));
 
     return [
@@ -137,11 +233,11 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
         .map((n: any) => localNodeMap.get(n.id) || n),
       ...localNodes.filter(n => !fetchedNodes.some((fn: any) => fn.id === n.id))
     ];
-  }, [network, localNodes, deletedNodeIds]);
+  }, [effectiveNetworkData, localNodes, deletedNodeIds]);
 
   // Get current edges with all modifications applied
   const currentEdges = useMemo(() => {
-    const fetchedEdges = (network && (Array.isArray((network as any).edges) ? (network as any).edges : Array.isArray((network as any).data?.edges) ? (network as any).data.edges : [])) || [];
+    const fetchedEdges = (effectiveNetworkData && (Array.isArray((effectiveNetworkData as any).edges) ? (effectiveNetworkData as any).edges : Array.isArray((effectiveNetworkData as any).data?.edges) ? (effectiveNetworkData as any).data.edges : [])) || [];
     const localEdgeMap = new Map(localEdges.map(e => [`${e.source}::${e.target}`, e]));
 
     return [
@@ -150,7 +246,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
         .map((e: any) => localEdgeMap.get(`${e.source}::${e.target}`) || e),
       ...localEdges.filter(e => !fetchedEdges.some((fe: any) => fe.source === e.source && fe.target === e.target))
     ];
-  }, [network, localEdges, deletedEdgeIds]);
+  }, [effectiveNetworkData, localEdges, deletedEdgeIds]);
 
   // Backwards compatibility: provide as object
   const getCurrentNetworkData = useMemo(() => ({
@@ -158,9 +254,19 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
     edges: currentEdges
   }), [currentNodes, currentEdges]);
 
-  // UPDATED: Include weight data in elements
+  // UPDATED: Include weight data and edge types in elements
   const elements = useMemo(() => {
     const { nodes, edges } = getCurrentNetworkData;
+    
+    // Build a map from node id to label for reverse lookup
+    const nodeIdToLabel = new Map<string, string>();
+    const nodeLabelToId = new Map<string, string>();
+    nodes.forEach((n: any) => {
+      const id = n.id;
+      const label = n.label || n.id;
+      nodeIdToLabel.set(id, label);
+      nodeLabelToId.set(label, id);
+    });
 
     const nodeElems = nodes.map((n: any) => ({
       data: {
@@ -172,19 +278,44 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
       },
     }));
 
-    const edgeElems = edges.map((e: any) => ({
-      data: {
+    const edgeElems = edges.map((e: any) => {
+      // Determine edge type from rules or existing properties
+      let edgeType = e.properties?.edgeType;
+      
+      // If no explicit edgeType, check if this edge is an inhibitor based on rules
+      if (!edgeType) {
+        // Try matching by id first
+        let edgeKey = `${e.source}::${e.target}`;
+        if (inhibitorEdges.has(edgeKey)) {
+          edgeType = 'inhibitor';
+        } else {
+          // Try matching by label (rules use labels, edges use ids)
+          const sourceLabel = nodeIdToLabel.get(e.source) || e.source;
+          const targetLabel = nodeIdToLabel.get(e.target) || e.target;
+          edgeKey = `${sourceLabel}::${targetLabel}`;
+          if (inhibitorEdges.has(edgeKey)) {
+            edgeType = 'inhibitor';
+          }
+        }
+      }
+      
+      const edgeData: any = {
         id: `edge:${e.source}:${e.target}`,
         source: e.source,
         target: e.target,
         interaction: e.interaction,
         weight: e.weight ?? defaultEdgeWeight,
         properties: e.properties || {}
-      },
-    }));
+      };
+      // Only add edgeType if it exists (for proper Cytoscape selector matching)
+      if (edgeType) {
+        edgeData.edgeType = edgeType;
+      }
+      return { data: edgeData };
+    });
 
     return [...nodeElems, ...edgeElems];
-  }, [getCurrentNetworkData]);
+  }, [getCurrentNetworkData, inhibitorEdges]);
 
   const typeColors = useMemo(() => {
     const nodeTypes = new Set<string>();
@@ -256,7 +387,6 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
       });
       const duplicateCount = edges.length - dedupedEdges.length;
       if (duplicateCount > 0) {
-        console.warn(`[NetworkGraph] Removed ${duplicateCount} duplicate edges before save`);
         showToast({ 
           title: 'Duplicate Edges Removed', 
           description: `Removed ${duplicateCount} duplicate edge(s) (same source→target) before saving.`,
@@ -264,11 +394,13 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
         });
       }
       
-      // Preserve existing metadata and merge with current settings
+      // Preserve existing metadata and rules from the network
       const existingMetadata = (network && ((network as any).metadata || (network as any).data?.metadata)) || {};
+      const existingRules = (effectiveNetworkData as any)?.rules || [];
       const payload = { 
         nodes, 
-        edges: dedupedEdges, 
+        edges: dedupedEdges,
+        rules: existingRules,
         metadata: { 
           ...existingMetadata,
           // Note: thresholdMultiplier would be added here when UI supports it
@@ -284,14 +416,13 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
           .single();
 
         if (error) {
-          console.error('Failed to update network', error);
+          
           showToast({ 
             title: 'Update Failed', 
             description: 'Failed to update network: ' + (error.message || String(error)),
             variant: 'destructive'
           });
         } else {
-          console.log('Updated network', data);
           const updatedNetwork = {
             id: data.id as string,
             name: data.name as string,
@@ -323,14 +454,12 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
             .single();
 
           if (error) {
-            console.error('Failed to save network', error);
             showToast({ 
               title: 'Save Failed', 
               description: 'Failed to save network: ' + (error.message || String(error)),
               variant: 'destructive'
             });
           } else {
-          console.log('Saved network', data);
           const newNetwork = {
             id: data.id as string,
             name: data.name as string,
@@ -359,7 +488,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
               if (updateErr) throw updateErr;
             }
             } catch (linkErr) {
-              console.warn('Saved network but failed to link to project', linkErr);
+              // Failed to link to project
             }
             showToast({ 
               title: 'Success', 
@@ -370,7 +499,6 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
         });
       }
     } catch (err) {
-      console.error('Save network error', err);
       const errorMsg = err instanceof Error ? err.message : String(err);
       showConfirm(
         `Save failed: ${errorMsg}\n\nWould you like to try again?`,
@@ -403,24 +531,15 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
 
   // Cytoscape initialization (initialize once; retry when inputs change)
   useEffect(() => {
-    console.log('[NetworkGraph] Cytoscape useEffect triggered', {
-      elementsLength: elements.length,
-      containerRef: !!containerRef.current
-    });
-
     if (!containerRef.current) {
-      console.log('[NetworkGraph] No container ref, returning');
       return;
     }
 
-    console.log('[NetworkGraph] Initializing cytoscape (once) with elements:', elements.length);
     if (cyRef.current) {
-      console.log('[NetworkGraph] Cytoscape already initialized, skipping reinit');
       return;
     }
 
     try {
-      setCyInitError(null);
       cyRef.current = cytoscape({
         container: containerRef.current,
         elements: elements as any,
@@ -449,6 +568,28 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
               'target-arrow-shape': 'triangle',
               'curve-style': 'bezier',
               'arrow-scale': 1.2,
+            },
+          },
+          {
+            selector: 'edge[edgeType = "inhibitor"]',
+            style: {
+              'line-color': '#ef4444',
+              'target-arrow-color': '#ef4444',
+              'target-arrow-shape': 'tee',
+              'width': 5,
+              'curve-style': 'bezier',
+              'arrow-scale': 1.3,
+            },
+          },
+          {
+            selector: 'edge[edgeType = "amplifier"]',
+            style: {
+              'line-color': '#22c55e',
+              'target-arrow-color': '#22c55e',
+              'target-arrow-shape': 'triangle',
+              'width': 5,
+              'curve-style': 'bezier',
+              'arrow-scale': 1.3,
             },
           },
           {
@@ -487,6 +628,14 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
               'border-color': '#60a5fa',
               'border-width': 4
             }
+          },
+          {
+            selector: '.knock-in-highlight',
+            style: {
+              'background-color': '#10b981',
+              'border-color': '#059669',
+              'border-width': 4
+            }
           }
         ],
         layout: {
@@ -499,7 +648,6 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
       });
 
       const cy = cyRef.current;
-      console.log('[NetworkGraph] Cytoscape instance created');
 
       if (!ehLoaded) {
         (async () => {
@@ -527,27 +675,26 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
                       const newEdgeId = `edge:${src}:${tgt}`;
                       const maybeExisting = cy.getElementById(newEdgeId);
                       if (!maybeExisting || maybeExisting.length === 0) {
-                        try { cy.add({ group: 'edges', data: { id: newEdgeId, source: src, target: tgt, weight: defaultEdgeWeight } }); } catch (e) { console.log('[NetworkGraph] edgehandles fallback cy.add error', e); }
+                        try { cy.add({ group: 'edges', data: { id: newEdgeId, source: src, target: tgt, weight: defaultEdgeWeight } }); } catch (e) { }
                       }
                       setLocalEdges(prev => {
                         const exists = prev.some(e => e.source === src && e.target === tgt);
                         return exists ? prev : [...prev, { source: src, target: tgt, weight: defaultEdgeWeight }];
                       });
                     } catch (e) {
-                      console.log('[NetworkGraph] edgehandles complete error', e);
+                      // Error in complete handler
                     }
                   }
                 });
                 // Removed duplicate ehcomplete handler to prevent duplicate edge creation
                 try { ehRef.current.disable(); } catch { }
                 setEhLoaded(true);
-                console.log('[NetworkGraph] Edgehandles loaded');
               } catch (e) {
-                console.log('[NetworkGraph] Edgehandles initialization error', e);
+                // Edgehandles initialization error
               }
             }
           } catch (e) {
-            console.log('[NetworkGraph] Edgehandles import error', e);
+            // Edgehandles import error
           }
         })();
       } else if (ehRef.current) {
@@ -569,26 +716,25 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
                 const newEdgeId = `edge:${src}:${tgt}`;
                 const maybeExisting = cy.getElementById(newEdgeId);
                 if (!maybeExisting || maybeExisting.length === 0) {
-                  try { cy.add({ group: 'edges', data: { id: newEdgeId, source: src, target: tgt, weight: defaultEdgeWeight } }); } catch (e) { console.log('[NetworkGraph] edgehandles fallback cy.add error', e); }
+                  try { cy.add({ group: 'edges', data: { id: newEdgeId, source: src, target: tgt, weight: defaultEdgeWeight } }); } catch (e) { }
                 }
                 setLocalEdges(prev => {
                   const exists = prev.some(e => e.source === src && e.target === tgt);
                   return exists ? prev : [...prev, { source: src, target: tgt, weight: defaultEdgeWeight }];
                 });
               } catch (e) {
-                console.log('[NetworkGraph] edgehandles complete error', e);
+                // Error in edgehandles complete handler
               }
             }
           });
           ehRef.current.disable();
         } catch (e) {
-          console.log('[NetworkGraph] Error re-attaching edgehandles', e);
+          // Error re-attaching edgehandles
         }
       }
 
       // Run layout after a short delay to ensure container is ready
       setTimeout(() => {
-        console.log('[NetworkGraph] Running layout');
         cy.resize();
         try {
           const layout = cy.layout({
@@ -599,7 +745,6 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
           });
           layout.run();
         } catch (err) {
-          console.error('[NetworkGraph] layout.run() error (init)', err);
           // Fallback to a simpler layout
           try {
             const fallbackLayout = cy.layout({
@@ -610,7 +755,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
             });
             fallbackLayout.run();
           } catch (fallbackErr) {
-            console.error('[NetworkGraph] fallback layout error', fallbackErr);
+            // Fallback layout error
           }
         }
       }, 100);
@@ -642,7 +787,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
                 cy.add({ group: 'edges', data: { id: newEdgeId, source: currentEdgeSource, target: id, weight: defaultEdgeWeight } });
               }
             } catch (e) {
-              console.log('[NetworkGraph] add-edge via click: cy.add error', e);
+              // Error adding edge via click
             }
             setLocalEdges(prev => {
               const exists = prev.some(e => e.source === currentEdgeSource && e.target === id);
@@ -683,6 +828,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
           weight: data.weight,
           properties: data.properties || {}
         });
+        setSelectedNode(null);
 
         const connectedNodes = edge.connectedNodes();
         cy.elements().removeClass('faded').removeClass('connected');
@@ -733,7 +879,6 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
       window.addEventListener('resize', handleResize);
 
       return () => {
-        console.log('[NetworkGraph] Cleaning up cytoscape');
         window.removeEventListener('resize', handleResize);
         if (cyRef.current) {
           cyRef.current.destroy();
@@ -741,8 +886,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
         }
       };
     } catch (err) {
-      console.error('Cytoscape initialization error:', err);
-      setCyInitError((err as any)?.message || 'Unknown Cytoscape init error');
+      // Cytoscape initialization error
     }
   }, [elements, typeColors]);
 
@@ -784,7 +928,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
         }
       }, 50);
     } catch (e) {
-      console.log('[NetworkGraph] reconcile error', e);
+      // Reconcile error
     }
   }, [elements]);
 
@@ -819,13 +963,32 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
     try {
       if (tool === 'add-edge') {
         ehRef.current.enable();
-        setEhEnabled(true);
       } else {
         ehRef.current.disable();
-        setEhEnabled(false);
       }
     } catch (e) { }
   }, [tool]);
+
+  // Apply knock-in highlight class to specified nodes
+  useEffect(() => {
+    if (!cyRef.current) return;
+    const cy = cyRef.current;
+    
+    // Remove existing highlights
+    cy.nodes().removeClass('knock-in-highlight');
+    
+    // Apply highlight to matching nodes
+    if (highlightNodeIds && highlightNodeIds.length > 0) {
+      const highlightSet = new Set(highlightNodeIds.map(id => id.toLowerCase()));
+      cy.nodes().forEach((node: any) => {
+        const nodeId = String(node.data('id') || '').toLowerCase();
+        const nodeLabel = String(node.data('label') || '').toLowerCase();
+        if (highlightSet.has(nodeId) || highlightSet.has(nodeLabel)) {
+          node.addClass('knock-in-highlight');
+        }
+      });
+    }
+  }, [highlightNodeIds]);
 
   // Check if there are any modifications
   const hasModifications = localNodes.length > 0 || localEdges.length > 0 || deletedNodeIds.size > 0 || deletedEdgeIds.size > 0;
@@ -850,10 +1013,25 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
       } catch {
         return null;
       }
+    },
+    fitToView: () => {
+      if (cyRef.current) {
+        cyRef.current.fit(undefined, 60);
+      }
+    },
+    saveAsNew: () => {
+      if (readOnly) return;
+      void saveNetwork(false);
+    },
+    updateCurrent: () => {
+      if (readOnly) return;
+      if (!networkId) return;
+      void saveNetwork(true);
     }
-  }), []);
+  }), [networkId, readOnly]);
 
-  if (isLoading) {
+  // Skip loading check when override data is provided
+  if (isLoading && !overrideNetworkData) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-gray-50 rounded-xl">
         <div className="text-center">
@@ -864,7 +1042,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
     );
   }
 
-  if (error) {
+  if (error && !overrideNetworkData) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-gray-50 rounded-xl">
         <div className="text-center text-red-600">
@@ -875,58 +1053,25 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
     );
   }
 
-  const nodesCount = elements.filter(e => e.data && !('source' in e.data)).length;
-  const edgesCount = elements.filter(e => e.data && ('source' in e.data)).length;
-
-  const showNoElementsWarning = elements.length === 0 && !!network;
-  const rawNetworkJson = network ? JSON.stringify(network, null, 2) : null;
-  const fetchedNodes = (network && (Array.isArray((network as any).nodes) ? (network as any).nodes : Array.isArray((network as any).data?.nodes) ? (network as any).data.nodes : [])) || [];
-  const fetchedEdges = (network && (Array.isArray((network as any).edges) ? (network as any).edges : Array.isArray((network as any).data?.edges) ? (network as any).data.edges : [])) || [];
-  const fetchedNodeCount = fetchedNodes.length;
-  const fetchedEdgeCount = fetchedEdges.length;
-  const cyInitialized = Boolean(cyRef.current);
-  let cyElementsCount = 0;
-  let cyElementIds: string[] = [];
-  try {
-    if (cyRef.current) {
-      cyElementsCount = cyRef.current.elements().length;
-      cyElementIds = cyRef.current.elements().map((el: any) => String(el.data('id'))).slice(0, 10) as string[];
-    }
-  } catch (e) { }
-
   return (
     <div className="w-full h-full flex flex-col bg-white rounded-xl border shadow-sm overflow-hidden min-h-[800px]">
       {/* Header - Fixed at top */}
       <div className="flex-shrink-0 border-b bg-white z-30">
-        <div className="p-4 flex items-center justify-between">
+        <div className="px-3 py-1 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Card className="bg-white">
-              <CardContent className="p-3">
-                <div className="flex items-center gap-4 text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-600">Nodes:</span>
-                    <Badge variant="secondary">{nodesCount}</Badge>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-600">Edges:</span>
-                    <Badge variant="secondary">{edgesCount}</Badge>
-                  </div>
-                  {selectedNode && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-600">Selected:</span>
-                      <Badge>{selectedNode.label}</Badge>
-                    </div>
-                  )}
-                  {hasModifications && (
+            {hasModifications && (
+              <Card className="bg-white">
+                <CardContent className="p-2">
+                  <div className="flex items-center gap-4 text-sm">
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className="text-orange-600 border-orange-300">
                         Unsaved Changes
                       </Badge>
                     </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -939,33 +1084,42 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
                 Reset Changes
               </Button>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                if (cyRef.current) {
-                  cyRef.current.fit(undefined, 60);
-                }
-              }}
-            >
-              Fit to View
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => saveNetwork(false)}
-            >
-              Save As New
-            </Button>
 
-            {networkId && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => saveNetwork(true)}
-              >
-                Update Current
-              </Button>
+            {!hideHeaderActions && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (cyRef.current) {
+                      cyRef.current.fit(undefined, 60);
+                    }
+                  }}
+                >
+                  Fit to View
+                </Button>
+                {!readOnly && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => saveNetwork(false)}
+                    >
+                      Save As New
+                    </Button>
+
+                    {networkId && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => saveNetwork(true)}
+                      >
+                        Update Current
+                      </Button>
+                    )}
+                  </>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -974,13 +1128,14 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
       {/* Main Content Area */}
       <div className="flex-1 flex relative min-h-0">
         {/* Left Sidebar - Toolbar */}
-        <div className="w-16 bg-gray-50 border-r flex flex-col items-center py-4 gap-2 z-20">
-          <Button
-            size="icon"
-            variant={tool === 'select' ? 'default' : 'ghost'}
-            onClick={() => setTool('select')}
-            className="h-12 w-12"
-            title="Select tool"
+        {!hideControls && (
+          <div className="w-16 bg-gray-50 border-r flex flex-col items-center py-4 gap-2 z-20">
+            <Button
+              size="icon"
+              variant={tool === 'select' ? 'default' : 'ghost'}
+              onClick={() => setTool('select')}
+              className="h-12 w-12"
+              title="Select tool"
           >
             <CursorIcon />
           </Button>
@@ -1029,7 +1184,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
                     setSelectedNode(newNode);
                   }
                 } catch (e) {
-                  console.warn('create center node fallback', e);
+                  // Failed to create center node
                 }
               }, 50);
             }}
@@ -1065,6 +1220,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
             <TrashIcon />
           </Button>
         </div>
+        )}
 
         {/* Main Canvas Area */}
         <div className="flex-1 relative min-w-0 min-h-0">
@@ -1075,72 +1231,10 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({ networkId, refresh
             aria-label="Project network visualization"
             key="cytoscape-container"
           />
-
-          {/* Debug Panel - Bottom left */}
-          <div className="absolute left-4 bottom-4 z-30 max-w-md">
-                <Card className="bg-white/95 backdrop-blur-sm max-h-64 overflow-y-auto">
-                  <CardContent className="p-3">
-                    <div className="space-y-1 text-xs">
-                      <div className="font-mono">Mode: {tool} • Nodes: {nodesCount} • Edges: {edgesCount}</div>
-                      <div className="text-muted-foreground">Fetched: {fetchedNodeCount} nodes • {fetchedEdgeCount} edges</div>
-                      <div>NetworkId: {String(networkId ?? 'none')}</div>
-                      <div>Cytoscape: {cyInitialized ? 'initialized' : 'not initialized'}</div>
-                      {cyInitError && <div className="text-red-600">Cy init error: {cyInitError}</div>}
-                      <div>EdgeHandles: {ehLoaded ? (ehEnabled ? 'loaded & enabled' : 'loaded') : 'not loaded'}</div>
-                      <div>Selected: {selectedNode ? selectedNode.id : (selectedEdge ? `${selectedEdge.source}-${selectedEdge.target}` : 'none')}</div>
-                      <div>Cy elements: {cyElementsCount} • ids: {cyElementIds.join(', ') || 'none'}</div>
-                      <div>Modifications: +{localNodes.length} nodes, +{localEdges.length} edges, -{deletedNodeIds.size} nodes, -{deletedEdgeIds.size} edges</div>
-
-                      <div className="flex flex-wrap gap-1 pt-2">
-                        <Button variant="outline" size="sm" onClick={() => {
-                          if (!cyRef.current) return;
-                          const id = `debug-${Date.now()}`;
-                          cyRef.current.add({
-                            data: {
-                              id,
-                              label: 'Debug node',
-                              weight: Math.round(Math.random() * 10)
-                            },
-                            position: { x: 0, y: 0 }
-                          });
-                          setTimeout(() => { cyRef.current?.fit(undefined, 60); }, 50);
-                        }}>
-                          Test Node
-                        </Button>
-
-                        <Button variant="outline" size="sm" onClick={() => {
-                          if (cyRef.current) {
-                            try { console.log('[NetworkGraph] cy elements count:', cyRef.current.elements().length); } catch (e) { console.log('[NetworkGraph] cy log error', e); }
-                          } else {
-                            console.log('[NetworkGraph] cy is not initialized');
-                          }
-                        }}>
-                          Log Cy
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Warning panel - Centered */}
-              {showNoElementsWarning && (
-                <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30 max-w-2xl">
-                  <Card className="bg-yellow-50 border-yellow-200">
-                    <CardContent className="p-4">
-                      <div className="text-yellow-800">
-                        <div className="font-semibold">Warning: network fetched but no nodes/edges were found.</div>
-                        <div className="mt-2 text-sm">Raw network data (truncated):</div>
-                        <pre className="mt-2 max-h-64 overflow-auto text-xs whitespace-pre-wrap bg-yellow-100 p-3 rounded border">{rawNetworkJson?.slice(0, 2000)}</pre>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
         </div>
 
         {/* Right Sidebar - Node/Edge Properties */}
-        {(selectedNode || selectedEdge) && (
+        {!hideControls && (selectedNode || selectedEdge) && (
           <div className="w-80 bg-white border-l flex-shrink-0 z-20">
             <Card className="h-full border-0 rounded-none">
               <CardHeader className="pb-3 border-b">

@@ -109,15 +109,6 @@ const AttractorGraph: React.FC<Props> = ({ states, className }) => {
   return (
     <div className={className || "w-full h-40"}>
       <div ref={containerRef} className="w-full h-full rounded-md border bg-white" />
-      {period > 0 && (
-        <div className="mt-1 text-[10px] text-muted-foreground">
-          {period === 1 ? (
-            <span>Fixed point: {states[0].binary}</span>
-          ) : (
-            <span>Cycle of {period} states</span>
-          )}
-        </div>
-      )}
     </div>
   );
 };

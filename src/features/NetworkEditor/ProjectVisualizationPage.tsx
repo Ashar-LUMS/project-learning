@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useToast } from '@/components/ui/toast';
 import { cn } from "@/lib/utils";
 import { formatTimestamp } from '@/lib/format';
-import type { NetworkData, NetworkNode, NetworkEdge, Rule, CellFate } from '@/types/network';
-import NetworkGraph from "./NetworkGraph";
+import type { NetworkData, NetworkNode, NetworkEdge, Rule, CellFate, TherapeuticIntervention } from '@/types/network';
+import NetworkGraph, { type NetworkGraphHandle } from "./NetworkGraph";
 import { supabase } from "../../supabaseClient";
 import NetworkEditorLayout from "./layout";
 import { useWeightedAnalysis } from '@/hooks/useWeightedAnalysis';
@@ -21,11 +21,14 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
 import { inferRulesFromBiomolecules } from "@/lib/openRouter";
 import { useProjectNetworks, type ProjectNetworkRecord } from '@/hooks/useProjectNetworks';
 import ProbabilisticLandscape from './ProbabilisticLandscape';
 import { FateClassificationDialog, AttractorFateBadge } from './FateClassification';
+import { TherapeuticsPanel } from './TherapeuticsPanel';
+import { applyTherapiesToNetwork } from '@/lib/applyTherapies';
 
 type ProjectRecord = {
   id: string;
@@ -52,6 +55,16 @@ function ProjectVisualizationPage() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [networkGraphRefreshToken, setNetworkGraphRefreshToken] = useState(0);
+  const networkGraphRef = useRef<NetworkGraphHandle | null>(null);
+  const therapeuticsGraphRef = useRef<NetworkGraphHandle | null>(null);
+
+  // Live interventions state (for therapeutics tab)
+  const [liveInterventions, setLiveInterventions] = useState<TherapeuticIntervention[] | null>(null);
+
+  // Sync live interventions when selected network changes
+  useEffect(() => {
+    setLiveInterventions(selectedNetwork?.therapies || null);
+  }, [selectedNetwork?.therapies, selectedNetworkId]);
 
   // Probabilistic analysis dialog state
 
@@ -119,6 +132,103 @@ function ProjectVisualizationPage() {
     downloadResults: downloadRuleBasedResults,
     reset: resetRuleBasedAnalysis,
   } = useDeterministicAnalysis();
+
+  // Therapeutics-specific analysis hooks (separate from inference tab)
+  const {
+    result: therapeuticsWeightedResult,
+    isRunning: isTherapeuticsWeightedRunning,
+    run: runTherapeuticsWeightedAnalysis,
+    reset: resetTherapeuticsWeightedAnalysis,
+  } = useWeightedAnalysis();
+
+  const {
+    result: therapeuticsProbabilisticResult,
+    isRunning: isTherapeuticsProbabilisticRunning,
+    run: runTherapeuticsProbabilisticAnalysis,
+    reset: resetTherapeuticsProbabilisticAnalysis,
+  } = useProbabilisticAnalysis();
+
+  const {
+    result: therapeuticsRuleBasedResult,
+    isRunning: isTherapeuticsRuleBasedRunning,
+    run: runTherapeuticsRuleBasedAnalysis,
+    reset: resetTherapeuticsRuleBasedAnalysis,
+  } = useDeterministicAnalysis();
+
+  // Therapeutics sub-tab state
+  const [therapeuticsSubTab, setTherapeuticsSubTab] = useState<'preview' | 'attractors' | 'landscape' | 'comparison'>('preview');
+  const [therapeuticsProbabilisticDialogOpen, setTherapeuticsProbabilisticDialogOpen] = useState(false);
+
+  // Comparison data: compare original (inference) results vs therapeutics results
+  const comparisonData = useMemo(() => {
+    // Get original results
+    const originalAttractors = weightedResult?.attractors || ruleBasedResult?.attractors || [];
+    const modifiedAttractors = therapeuticsWeightedResult?.attractors || therapeuticsRuleBasedResult?.attractors || [];
+    
+    const originalProbabilities = probabilisticResult?.probabilities || {};
+    const modifiedProbabilities = therapeuticsProbabilisticResult?.probabilities || {};
+    
+    const hasOriginalDA = !!(weightedResult || ruleBasedResult);
+    const hasModifiedDA = !!(therapeuticsWeightedResult || therapeuticsRuleBasedResult);
+    const hasOriginalPA = !!probabilisticResult;
+    const hasModifiedPA = !!therapeuticsProbabilisticResult;
+    
+    // Find matching/eliminated/new attractors by comparing state signatures
+    const originalStateSignatures = new Set(
+      originalAttractors.map((a: DeterministicAttractor) => 
+        a.states.map((s: StateSnapshot) => s.binary).sort().join('|')
+      )
+    );
+    const modifiedStateSignatures = new Set(
+      modifiedAttractors.map((a: DeterministicAttractor) => 
+        a.states.map((s: StateSnapshot) => s.binary).sort().join('|')
+      )
+    );
+    
+    const eliminatedAttractors = originalAttractors.filter((a: DeterministicAttractor) => {
+      const sig = a.states.map((s: StateSnapshot) => s.binary).sort().join('|');
+      return !modifiedStateSignatures.has(sig);
+    });
+    
+    const newAttractors = modifiedAttractors.filter((a: DeterministicAttractor) => {
+      const sig = a.states.map((s: StateSnapshot) => s.binary).sort().join('|');
+      return !originalStateSignatures.has(sig);
+    });
+    
+    const preservedAttractors = modifiedAttractors.filter((a: DeterministicAttractor) => {
+      const sig = a.states.map((s: StateSnapshot) => s.binary).sort().join('|');
+      return originalStateSignatures.has(sig);
+    });
+    
+    // Probability changes
+    const nodeOrder = therapeuticsProbabilisticResult?.nodeOrder || probabilisticResult?.nodeOrder || [];
+    const probabilityChanges = nodeOrder.map((nodeId: string) => {
+      const original = originalProbabilities[nodeId] ?? 0;
+      const modified = modifiedProbabilities[nodeId] ?? 0;
+      return {
+        nodeId,
+        original,
+        modified,
+        change: modified - original,
+        changePercent: original > 0 ? ((modified - original) / original) * 100 : (modified > 0 ? 100 : 0),
+      };
+    }).filter((p: { change: number }) => Math.abs(p.change) > 0.001); // Only show significant changes
+    
+    return {
+      hasOriginalDA,
+      hasModifiedDA,
+      hasOriginalPA,
+      hasModifiedPA,
+      canCompareDA: hasOriginalDA && hasModifiedDA,
+      canComparePA: hasOriginalPA && hasModifiedPA,
+      originalAttractorCount: originalAttractors.length,
+      modifiedAttractorCount: modifiedAttractors.length,
+      eliminatedAttractors,
+      newAttractors,
+      preservedAttractors,
+      probabilityChanges,
+    };
+  }, [weightedResult, ruleBasedResult, therapeuticsWeightedResult, therapeuticsRuleBasedResult, probabilisticResult, therapeuticsProbabilisticResult]);
 
   const normalizeNodesEdges = (payload: { nodes?: NetworkNode[]; edges?: NetworkEdge[]; thresholdMultiplier?: number; metadata?: Record<string, unknown> }): { nodes: AnalysisNode[]; edges: AnalysisEdge[]; options: WeightedAnalysisOptions } => {
     const nodes: AnalysisNode[] = (Array.isArray(payload?.nodes) ? payload.nodes : []).map((n: NetworkNode) => ({
@@ -289,7 +399,22 @@ function ProjectVisualizationPage() {
     }
 
     // Convert Rule objects to strings if needed
-    const ruleStrings = rules.map((r: any) => typeof r === 'string' ? r : r.name || '');
+    // Handle both old format ({ name: "A = B" }) and new format ({ name: "A", action: "B" })
+    const ruleStrings = rules.map((r: any) => {
+      if (typeof r === 'string') return r;
+      if (r.action) return `${r.name} = ${r.action}`;
+      if (r.name && r.name.includes('=')) return r.name;
+      return '';
+    }).filter((s: string) => s.includes('='));
+
+    if (ruleStrings.length === 0) {
+      showToast({ 
+        title: 'No Valid Rules Found', 
+        description: 'The rules could not be parsed. Please check rule format in the Rules tab.',
+        variant: 'destructive'
+      });
+      return;
+    }
 
     showToast({
       title: 'Running Rule-Based Analysis',
@@ -488,6 +613,127 @@ function ProjectVisualizationPage() {
     }
   }, [probabilisticError]);
 
+  // Therapeutics analysis handlers (use modified network with interventions)
+  const getModifiedNetworkData = useCallback(() => {
+    const networkData = selectedNetwork?.data;
+    if (!networkData) return null;
+    const therapies = selectedNetwork?.therapies;
+    const interventionsToApply = liveInterventions || therapies || [];
+    if (interventionsToApply.length > 0) {
+      return applyTherapiesToNetwork(networkData, interventionsToApply);
+    }
+    return networkData;
+  }, [selectedNetwork, liveInterventions]);
+
+  const handleTherapeuticsWeighted = async () => {
+    const modifiedData = getModifiedNetworkData();
+    if (!modifiedData) {
+      showToast({ title: 'Error', description: 'No network data available.', variant: 'destructive' });
+      return;
+    }
+    const { nodes, edges, options } = normalizeNodesEdges(modifiedData);
+    if (nodes.length === 0) {
+      showToast({ title: 'Error', description: 'Network has no nodes.', variant: 'destructive' });
+      return;
+    }
+    resetTherapeuticsWeightedAnalysis();
+    await runTherapeuticsWeightedAnalysis(nodes, edges, options);
+    setTherapeuticsSubTab('attractors');
+    showToast({ title: 'Weighted Analysis Complete', description: 'Analysis of therapeutics-modified network completed.' });
+  };
+
+  const handleTherapeuticsRuleBased = async () => {
+    const modifiedData = getModifiedNetworkData();
+    if (!modifiedData) {
+      showToast({ title: 'Error', description: 'No network data available.', variant: 'destructive' });
+      return;
+    }
+    // Build rules array from modified network rules
+    // Handle both old format ({ name: "A = B" }) and new format ({ name: "A", action: "B" })
+    const rules = modifiedData.rules || [];
+    const rulesArray = rules.map((r: Rule) => {
+      if (r.action) {
+        // New format: { name: "A", action: "B && C" }
+        return `${r.name} = ${r.action}`;
+      } else if (r.name && r.name.includes('=')) {
+        // Old format: { name: "A = B && C" }
+        return r.name;
+      }
+      return `${r.name} = ${r.name}`; // Fallback: self-loop
+    }).filter((s: string) => s.includes('='));
+    
+    if (rulesArray.length === 0) {
+      showToast({ title: 'Error', description: 'No rules defined. Please define rules first.', variant: 'destructive' });
+      return;
+    }
+    
+    // Check for nodes without rules and warn user
+    // Rules use node names/labels, so we need to compare against both id and label
+    // Parse rule targets from rulesArray to handle both old and new formats
+    const ruleTargets = new Set<string>();
+    rulesArray.forEach((ruleStr: string) => {
+      const match = ruleStr.match(/^([a-zA-Z0-9_]+)\s*=/);
+      if (match) ruleTargets.add(match[1]);
+    });
+    
+    const nodeIdentifiers = new Map<string, string>(); // id -> label mapping
+    (modifiedData.nodes || []).forEach((n: NetworkNode) => {
+      nodeIdentifiers.set(n.id, n.label || n.id);
+    });
+    
+    // A node has a rule if its id OR label matches a rule target
+    const nodesWithoutRules = [...nodeIdentifiers.entries()]
+      .filter(([id, label]) => !ruleTargets.has(id) && !ruleTargets.has(label))
+      .map(([, label]) => label);
+    
+    if (nodesWithoutRules.length > 0) {
+      showToast({ 
+        title: 'Warning: Missing Rules', 
+        description: `${nodesWithoutRules.length} node(s) have no rules and won't be included in analysis: ${nodesWithoutRules.slice(0, 3).join(', ')}${nodesWithoutRules.length > 3 ? '...' : ''}`,
+        variant: 'destructive'
+      });
+    }
+    
+    resetTherapeuticsRuleBasedAnalysis();
+    await runTherapeuticsRuleBasedAnalysis(rulesArray);
+    setTherapeuticsSubTab('attractors');
+    showToast({ title: 'Rule-Based Analysis Complete', description: 'Analysis of therapeutics-modified network completed.' });
+  };
+
+  const handleTherapeuticsProbabilisticSubmit = async () => {
+    const modifiedData = getModifiedNetworkData();
+    if (!modifiedData) {
+      showToast({ title: 'Error', description: 'No network data available.', variant: 'destructive' });
+      return;
+    }
+    try {
+      const noise = parseFloat(probabilisticForm.noise);
+      const selfDegradation = parseFloat(probabilisticForm.selfDegradation);
+      const maxIterations = parseInt(probabilisticForm.maxIterations, 10);
+      const tolerance = parseFloat(probabilisticForm.tolerance);
+      const initialProbability = parseFloat(probabilisticForm.initialProbability);
+      
+      if (isNaN(noise) || noise < 0 || noise > 1) throw new Error('Noise must be between 0 and 1');
+      if (isNaN(selfDegradation) || selfDegradation < 0 || selfDegradation > 1) throw new Error('Self-degradation must be between 0 and 1');
+      
+      const { nodes, edges } = normalizeNodesEdges(modifiedData);
+      const probabilisticOptions: ProbabilisticAnalysisOptions = {
+        noise,
+        selfDegradation,
+        maxIterations,
+        tolerance,
+        initialProbability,
+      };
+      resetTherapeuticsProbabilisticAnalysis();
+      await runTherapeuticsProbabilisticAnalysis(nodes, edges, probabilisticOptions);
+      setTherapeuticsProbabilisticDialogOpen(false);
+      setTherapeuticsSubTab('landscape');
+      showToast({ title: 'Probabilistic Analysis Complete', description: 'Analysis of therapeutics-modified network completed.' });
+    } catch (error) {
+      showToast({ title: 'Error', description: error instanceof Error ? error.message : 'Unknown error', variant: 'destructive' });
+    }
+  };
+
   // Clear analysis results when selected network changes
   useEffect(() => {
     console.log('[ProjectVisualizationPage] Selected network changed, clearing analysis results', {
@@ -497,7 +743,11 @@ function ProjectVisualizationPage() {
     resetWeightedAnalysis();
     resetProbabilisticAnalysis();
     resetRuleBasedAnalysis();
-  }, [selectedNetworkId, resetWeightedAnalysis, resetProbabilisticAnalysis, resetRuleBasedAnalysis, selectedNetwork?.name]);
+    resetTherapeuticsWeightedAnalysis();
+    resetTherapeuticsProbabilisticAnalysis();
+    resetTherapeuticsRuleBasedAnalysis();
+    setTherapeuticsSubTab('preview');
+  }, [selectedNetworkId, resetWeightedAnalysis, resetProbabilisticAnalysis, resetRuleBasedAnalysis, resetTherapeuticsWeightedAnalysis, resetTherapeuticsProbabilisticAnalysis, resetTherapeuticsRuleBasedAnalysis, selectedNetwork?.name]);
 
   useEffect(() => {
     let isMounted = true;
@@ -842,6 +1092,147 @@ function ProjectVisualizationPage() {
     </div>
   );
 
+  // Build therapeutics sidebar content
+  const therapeuticsSidebarContent = useMemo(() => {
+    if (!selectedNetworkId || !selectedNetwork?.data) {
+      return (
+        <div className="space-y-6">
+          <div className="space-y-3">
+            <h2 className="text-2xl font-bold tracking-tight text-foreground">
+              Therapeutics
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Select a network in the Network tab first to configure interventions.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    const networkData = selectedNetwork.data;
+    const nodes = networkData.nodes || [];
+    const therapies = selectedNetwork.therapies;
+
+    // Build rules map from network data
+    const rulesMap: Record<string, string> = {};
+    if (networkData.rules) {
+      networkData.rules.forEach((rule) => {
+        if (rule.name && rule.action) {
+          rulesMap[rule.name] = rule.action;
+        }
+      });
+    }
+
+    // Check for rules: original network rules OR modified network rules (after interventions)
+    const interventionsToApply = liveInterventions || therapies || [];
+    const modifiedData = interventionsToApply.length > 0 
+      ? applyTherapiesToNetwork(networkData, interventionsToApply)
+      : networkData;
+    
+    // hasRules is true if either original or modified network has rules
+    const originalRulesCount = networkData.rules?.filter(r => r.name && r.action)?.length ?? 0;
+    const modifiedRulesCount = modifiedData.rules?.filter(r => r.name && r.action)?.length ?? 0;
+    const hasRules = originalRulesCount > 0 || modifiedRulesCount > 0;
+    
+    const interventionCount = interventionsToApply.length;
+    const hasAnalysisResult = !!(therapeuticsWeightedResult || therapeuticsProbabilisticResult || therapeuticsRuleBasedResult);
+
+    return (
+      <div className="space-y-6">
+        <div className="space-y-3">
+          <h2 className="text-2xl font-bold tracking-tight text-foreground">
+            Therapeutics
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Configure interventions for {selectedNetwork.name || 'this network'}
+          </p>
+        </div>
+
+        <TherapeuticsPanel
+          networkId={selectedNetworkId}
+          nodes={nodes}
+          rules={rulesMap}
+          existingTherapies={therapies}
+          onTherapiesUpdated={() => {
+            refreshNetworks();
+          }}
+          onInterventionsChange={(interventions) => {
+            setLiveInterventions(interventions);
+          }}
+        />
+
+        <Separator />
+
+        {/* Analysis Section */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold">Run Analysis</h3>
+            {hasAnalysisResult && (
+              <Badge variant="secondary" className="text-xs">Results Ready</Badge>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Analyze the network with {interventionCount} intervention{interventionCount !== 1 ? 's' : ''} applied
+          </p>
+
+          <div className="space-y-2">
+            {/* Rule-Based Analysis */}
+            <Button
+              onClick={handleTherapeuticsRuleBased}
+              variant="outline"
+              className="w-full justify-start h-9 text-xs"
+              disabled={isTherapeuticsRuleBasedRunning || !hasRules}
+              title={!hasRules ? 'No rules defined for this network' : undefined}
+            >
+              {isTherapeuticsRuleBasedRunning ? (
+                <span className="flex items-center gap-2">
+                  <span className="animate-spin h-3 w-3 border-2 border-current border-t-transparent rounded-full" />
+                  Running...
+                </span>
+              ) : (
+                'Rule-Based DA'
+              )}
+            </Button>
+
+            {/* Weighted Analysis */}
+            <Button
+              onClick={handleTherapeuticsWeighted}
+              variant="outline"
+              className="w-full justify-start h-9 text-xs"
+              disabled={isTherapeuticsWeightedRunning}
+            >
+              {isTherapeuticsWeightedRunning ? (
+                <span className="flex items-center gap-2">
+                  <span className="animate-spin h-3 w-3 border-2 border-current border-t-transparent rounded-full" />
+                  Running...
+                </span>
+              ) : (
+                'Weighted DA'
+              )}
+            </Button>
+
+            {/* Probabilistic Analysis */}
+            <Button
+              onClick={() => setTherapeuticsProbabilisticDialogOpen(true)}
+              variant="outline"
+              className="w-full justify-start h-9 text-xs"
+              disabled={isTherapeuticsProbabilisticRunning}
+            >
+              {isTherapeuticsProbabilisticRunning ? (
+                <span className="flex items-center gap-2">
+                  <span className="animate-spin h-3 w-3 border-2 border-current border-t-transparent rounded-full" />
+                  Running...
+                </span>
+              ) : (
+                'Probabilistic Analysis'
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }, [selectedNetworkId, selectedNetwork, refreshNetworks, liveInterventions, therapeuticsWeightedResult, therapeuticsProbabilisticResult, therapeuticsRuleBasedResult, isTherapeuticsWeightedRunning, isTherapeuticsProbabilisticRunning, isTherapeuticsRuleBasedRunning, handleTherapeuticsWeighted, handleTherapeuticsRuleBased]);
+
   const renderMainContent = () => {
     if (!projectId) {
       return (
@@ -880,54 +1271,97 @@ function ProjectVisualizationPage() {
     switch (activeTab) {
       case 'network': {
         return (
-          <div className="flex h-full flex-col gap-4 p-6">
-            <div className="flex flex-col gap-1">
-              <h1 className="text-2xl font-semibold text-foreground line-clamp-2">
-                {selectedNetwork?.name ?? 'Network'}
-              </h1>
-              {selectedNetwork?.created_at && (
-                <span className="text-xs text-muted-foreground">
-                  Created {formatTimestamp(selectedNetwork.created_at)}
+          <div className="flex h-full flex-col">
+            {/* Compact Header */}
+            <div className="flex items-center justify-between px-4 py-2 border-b bg-background/95 backdrop-blur-sm">
+              <div className="flex items-center gap-3">
+                <Tabs value={networkSubTab} onValueChange={(v) => setNetworkSubTab(v as 'editor' | 'rules')}>
+                  <TabsList className="h-8">
+                    <TabsTrigger value="editor" className="text-xs px-3 h-7">Graph</TabsTrigger>
+                    <TabsTrigger value="rules" className="text-xs px-3 h-7">Rules</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                <Separator orientation="vertical" className="h-5" />
+                <span className="text-sm font-medium truncate max-w-[200px]">
+                  {selectedNetwork?.name ?? 'No Network'}
                 </span>
-              )}
+                {selectedNetwork?.data && (
+                  <div className="hidden sm:flex items-center gap-1.5">
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
+                      {selectedNetwork.data.nodes?.length ?? 0} nodes
+                    </Badge>
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
+                      {selectedNetwork.data.edges?.length ?? 0} edges
+                    </Badge>
+                  </div>
+                )}
+              </div>
+              <div className="hidden md:flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!selectedNetworkId || networkSubTab !== 'editor'}
+                  onClick={() => networkGraphRef.current?.fitToView()}
+                >
+                  Fit to View
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  //disabled={!selectedNetworkId || networkSubTab !== 'editor'}
+                  disabled={true}
+                  onClick={() => networkGraphRef.current?.saveAsNew()}
+                >
+                  Save As New
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  //disabled={!selectedNetworkId || networkSubTab !== 'editor'}
+                  disabled={true}
+                  onClick={() => networkGraphRef.current?.updateCurrent()}
+                >
+                  Update Current
+                </Button>
+              </div>
             </div>
             
-            <Tabs value={networkSubTab} onValueChange={(v) => setNetworkSubTab(v as 'editor' | 'rules')} className="flex-1 flex flex-col min-h-0">
-              <TabsList className="w-full justify-start">
-                <TabsTrigger value="editor">Graph Editor</TabsTrigger>
-                <TabsTrigger value="rules">Rules Analysis</TabsTrigger>
-              </TabsList>
+            {/* Full-height Content */}
+            <div className="flex-1 min-h-0">
+              {networkSubTab === 'editor' && (
+                <>
+                  {!selectedNetworkId ? (
+                    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                      Link a network to this project to get started.
+                    </div>
+                  ) : (
+                    <NetworkGraph 
+                      ref={networkGraphRef}
+                      networkId={selectedNetworkId} 
+                      projectId={projectId} 
+                      refreshToken={networkGraphRefreshToken}
+                      hideHeaderActions
+                      onSaved={(newNetwork) => {
+                      setNetworks(prev => {
+                        const existingIndex = prev.findIndex(n => n.id === newNetwork.id);
+                        if (existingIndex >= 0) {
+                          // Update: replace the existing network
+                          const updated = [...prev];
+                          updated[existingIndex] = newNetwork;
+                          return updated;
+                        } else {
+                          // New save: prepend to list
+                          return [newNetwork, ...prev];
+                        }
+                      });
+                      selectNetwork(newNetwork.id);
+                      setRecentNetworkIds(prev => [newNetwork.id, ...prev.filter(id => id !== newNetwork.id)].slice(0, MAX_RECENT_NETWORKS));
+                    }} />
+                  )}
+                </>
+              )}
               
-              <TabsContent value="editor" className="flex-1 min-h-0 mt-4">
-                {!selectedNetworkId ? (
-                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                    Link a network to this project to get started.
-                  </div>
-                ) : (
-                  <NetworkGraph 
-                    networkId={selectedNetworkId} 
-                    projectId={projectId} 
-                    refreshToken={networkGraphRefreshToken}
-                    onSaved={(newNetwork) => {
-                    setNetworks(prev => {
-                      const existingIndex = prev.findIndex(n => n.id === newNetwork.id);
-                      if (existingIndex >= 0) {
-                        // Update: replace the existing network
-                        const updated = [...prev];
-                        updated[existingIndex] = newNetwork;
-                        return updated;
-                      } else {
-                        // New save: prepend to list
-                        return [newNetwork, ...prev];
-                      }
-                    });
-                    selectNetwork(newNetwork.id);
-                    setRecentNetworkIds(prev => [newNetwork.id, ...prev.filter(id => id !== newNetwork.id)].slice(0, MAX_RECENT_NETWORKS));
-                  }} />
-                )}
-              </TabsContent>
-              
-              <TabsContent value="rules" className="flex-1 min-h-0 mt-0">
+              {networkSubTab === 'rules' && (
                 <RulesPage 
                   projectId={projectId}
                   selectedNetworkId={selectedNetworkId}
@@ -951,8 +1385,8 @@ function ProjectVisualizationPage() {
                     setNetworkGraphRefreshToken(prev => prev + 1);
                   }}
                 />
-              </TabsContent>
-            </Tabs>
+              )}
+            </div>
           </div>
         );
       }
@@ -1266,31 +1700,350 @@ function ProjectVisualizationPage() {
           );
         }
 
-        return (
-          <div className="flex h-full flex-col gap-4 p-6">
-            <div className="flex flex-col gap-1">
-              <h1 className="text-2xl font-semibold text-foreground line-clamp-2">Therapeutics</h1>
-              {selectedNetwork?.name && (
-                <span className="text-xs text-muted-foreground">Selected: {selectedNetwork.name}</span>
-              )}
+        const networkData = selectedNetwork?.data;
+        
+        // Show loading state if network data is not yet loaded
+        if (!networkData) {
+          return (
+            <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
+              <div className="text-center">
+                <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-2" />
+                <p>Loading network data...</p>
+              </div>
             </div>
+          );
+        }
+        
+        const therapies = selectedNetwork?.therapies;
+
+        // Determine which interventions to use: live edits or saved therapies from DB
+        const interventionsToApply = liveInterventions || therapies || [];
+        
+        // Apply therapies to get modified network data for visualization
+        const modifiedNetworkData = networkData && interventionsToApply.length > 0
+          ? applyTherapiesToNetwork(networkData, interventionsToApply)
+          : networkData;
+
+        const hasAttractorResults = !!(therapeuticsWeightedResult || therapeuticsRuleBasedResult);
+        const hasLandscapeResults = !!therapeuticsProbabilisticResult;
+        const hasComparisonData = comparisonData.canCompareDA || comparisonData.canComparePA;
+
+        return (
+          <div className="h-full flex flex-col p-4">
+            {/* Header with Tabs */}
+            <div className="flex items-center justify-between mb-3">
+              <Tabs value={therapeuticsSubTab} onValueChange={(v) => setTherapeuticsSubTab(v as 'preview' | 'attractors' | 'landscape' | 'comparison')}>
+                <TabsList className="h-8">
+                  <TabsTrigger value="preview" className="text-xs px-3 h-7">
+                    Preview
+                  </TabsTrigger>
+                  <TabsTrigger value="attractors" className="text-xs px-3 h-7" disabled={!hasAttractorResults}>
+                    Attractors
+                    {hasAttractorResults && (
+                      <Badge variant="secondary" className="ml-1.5 text-[10px] px-1 py-0 h-4">
+                        {(therapeuticsWeightedResult?.attractors?.length || therapeuticsRuleBasedResult?.attractors?.length || 0)}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="landscape" className="text-xs px-3 h-7" disabled={!hasLandscapeResults}>
+                    Landscape
+                  </TabsTrigger>
+                  <TabsTrigger value="comparison" className="text-xs px-3 h-7" disabled={!hasComparisonData}>
+                    Comparison
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <div className="flex items-center gap-2">
+                {interventionsToApply.length > 0 && (
+                  <Badge variant="secondary" className="text-xs">
+                    {interventionsToApply.length} intervention{interventionsToApply.length !== 1 ? 's' : ''}
+                  </Badge>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={therapeuticsSubTab !== 'preview'}
+                  onClick={() => therapeuticsGraphRef.current?.fitToView()}
+                >
+                  Fit to View
+                </Button>
+              </div>
+            </div>
+
+            {/* Tab Content */}
             <div className="flex-1 min-h-0">
-              <NetworkGraph networkId={selectedNetworkId} projectId={projectId} onSaved={(newNetwork) => {
-                setNetworks(prev => {
-                  const existingIndex = prev.findIndex(n => n.id === newNetwork.id);
-                  if (existingIndex >= 0) {
-                    // Update: replace the existing network
-                    const updated = [...prev];
-                    updated[existingIndex] = newNetwork;
-                    return updated;
-                  } else {
-                    // New save: prepend to list
-                    return [newNetwork, ...prev];
-                  }
-                });
-                selectNetwork(newNetwork.id);
-                setRecentNetworkIds(prev => [newNetwork.id, ...prev.filter(id => id !== newNetwork.id)].slice(0, MAX_RECENT_NETWORKS));
-              }} />
+              {therapeuticsSubTab === 'preview' && (
+                <div className="h-full border rounded-lg bg-white">
+                  <NetworkGraph 
+                    ref={therapeuticsGraphRef}
+                    key={`therapeutics-${selectedNetworkId}-${interventionsToApply.length}`}
+                    networkId={selectedNetworkId} 
+                    projectId={projectId}
+                    overrideNetworkData={modifiedNetworkData}
+                    readOnly={true}
+                    hideControls={true}
+                    hideHeaderActions={true}
+                    highlightNodeIds={interventionsToApply.filter(t => t.type === 'knock-in').map(t => t.nodeName)}
+                    onSaved={() => {}}
+                  />
+                </div>
+              )}
+
+              {therapeuticsSubTab === 'attractors' && (
+                <div className="h-full overflow-auto">
+                  {!hasAttractorResults ? (
+                    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                      Run Rule-Based or Weighted analysis to see attractors.
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Attractor Details */}
+                      <div className="border rounded-lg p-4 bg-card">
+                        <h3 className="text-sm font-semibold mb-3">Attractor Details</h3>
+                        <div className="space-y-4">
+                          {(therapeuticsWeightedResult?.attractors || therapeuticsRuleBasedResult?.attractors || []).map((attractor: DeterministicAttractor, idx: number) => (
+                            <div key={idx} className="border rounded-md p-3 bg-background">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Badge variant="outline" className="text-xs">
+                                  Attractor {idx + 1}
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  {attractor.states.length} state{attractor.states.length !== 1 ? 's' : ''} • Basin: {(attractor.basinShare * 100).toFixed(1)}%
+                                </span>
+                                {cellFates[attractor.id] && (
+                                  <AttractorFateBadge fate={cellFates[attractor.id]} />
+                                )}
+                              </div>
+                              <div className="mb-3">
+                                <AttractorGraph 
+                                  states={attractor.states}
+                                  className="h-32"
+                                />
+                              </div>
+                              <div className="text-xs text-muted-foreground mb-1">States:</div>
+                              <div className="flex flex-wrap gap-1">
+                                {attractor.states.map((state, stateIdx) => (
+                                  <code key={stateIdx} className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono">
+                                    {state.binary}
+                                  </code>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {therapeuticsSubTab === 'landscape' && (
+                <div className="h-full overflow-auto">
+                  {!hasLandscapeResults ? (
+                    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                      Run Probabilistic analysis to see the landscape.
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Probabilistic Landscape */}
+                      <div className="border rounded-lg p-4 bg-card overflow-hidden">
+                        <h3 className="text-sm font-semibold mb-3">Probabilistic Landscape</h3>
+                        <div className="h-[350px]">
+                          <ProbabilisticLandscape 
+                            nodeOrder={therapeuticsProbabilisticResult?.nodeOrder || []}
+                            probabilities={therapeuticsProbabilisticResult?.probabilities || {}}
+                            potentialEnergies={therapeuticsProbabilisticResult?.potentialEnergies || {}}
+                            type="probability"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Node Probabilities */}
+                      <div className="border rounded-lg p-4 bg-card">
+                        <h3 className="text-sm font-semibold mb-3">Steady-State Probabilities</h3>
+                        <div className="overflow-auto max-h-60">
+                          <table className="w-full text-xs border-collapse">
+                            <thead>
+                              <tr className="bg-muted/40">
+                                <th className="text-left p-2 font-semibold">Node</th>
+                                <th className="text-right p-2 font-semibold">Probability</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {therapeuticsProbabilisticResult?.nodeOrder.map((nodeId: string) => (
+                                <tr key={nodeId} className="border-t">
+                                  <td className="p-2">{nodeId}</td>
+                                  <td className="text-right p-2 font-mono">
+                                    {((therapeuticsProbabilisticResult?.probabilities[nodeId] ?? 0) * 100).toFixed(2)}%
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {therapeuticsSubTab === 'comparison' && (
+                <div className="h-full overflow-auto">
+                  {!hasComparisonData ? (
+                    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                      Run analysis on both original network (Inference tab) and modified network (Therapeutics tab) to see comparison.
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Summary Cards */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="border rounded-lg p-3 bg-card">
+                          <div className="text-[10px] uppercase text-muted-foreground mb-1">Original Attractors</div>
+                          <div className="text-xl font-bold">{comparisonData.originalAttractorCount}</div>
+                        </div>
+                        <div className="border rounded-lg p-3 bg-card">
+                          <div className="text-[10px] uppercase text-muted-foreground mb-1">Modified Attractors</div>
+                          <div className="text-xl font-bold">{comparisonData.modifiedAttractorCount}</div>
+                        </div>
+                        <div className="border rounded-lg p-3 bg-card">
+                          <div className="text-[10px] uppercase text-muted-foreground mb-1">Eliminated</div>
+                          <div className="text-xl font-bold text-red-600">{comparisonData.eliminatedAttractors.length}</div>
+                        </div>
+                        <div className="border rounded-lg p-3 bg-card">
+                          <div className="text-[10px] uppercase text-muted-foreground mb-1">New</div>
+                          <div className="text-xl font-bold text-green-600">{comparisonData.newAttractors.length}</div>
+                        </div>
+                      </div>
+
+                      {/* Eliminated Attractors */}
+                      {comparisonData.eliminatedAttractors.length > 0 && (
+                        <div className="border rounded-lg p-4 bg-card">
+                          <h3 className="text-sm font-semibold mb-3 text-red-600">Eliminated Attractors</h3>
+                          <div className="space-y-2">
+                            {comparisonData.eliminatedAttractors.map((attractor: DeterministicAttractor, idx: number) => (
+                              <div key={idx} className="border border-red-200 rounded-md p-3 bg-red-50">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Badge variant="outline" className="text-xs border-red-300 text-red-700">
+                                    {attractor.type === 'fixed-point' ? 'Fixed Point' : `Cycle (${attractor.period})`}
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground">
+                                    Basin: {(attractor.basinShare * 100).toFixed(1)}%
+                                  </span>
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {attractor.states.map((state: StateSnapshot, stateIdx: number) => (
+                                    <code key={stateIdx} className="text-[10px] bg-red-100 px-1.5 py-0.5 rounded font-mono">
+                                      {state.binary}
+                                    </code>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* New Attractors */}
+                      {comparisonData.newAttractors.length > 0 && (
+                        <div className="border rounded-lg p-4 bg-card">
+                          <h3 className="text-sm font-semibold mb-3 text-green-600">New Attractors</h3>
+                          <div className="space-y-2">
+                            {comparisonData.newAttractors.map((attractor: DeterministicAttractor, idx: number) => (
+                              <div key={idx} className="border border-green-200 rounded-md p-3 bg-green-50">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Badge variant="outline" className="text-xs border-green-300 text-green-700">
+                                    {attractor.type === 'fixed-point' ? 'Fixed Point' : `Cycle (${attractor.period})`}
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground">
+                                    Basin: {(attractor.basinShare * 100).toFixed(1)}%
+                                  </span>
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {attractor.states.map((state: StateSnapshot, stateIdx: number) => (
+                                    <code key={stateIdx} className="text-[10px] bg-green-100 px-1.5 py-0.5 rounded font-mono">
+                                      {state.binary}
+                                    </code>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Preserved Attractors */}
+                      {comparisonData.preservedAttractors.length > 0 && (
+                        <div className="border rounded-lg p-4 bg-card">
+                          <h3 className="text-sm font-semibold mb-3 text-blue-600">Preserved Attractors</h3>
+                          <div className="space-y-2">
+                            {comparisonData.preservedAttractors.map((attractor: DeterministicAttractor, idx: number) => (
+                              <div key={idx} className="border border-blue-200 rounded-md p-3 bg-blue-50">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Badge variant="outline" className="text-xs border-blue-300 text-blue-700">
+                                    {attractor.type === 'fixed-point' ? 'Fixed Point' : `Cycle (${attractor.period})`}
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground">
+                                    Basin: {(attractor.basinShare * 100).toFixed(1)}%
+                                  </span>
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {attractor.states.map((state: StateSnapshot, stateIdx: number) => (
+                                    <code key={stateIdx} className="text-[10px] bg-blue-100 px-1.5 py-0.5 rounded font-mono">
+                                      {state.binary}
+                                    </code>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Probability Changes */}
+                      {comparisonData.canComparePA && comparisonData.probabilityChanges.length > 0 && (
+                        <div className="border rounded-lg p-4 bg-card">
+                          <h3 className="text-sm font-semibold mb-3">Probability Changes</h3>
+                          <div className="overflow-auto max-h-60">
+                            <table className="w-full text-xs border-collapse">
+                              <thead>
+                                <tr className="bg-muted/40">
+                                  <th className="text-left p-2 font-semibold">Node</th>
+                                  <th className="text-right p-2 font-semibold">Original</th>
+                                  <th className="text-right p-2 font-semibold">Modified</th>
+                                  <th className="text-right p-2 font-semibold">Change</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {comparisonData.probabilityChanges.map((p: { nodeId: string; original: number; modified: number; change: number }) => (
+                                  <tr key={p.nodeId} className="border-t">
+                                    <td className="p-2">{p.nodeId}</td>
+                                    <td className="text-right p-2 font-mono">{(p.original * 100).toFixed(1)}%</td>
+                                    <td className="text-right p-2 font-mono">{(p.modified * 100).toFixed(1)}%</td>
+                                    <td className={`text-right p-2 font-mono ${p.change > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                      {p.change > 0 ? '+' : ''}{(p.change * 100).toFixed(1)}%
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* No Changes Message */}
+                      {comparisonData.eliminatedAttractors.length === 0 && 
+                       comparisonData.newAttractors.length === 0 && 
+                       comparisonData.probabilityChanges.length === 0 && (
+                        <div className="border rounded-lg p-6 bg-card text-center">
+                          <div className="text-muted-foreground text-sm">
+                            No significant changes detected between original and modified network.
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         );
@@ -1314,6 +2067,7 @@ function ProjectVisualizationPage() {
       activeTab={activeTab}
       onTabChange={setActiveTab}
       networkSidebar={networkSidebarContent}
+      therapeuticsSidebar={therapeuticsSidebarContent}
       inferenceActions={{
         run: handleRunRuleBasedDA,
         runWeighted: handleRunWeighted,
@@ -1512,6 +2266,89 @@ function ProjectVisualizationPage() {
             </Button>
             <Button onClick={handleProbabilisticSubmit} disabled={isProbabilisticAnalyzing}>
               {isProbabilisticAnalyzing ? 'Running…' : 'Run Probabilistic Analysis'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Therapeutics Probabilistic Analysis Dialog */}
+      <Dialog open={therapeuticsProbabilisticDialogOpen} onOpenChange={setTherapeuticsProbabilisticDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Probabilistic Analysis (Therapeutics)</DialogTitle>
+            <DialogDescription>
+              Run probabilistic analysis on the network with interventions applied.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="t-noise">Noise (µ)</Label>
+              <Input
+                id="t-noise"
+                type="number"
+                step="0.01"
+                value={probabilisticForm.noise}
+                onChange={(e) => setProbabilisticForm((prev) => ({ ...prev, noise: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">Higher µ flattens responses.</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="t-selfDeg">Self-degradation (c)</Label>
+              <Input
+                id="t-selfDeg"
+                type="number"
+                step="0.01"
+                min="0"
+                max="1"
+                value={probabilisticForm.selfDegradation}
+                onChange={(e) => setProbabilisticForm((prev) => ({ ...prev, selfDegradation: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">0..1; higher pushes decay.</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="t-maxIter">Max iterations</Label>
+              <Input
+                id="t-maxIter"
+                type="number"
+                min="1"
+                step="1"
+                value={probabilisticForm.maxIterations}
+                onChange={(e) => setProbabilisticForm((prev) => ({ ...prev, maxIterations: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="t-tolerance">Tolerance</Label>
+              <Input
+                id="t-tolerance"
+                type="number"
+                step="1e-5"
+                value={probabilisticForm.tolerance}
+                onChange={(e) => setProbabilisticForm((prev) => ({ ...prev, tolerance: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">Convergence threshold.</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="t-initialProb">Initial probability</Label>
+              <Input
+                id="t-initialProb"
+                type="number"
+                step="0.01"
+                min="0"
+                max="1"
+                value={probabilisticForm.initialProbability}
+                onChange={(e) => setProbabilisticForm((prev) => ({ ...prev, initialProbability: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">Fallback when per-node initial P is absent.</p>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setTherapeuticsProbabilisticDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleTherapeuticsProbabilisticSubmit} disabled={isTherapeuticsProbabilisticRunning}>
+              {isTherapeuticsProbabilisticRunning ? 'Running…' : 'Run Probabilistic Analysis'}
             </Button>
           </DialogFooter>
         </DialogContent>

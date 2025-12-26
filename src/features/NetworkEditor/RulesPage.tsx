@@ -32,7 +32,14 @@ export default function RulesPage({
   useEffect(() => {
     if (selectedNetwork?.data?.rules) {
       const loadedRules = Array.isArray(selectedNetwork.data.rules) 
-        ? selectedNetwork.data.rules.map(r => typeof r === 'string' ? r : r.name || '').join('\n')
+        ? selectedNetwork.data.rules.map(r => {
+            if (typeof r === 'string') return r;
+            // Reconstruct full rule from { name, action } format
+            if (r.action) return `${r.name} = ${r.action}`;
+            // Old format where name contains the full rule
+            if (r.name && r.name.includes('=')) return r.name;
+            return r.name || '';
+          }).join('\n')
         : '';
       setRulesText(loadedRules);
     } else if (selectedNetworkId && selectedNetwork) {
@@ -122,11 +129,21 @@ export default function RulesPage({
       }
 
       const networkData = selectedNetwork.data || {};
+      // Parse rules into proper { name, action } format
+      const parsedRules = rules.map(r => {
+        const match = r.match(/^([a-zA-Z0-9_]+)\s*=\s*(.+)$/);
+        if (match) {
+          return { name: match[1], action: match[2].trim(), enabled: true };
+        }
+        // Fallback for rules without proper format
+        return { name: r, action: '', enabled: true };
+      });
+
       const updatedData = {
         ...networkData,
         nodes,
         edges,
-        rules: rules.map(r => ({ name: r, enabled: true }))
+        rules: parsedRules
       };
 
       const { data, error } = await supabase

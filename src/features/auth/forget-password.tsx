@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { Loader2, Mail, FlaskConical, Microscope, Atom, Brain, ArrowLeft } from "lucide-react";
+import { Loader2, Mail, ArrowLeft } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,20 +13,6 @@ export function ForgotPasswordForm({ }: React.ComponentProps<"div">) {
   const [loading, setLoading] = React.useState(false);
   const [message, setMessage] = React.useState<string | null>(null);
   const [isSuccess, setIsSuccess] = React.useState<boolean | null>(null);
-  const [activeIcons, setActiveIcons] = React.useState<number[]>([]);
-
-  const scienceIcons = [FlaskConical, Microscope, Atom, Brain];
-
-  React.useEffect(() => {
-    const iconInterval = setInterval(() => {
-      const randomIcon = Math.floor(Math.random() * scienceIcons.length);
-      setActiveIcons(prev => [...prev.slice(-2), randomIcon]);
-    }, 2000);
-
-    return () => {
-      clearInterval(iconInterval);
-    };
-  }, []);
 
   const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,27 +40,8 @@ export function ForgotPasswordForm({ }: React.ComponentProps<"div">) {
   };
   return (
     <section className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 relative overflow-hidden">
-      {/* Background elements with responsive sizing */}
-      <div className="absolute inset-0 overflow-hidden">
-        {activeIcons.map((iconIndex, index) => {
-          const IconComponent = scienceIcons[iconIndex];
-          return (
-            <div
-              key={index}
-              className="absolute opacity-5 animate-float"
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-                animationDelay: `${index * 0.5}s`,
-              }}
-            >
-              <IconComponent className="w-8 h-8 md:w-12 md:h-12 text-[#2f5597]" />
-            </div>
-          );
-        })}
-      </div>
-
-      <div className={`absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=\"60\" height=\"60\" viewBox=\"0 0 60 60\" xmlns=\"http://www.w3.org/2000/svg\"%3E%3Cg fill=\"none\" fill-rule=\"evenodd\"%3E%3Cg fill=\"%232f5597\" fill-opacity=\"0.03\"%3E%3Ccircle cx=\"30\" cy=\"30\" r=\"1\"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] animate-pulse-slow`} />
+      {/* Background pattern */}
+      <div className={`absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%232f5597" fill-opacity="0.03"%3E%3Ccircle cx="30" cy="30" r="1"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')]`} />
 
       {/* Responsive container with better padding */}
       <div className="flex min-h-screen items-center justify-center p-4 sm:p-6 lg:p-8 relative z-10">
@@ -185,45 +152,6 @@ export function ForgotPasswordForm({ }: React.ComponentProps<"div">) {
           </div>
         </div>
       </div>
-
-      <style>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-10px) rotate(5deg); }
-        }
-        
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          25% { transform: translateX(-5px); }
-          75% { transform: translateX(5px); }
-        }
-        
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateY(-5px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        
-        @keyframes pulse-slow {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.8; }
-        }
-        
-        .animate-float {
-          animation: float 6s ease-in-out infinite;
-        }
-        
-        .animate-shake {
-          animation: shake 0.5s ease-in-out;
-        }
-        
-        .animate-fade-in {
-          animation: fade-in 0.3s ease-out;
-        }
-        
-        .animate-pulse-slow {
-          animation: pulse-slow 4s ease-in-out infinite;
-        }
-      `}</style>
     </section>
   );
 }

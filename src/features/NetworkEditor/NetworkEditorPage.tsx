@@ -22,6 +22,7 @@ import type { AnalysisEdge, AnalysisNode, ProbabilisticAnalysisOptions, Weighted
 import { useProjectNetworks, type ProjectNetworkRecord } from '@/hooks/useProjectNetworks';
 
 import AttractorGraph from './AttractorGraph';
+import { TherapeuticsPanel } from './TherapeuticsPanel';
 
 // network type unified via hook's ProjectNetworkRecord
 // Last updated: 2025-12-05 - Added weighted analysis support
@@ -519,7 +520,44 @@ function NetworkEditorPage() {
           </div>
         );
 
-      case 'therapeutics':
+      case 'therapeutics': {
+        if (!selectedNetworkId) {
+          return (
+            <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
+              Select a network first to view therapeutics.
+            </div>
+          );
+        }
+
+        const networkData = selectedNetwork?.data;
+        const nodes = networkData?.nodes || [];
+        const therapies = selectedNetwork?.therapies;
+        
+        // Build rules map from network data
+        const rulesMap: Record<string, string> = {};
+        if (networkData?.rules) {
+          networkData.rules.forEach((rule) => {
+            if (rule.name && rule.action) {
+              rulesMap[rule.name] = rule.action;
+            }
+          });
+        }
+
+        return (
+          <div className="h-full p-6">
+            <TherapeuticsPanel
+              networkId={selectedNetworkId}
+              nodes={nodes}
+              rules={rulesMap}
+              existingTherapies={therapies}
+              onTherapiesUpdated={() => {
+                refreshNetworks();
+              }}
+            />
+          </div>
+        );
+      }
+
       case 'analysis':
       case 'results':
         return (

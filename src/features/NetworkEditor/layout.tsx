@@ -19,19 +19,15 @@ import {
   LineSquiggle,
   Cpu,
   LineChart,
-  Search,
-  Settings,
   Upload,
   Download,
   Play,
   BarChart3,
-  Database,
   Plus as PlusIcon,
   Calendar,
   Users,
   User
 } from 'lucide-react';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 //import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -44,6 +40,7 @@ export interface NetworkEditorLayoutProps {
   onTabChange: (tab: TabType) => void;
   networkSidebar?: React.ReactNode;
   inferenceSidebar?: React.ReactNode;
+  therapeuticsSidebar?: React.ReactNode;
   weightedResult?: DeterministicAnalysisResult | null;
   inferenceActions?: {
     run?: () => void;
@@ -67,6 +64,7 @@ export default function NetworkEditorLayout({
   onTabChange,
   networkSidebar,
   inferenceSidebar,
+  therapeuticsSidebar,
   weightedResult,
   inferenceActions,
 }: NetworkEditorLayoutProps) {
@@ -121,24 +119,6 @@ export default function NetworkEditorLayout({
     <div className="flex flex-col h-screen bg-background">
       {/* Enhanced Header with improved navigation */}
       <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="px-6">
-          <div className="flex items-center justify-between py-3">
-            <div className="flex items-center gap-4">
-              <div className="relative w-64">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search projects, networks..."
-                  className="pl-9 h-9 bg-muted/50 border-0 focus-visible:ring-1"
-                />
-              </div>
-              <Button variant="outline" size="sm" className="h-9 gap-2">
-                <Settings className="w-4 h-4" />
-                Settings
-              </Button>
-            </div>
-          </div>
-        </div>
-
         {/* Enhanced Tab Navigation */}
         <div className="px-6">
           <Tabs value={activeTab} onValueChange={(value) => onTabChange(value as TabType)} className="w-full">
@@ -178,7 +158,7 @@ export default function NetworkEditorLayout({
         <div className="w-80 border-r bg-background overflow-hidden flex flex-col">
           <ScrollArea className="flex-1">
             <div className="p-6">
-              {renderTabContent(activeTab, networkSidebar, inferenceSidebar, inferenceActions)}
+              {renderTabContent(activeTab, networkSidebar, inferenceSidebar, therapeuticsSidebar, inferenceActions)}
             </div>
           </ScrollArea>
         </div>
@@ -195,7 +175,7 @@ export default function NetworkEditorLayout({
   );
 }
 
-function renderTabContent(activeTab: TabType, networkSidebar?: React.ReactNode, inferenceSidebar?: React.ReactNode, inferenceActions?: NetworkEditorLayoutProps['inferenceActions']) {
+function renderTabContent(activeTab: TabType, networkSidebar?: React.ReactNode, inferenceSidebar?: React.ReactNode, therapeuticsSidebar?: React.ReactNode, inferenceActions?: NetworkEditorLayoutProps['inferenceActions']) {
   switch (activeTab) {
     case 'projects':
       return <ProjectsSidebar />;
@@ -204,7 +184,7 @@ function renderTabContent(activeTab: TabType, networkSidebar?: React.ReactNode, 
     case 'network-inference':
       return inferenceSidebar ?? <NetworkAnalysisSidebar actions={inferenceActions} />;
     case 'therapeutics':
-      return <TherapeuticsSidebar />;
+      return therapeuticsSidebar ?? <TherapeuticsSidebar />;
     case 'env':
       return <EnvironmentSidebar />;
     case 'cell-circuits':
@@ -603,7 +583,7 @@ function NetworkAnalysisSidebar({ actions }: { actions?: NetworkEditorLayoutProp
   );
 }
 
-// Enhanced Therapeutics Sidebar
+// Default Therapeutics Sidebar (when no custom sidebar is passed)
 function TherapeuticsSidebar() {
   return (
     <div className="space-y-6">
@@ -612,39 +592,10 @@ function TherapeuticsSidebar() {
           Therapeutics
         </h2>
         <p className="text-sm text-muted-foreground">
-          Drug discovery and compound analysis
+          Select a network to configure interventions
         </p>
       </div>
-
       <Separator />
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium">Drug Database</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Button className="w-full gap-2">
-            <Database className="w-4 h-4" />
-            Browse Compounds
-          </Button>
-          <Button variant="outline" className="w-full gap-2">
-            <Search className="w-4 h-4" />
-            Search Database
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium">Recent Compounds</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-6 text-muted-foreground">
-            <Database className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">No recent compounds</p>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

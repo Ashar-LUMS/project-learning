@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/supabaseClient';
-import type { NetworkData } from '@/types/network';
+import type { NetworkData, TherapeuticIntervention } from '@/types/network';
 
 interface UseProjectNetworksOptions {
   projectId?: string | null;
@@ -12,6 +12,7 @@ export interface ProjectNetworkRecord {
   name: string;
   created_at: string | null;
   data: NetworkData | null;
+  therapies?: TherapeuticIntervention[] | null;
 }
 
 // internal state interface removed (not used)
@@ -58,7 +59,7 @@ export function useProjectNetworks({ projectId, autoSelectFirst = true }: UsePro
         }
         const { data: rows, error: networkError } = await supabase
           .from('networks')
-          .select('id, name, network_data, created_at')
+          .select('id, name, network_data, created_at, therapies')
           .in('id', networkIds);
         if (networkError) throw networkError;
         const map = new Map<string, ProjectNetworkRecord>();
@@ -68,6 +69,7 @@ export function useProjectNetworks({ projectId, autoSelectFirst = true }: UsePro
             name: r.name,
             data: r.network_data ?? null,
             created_at: r.created_at ?? null,
+            therapies: r.therapies ?? null,
           });
         });
         const ordered = networkIds.map(id => map.get(id)).filter(Boolean) as ProjectNetworkRecord[];

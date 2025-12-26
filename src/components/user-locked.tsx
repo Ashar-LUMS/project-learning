@@ -48,7 +48,7 @@ const UserLocked = () => (
         {/* Action Button */}
         <div className="pt-4">
           <a
-            href="mailto:admin@yourapp.com"
+            href="mailto:support@tison.lums.edu.pk"
             className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
           >
             <Mail className="w-4 h-4" />

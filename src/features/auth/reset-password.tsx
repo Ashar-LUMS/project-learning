@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { Loader2, FlaskConical, Microscope, Atom, Brain, ArrowLeft, Lock, CheckCircle, AlertCircle } from "lucide-react";
+import { Loader2, ArrowLeft, Lock, CheckCircle, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,37 +17,7 @@ export function ResetPasswordPage({}: React.ComponentProps<"div">) {
   const [verifying, setVerifying] = React.useState(true);
   const [message, setMessage] = React.useState<string | null>(null);
   const [isSuccess, setIsSuccess] = React.useState<boolean | null>(null);
-  const [activeIcons, setActiveIcons] = React.useState<number[]>([]);
   const [passwordStrength, setPasswordStrength] = React.useState<number>(0);
-  const [debugInfo, setDebugInfo] = React.useState<string>("");
-
-  const scienceIcons = [FlaskConical, Microscope, Atom, Brain];
-
-  React.useEffect(() => {
-    const iconInterval = setInterval(() => {
-      const randomIcon = Math.floor(Math.random() * scienceIcons.length);
-      setActiveIcons(prev => [...prev.slice(-2), randomIcon]);
-    }, 2000);
-
-    return () => {
-      clearInterval(iconInterval);
-    };
-  }, []);
-
-  // Debug: Log all URL parameters
-  React.useEffect(() => {
-    const token = searchParams.get('code');
-    const type = searchParams.get('type');
-    
-    console.log('🔍 URL Search Params:', {
-      token: token ? `${token.substring(0, 20)}...` : 'MISSING',
-      type: type || 'MISSING',
-      allParams: Object.fromEntries(searchParams.entries()),
-      fullURL: window.location.href
-    });
-    
-    setDebugInfo(`Token: ${token ? 'Present' : 'Missing'}, Type: ${type || 'Missing'}`);
-  }, [searchParams]);
 
   // NEW APPROACH: Use exchangeCodeForSession instead of verifyOtp
   React.useEffect(() => {
@@ -64,24 +34,20 @@ export function ResetPasswordPage({}: React.ComponentProps<"div">) {
 
       try {
         setVerifying(true);
-        setDebugInfo(prev => prev + " - Starting token exchange...");
         
         // Use exchangeCodeForSession instead of verifyOtp
         const { data, error } = await supabase.auth.exchangeCodeForSession(token);
         
         if (error) {
           console.error('❌ Token exchange error:', error);
-          setDebugInfo(prev => prev + ` - Error: ${error.message}`);
           throw error;
         }
 
         console.log('✅ Token exchange successful:', data);
-        setDebugInfo(prev => prev + " - Token exchange successful!");
         setMessage(null);
         
       } catch (error: any) {
         console.error('❌ Reset initialization failed:', error);
-        setDebugInfo(prev => prev + ` - Failed: ${error.message}`);
         
         // Let the user try anyway - sometimes it works without exchange
         console.log('🔄 Allowing password update attempt...');
@@ -188,7 +154,6 @@ export function ResetPasswordPage({}: React.ComponentProps<"div">) {
         <div className="text-center">
           <Loader2 className="animate-spin w-12 h-12 text-[#2f5597] mx-auto mb-4" />
           <p className="text-gray-600">Verifying reset link...</p>
-          <p className="text-xs text-gray-500 mt-2">{debugInfo}</p>
         </div>
       </section>
     );
@@ -196,25 +161,8 @@ export function ResetPasswordPage({}: React.ComponentProps<"div">) {
 
   return (
     <section className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 relative overflow-hidden">
-      {/* Background elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        {activeIcons.map((iconIndex, index) => {
-          const IconComponent = scienceIcons[iconIndex];
-          return (
-            <div
-              key={index}
-              className="absolute opacity-5 animate-float"
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-                animationDelay: `${index * 0.5}s`,
-              }}
-            >
-              <IconComponent className="w-8 h-8 md:w-12 md:h-12 text-[#2f5597]" />
-            </div>
-          );
-        })}
-      </div>
+      {/* Background pattern */}
+      <div className={`absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%232f5597" fill-opacity="0.03"%3E%3Ccircle cx="30" cy="30" r="1"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')]`} />
 
       <div className="flex min-h-screen items-center justify-center p-4 sm:p-6 lg:p-8 relative z-10">
         <div className="flex flex-col items-center gap-4 sm:gap-6 w-full max-w-xs sm:max-w-sm md:max-w-md">
@@ -244,10 +192,6 @@ export function ResetPasswordPage({}: React.ComponentProps<"div">) {
                 <CardDescription className="text-gray-600 text-xs sm:text-sm leading-relaxed">
                   Enter your new password below
                 </CardDescription>
-                {/* Debug info */}
-                <div className="text-xs bg-yellow-50 p-2 rounded border border-yellow-200">
-                  <strong>Debug:</strong> {debugInfo}
-                </div>
               </CardHeader>
               
               <CardContent className="space-y-4 sm:space-y-6 px-4 sm:px-6 pb-4 sm:pb-6">

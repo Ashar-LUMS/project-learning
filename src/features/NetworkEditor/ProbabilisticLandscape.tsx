@@ -92,8 +92,8 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
 
     const layout = {
       autosize: true,
-      height: 500,
-      margin: { l: 0, r: 0, t: 40, b: 0 },
+      height: containerRef.current?.clientHeight || 350,
+      margin: { l: 0, r: 0, t: 30, b: 0 },
       title: type === 'probability' ? 'Probability Landscape' : 'Potential Energy Landscape',
       scene: {
         camera: {
@@ -133,7 +133,7 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
     window.Plotly.newPlot(containerRef.current, [trace as any], layout as any, config as any);
   }, [nodeOrder, probabilities, potentialEnergies, type]);
 
-  return <div ref={containerRef} className={`${className} w-full`} style={{ height: '500px' }} />;
+  return <div ref={containerRef} className={`${className} w-full h-full`} />;
 };
 
 export default ProbabilisticLandscape;

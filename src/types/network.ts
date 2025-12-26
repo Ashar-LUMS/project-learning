@@ -31,6 +31,21 @@ export interface CellFate {
   description?: string;
 }
 
+export interface TherapeuticIntervention {
+  id: string;
+  type: 'knock-in' | 'knock-out';
+  nodeName: string;
+  nodeRule: string | null;
+  fixedValue: 0 | 1 | null;
+  outwardRegulations: Array<{
+    targetNode: string;
+    operator: '&&' | '||';
+    addition: string;
+    originalRule?: string;
+  }>;
+  timestamp: number;
+}
+
 export interface NetworkData {
   nodes: NetworkNode[];
   edges: NetworkEdge[];
