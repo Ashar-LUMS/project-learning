@@ -50,6 +50,7 @@ export interface NetworkEditorLayoutProps {
     isRunning?: boolean;
     isWeightedRunning?: boolean;
     isProbabilisticRunning?: boolean;
+      isRuleBased?: boolean;
     hasResult?: boolean;
     /* Optional weighted result to render attractor landscape in the sidebar */
     weightedResult?: DeterministicAnalysisResult | null;
@@ -526,10 +527,11 @@ function NetworkAnalysisSidebar({ actions }: { actions?: NetworkEditorLayoutProp
             <Button
               className="w-full justify-start gap-3 h-11 px-4"
               onClick={() => actions?.run?.()}
-              disabled={actions?.isRunning}
+              disabled={Boolean(actions?.isRunning) || !Boolean(actions?.isRuleBased)}
+              title={!actions?.isRuleBased ? 'Rule-based deterministic analysis only' : undefined}
             >
               <Play className="w-4 h-4" />
-              Perform DA
+              Perform Rule-based DA
             </Button>
             <Button
               className="w-full justify-start gap-3 h-11 px-4"
@@ -537,12 +539,15 @@ function NetworkAnalysisSidebar({ actions }: { actions?: NetworkEditorLayoutProp
                 console.log('[NetworkAnalysisSidebar] Weighted DA button clicked', {
                   hasRunWeighted: !!actions?.runWeighted,
                   isWeightedRunning: actions?.isWeightedRunning,
+                  isRuleBased: actions?.isRuleBased,
                   actions
                 });
+                if (actions?.isRuleBased) return;
                 actions?.runWeighted?.();
               }}
-              disabled={actions?.isWeightedRunning}
+              disabled={actions?.isWeightedRunning || actions?.isRuleBased}
               variant="secondary"
+              title={actions?.isRuleBased ? 'Weighted analysis disabled for rule-based networks' : undefined}
             >
               <Play className="w-4 h-4" />
               Perform Weighted DA

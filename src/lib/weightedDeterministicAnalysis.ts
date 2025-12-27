@@ -228,7 +228,16 @@ export function performWeightedDeterministicAnalysis(
     }
   }
 
-  const exploredStateCount = visitedStates.size;
+  let exploredStateCount = visitedStates.size;
+
+  // Defensive check: ensure attractor basin counts do not exceed exploredStateCount
+  // due to traversal accounting differences. If they do, normalize denominator
+  // to the sum of basin sizes and emit a warning so callers can inspect.
+  const totalAssignedToBasins = attractorBasins.reduce((acc, v) => acc + (v || 0), 0);
+  if (totalAssignedToBasins > exploredStateCount) {
+    warnings.push(`Attractor basin counts (${totalAssignedToBasins}) exceed visited state count (${exploredStateCount}); normalizing basin shares.`);
+    exploredStateCount = totalAssignedToBasins;
+  }
 
   const attractors: DeterministicAttractor[] = attractorCycles.map((cycleStates, id) => {
     const period = cycleStates.length;

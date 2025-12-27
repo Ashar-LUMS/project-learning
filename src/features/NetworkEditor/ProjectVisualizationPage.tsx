@@ -102,6 +102,17 @@ function ProjectVisualizationPage() {
   // Minimal inference wiring so sidebar actions work here too
   const [rulesText, setRulesText] = useState('');
 
+  const selectedIsRuleBased = useMemo(() => {
+    try {
+      const data = (selectedNetwork as any)?.data || selectedNetwork;
+      const rules = Array.isArray(data?.rules) ? data.rules : [];
+      const metaType = data?.metadata?.type || data?.network_data?.metadata?.type;
+      return (Array.isArray(rules) && rules.length > 0) || metaType === 'Rule based';
+    } catch {
+      return false;
+    }
+  }, [selectedNetwork]);
+
   // Cell fates derived from selected network metadata (needed early for handlers)
   const cellFates = useMemo<Record<string, CellFate>>(
     () => selectedNetwork?.data?.metadata?.cellFates || {},
@@ -1199,7 +1210,8 @@ function ProjectVisualizationPage() {
               onClick={handleTherapeuticsWeighted}
               variant="outline"
               className="w-full justify-start h-9 text-xs"
-              disabled={isTherapeuticsWeightedRunning}
+              disabled={isTherapeuticsWeightedRunning || ((selectedNetwork?.data?.metadata?.type === 'Rule based') || (Array.isArray(selectedNetwork?.data?.rules) && selectedNetwork?.data?.rules.length > 0))}
+              title={((selectedNetwork?.data?.metadata?.type === 'Rule based') || (Array.isArray(selectedNetwork?.data?.rules) && selectedNetwork?.data?.rules.length > 0)) ? 'Weighted analysis disabled for rule-based networks' : undefined}
             >
               {isTherapeuticsWeightedRunning ? (
                 <span className="flex items-center gap-2">
@@ -2084,6 +2096,7 @@ function ProjectVisualizationPage() {
         isRunning: isRuleBasedRunning,
         isWeightedRunning: isWeightedAnalyzing,
         isProbabilisticRunning: isProbabilisticAnalyzing,
+        isRuleBased: selectedIsRuleBased,
         hasResult: Boolean(ruleBasedResult || weightedResult || probabilisticResult),
       }}
     >

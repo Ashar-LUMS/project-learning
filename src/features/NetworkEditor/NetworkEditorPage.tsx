@@ -43,6 +43,17 @@ function NetworkEditorPage() {
   // use shared hook for project networks
   const { networks, selectedNetworkId, selectedNetwork, isLoading: isLoadingNetworks, error: networksError, selectNetwork, refresh: refreshNetworks } = useProjectNetworks({ projectId: selectedProjectId });
 
+  const selectedIsRuleBased = useMemo(() => {
+    try {
+      const data = (selectedNetwork as any)?.data || selectedNetwork;
+      const rules = Array.isArray(data?.rules) ? data.rules : [];
+      const metaType = data?.metadata?.type;
+      return (Array.isArray(rules) && rules.length > 0) || metaType === 'Rule based';
+    } catch {
+      return false;
+    }
+  }, [selectedNetwork]);
+
   const {
     result: weightedResult,
     isRunning: isWeightedAnalyzing,
@@ -637,7 +648,7 @@ function NetworkEditorPage() {
                     <Button size="sm" variant="secondary" onClick={handleRunDeterministic} disabled={isAnalyzing}>
                       {isAnalyzing ? 'Analyzing…' : 'Deterministic Analysis'}
                     </Button>
-                    <Button size="sm" variant="secondary" onClick={handleRunWeighted} disabled={isWeightedAnalyzing}>
+                    <Button size="sm" variant="secondary" onClick={handleRunWeighted} disabled={isWeightedAnalyzing || selectedIsRuleBased} title={selectedIsRuleBased ? 'Weighted analysis disabled for rule-based networks' : undefined}>
                       {isWeightedAnalyzing ? 'Analyzing…' : 'Perform Weighted DA'}
                     </Button>
                     <Button size="sm" variant="secondary" onClick={handleOpenProbabilisticDialog} disabled={isProbabilisticAnalyzing}>
@@ -862,6 +873,7 @@ function NetworkEditorPage() {
   inferenceActionsObj.isProbabilisticRunning = isProbabilisticAnalyzing;
   inferenceActionsObj.weightedResult = weightedResult;
   inferenceActionsObj.hasResult = Boolean(analysisResult || weightedResult || probabilisticResult);
+  inferenceActionsObj.isRuleBased = selectedIsRuleBased;
 
   console.log('[NetworkEditorPage] CREATED ACTIONS OBJECT - PROPERTIES ADDED ONE BY ONE:', {
     keys: Object.keys(inferenceActionsObj),
