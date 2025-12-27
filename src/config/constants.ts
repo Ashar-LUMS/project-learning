@@ -11,8 +11,8 @@ export const API_CONFIG = {
 
 // Analysis Configuration
 export const ANALYSIS_CONFIG = {
-  DEFAULT_STATE_CAP: 2 ** 17, // ~131K states
-  DEFAULT_STEP_CAP: 2 ** 17,
+  DEFAULT_STATE_CAP: 2 ** 20, // ~1.05M states (increased from 2^17)
+  DEFAULT_STEP_CAP: 2 ** 20,
   MAX_NODES_DETERMINISTIC: 20,
   MAX_NODES_PROBABILISTIC: 200,
   PROBABILISTIC_DEFAULT_NOISE: 0.25,

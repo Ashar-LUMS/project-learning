@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createHashRouter } from "react-router-dom";
 import { Login } from './features/auth/login';
 import { ForgotPasswordForm } from './features/auth/forget-password';
 import { Signup } from './features/auth/signup';
@@ -22,7 +22,7 @@ import ProjectVisualizationPage from "./features/NetworkEditor/ProjectVisualizat
 import AdminProjectManagement from "./features/admin/AdminProjectManagement";
 
 
-const router = createBrowserRouter([
+const router = createHashRouter([
   {
     path: "/",
     element: <Login />,

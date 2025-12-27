@@ -72,8 +72,35 @@ export function TherapeuticsPanel({
 
   const handleRemoveIntervention = (id: string) => {
     const updatedInterventions = interventions.filter(i => i.id !== id);
+    // Optimistically update UI
     setInterventions(updatedInterventions);
     onInterventionsChange?.(updatedInterventions);
+
+    // Persist removal immediately
+    (async () => {
+      setIsSaving(true);
+      try {
+        const { error } = await supabase
+          .from('networks')
+          .update({ therapies: updatedInterventions })
+          .eq('id', networkId);
+
+        if (error) throw error;
+
+        showToast({ title: 'Saved', description: 'Intervention removed.', variant: 'default' });
+        onTherapiesUpdated?.();
+      } catch (err: any) {
+        // Revert UI on failure
+        setInterventions(prev => {
+          const reverted = [...prev, interventions.find(i => i.id === id)!].filter(Boolean);
+          onInterventionsChange?.(reverted as TherapeuticIntervention[]);
+          return reverted as TherapeuticIntervention[];
+        });
+        showToast({ title: 'Error', description: err.message || 'Failed to remove intervention.', variant: 'destructive' });
+      } finally {
+        setIsSaving(false);
+      }
+    })();
   };
 
   const handleSaveTherapies = async () => {

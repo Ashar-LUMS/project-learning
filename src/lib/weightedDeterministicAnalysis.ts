@@ -70,8 +70,8 @@ export interface WeightedEdge {
   weight: number;
 }
 
-const DEFAULT_STATE_CAP = 131072; // 2^17
-const DEFAULT_STEP_CAP = 131072;
+const DEFAULT_STATE_CAP = 1048576; // 2^20 (increased from 2^17)
+const DEFAULT_STEP_CAP = 1048576;
 const MAX_SUPPORTED_NODES = 20;
 
 // shared helpers imported from stateEncoding.ts
