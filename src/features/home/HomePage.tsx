@@ -777,7 +777,7 @@ const HomePage: React.FC = () => {
                             </div>
                             <div className="flex flex-col">
                               <span className="text-sm font-medium text-gray-900">{u.name || 'Unnamed User'}</span>
-                              <span className="text-xs text-gray-500">{u.email || 'No email'}</span>
+                              {/*<span className="text-xs text-gray-500">{u.email || 'No email'}</span>*/}
                             </div>
                           </label>
                         ))}
@@ -934,7 +934,7 @@ const HomePage: React.FC = () => {
                             </div>
                             <div className="flex flex-col">
                               <span className="text-sm font-medium text-gray-900">{u.name || 'Unnamed User'}</span>
-                              <span className="text-xs text-gray-500">{u.email || 'No email'}</span>
+                              {/*<span className="text-xs text-gray-500">{u.email || 'No email'}</span>*/}
                             </div>
                             {isCreator && (
                               <div className="ml-auto">

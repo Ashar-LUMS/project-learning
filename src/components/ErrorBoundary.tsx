@@ -40,6 +40,14 @@ export class ErrorBoundary extends Component<Props, State> {
     
     // TODO: Log to error reporting service (e.g., Sentry)
     this.setState({ errorInfo });
+
+    // Defensive cleanup: remove any lingering Radix dialog portals/overlays
+    try {
+      const portals = document.querySelectorAll('[data-slot="dialog-portal"]');
+      portals.forEach((el) => el.remove());
+    } catch (e) {
+      // ignore DOM cleanup errors
+    }
   }
 
   handleReset = () => {

@@ -1308,8 +1308,8 @@ function ProjectVisualizationPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  //disabled={!selectedNetworkId || networkSubTab !== 'editor'}
-                  disabled={true}
+                  disabled={!selectedNetworkId || networkSubTab !== 'editor'}
+                  //disabled={true}
                   onClick={() => networkGraphRef.current?.saveAsNew()}
                 >
                   Save As New
@@ -1317,8 +1317,8 @@ function ProjectVisualizationPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  //disabled={!selectedNetworkId || networkSubTab !== 'editor'}
-                  disabled={true}
+                  disabled={!selectedNetworkId || networkSubTab !== 'editor'}
+                  //disabled={true}
                   onClick={() => networkGraphRef.current?.updateCurrent()}
                 >
                   Update Current

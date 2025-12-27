@@ -130,7 +130,21 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
       responsive: true,
     };
 
-    window.Plotly.newPlot(containerRef.current, [trace as any], layout as any, config as any);
+    try {
+      if (window.Plotly.purge) {
+        try { window.Plotly.purge(containerRef.current); } catch (e) { /* ignore purge errors */ }
+      }
+
+      window.Plotly.newPlot(containerRef.current, [trace as any], layout as any, config as any);
+    } catch (err) {
+      // Fail gracefully: log and clear any partial DOM so errors don't bubble
+      // up to an ErrorBoundary leaving overlays/portals in the DOM.
+      // eslint-disable-next-line no-console
+      console.error('Plotly render failed:', err);
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
+      }
+    }
   }, [nodeOrder, probabilities, potentialEnergies, type]);
 
   return <div ref={containerRef} className={`${className} w-full h-full`} />;
