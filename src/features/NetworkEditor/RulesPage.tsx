@@ -128,7 +128,7 @@ export default function RulesPage({
         }
       }
 
-      const networkData = selectedNetwork.data || {};
+      const networkData = (selectedNetwork.data || {}) as NetworkData;
       // Parse rules into proper { name, action } format
       const parsedRules = rules.map(r => {
         const match = r.match(/^([a-zA-Z0-9_]+)\s*=\s*(.+)$/);
@@ -143,7 +143,8 @@ export default function RulesPage({
         ...networkData,
         nodes,
         edges,
-        rules: parsedRules
+        rules: parsedRules,
+        metadata: { ...(networkData.metadata || {}), type: 'Rule based' }
       };
 
       const { data, error } = await supabase
@@ -227,7 +228,7 @@ export default function RulesPage({
         nodes,
         edges: [],
         rules: rules.map(r => ({ name: r, enabled: true })),
-        metadata: { createdFrom: 'rules' }
+        metadata: { createdFrom: 'rules', type: 'Rule based' }
       };
 
       // Get first rule target for network name

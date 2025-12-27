@@ -133,6 +133,19 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
   // Use override data if provided, otherwise use fetched network data
   const effectiveNetworkData = overrideNetworkData || network;
 
+  // Determine if this network should be treated as rule-based
+  const isRuleBased = useMemo(() => {
+    try {
+      const topRules = (effectiveNetworkData as any)?.rules;
+      const dataRules = (effectiveNetworkData as any)?.data?.rules;
+      const nestedRules = (effectiveNetworkData as any)?.network_data?.rules;
+      const rules = Array.isArray(topRules) ? topRules : Array.isArray(dataRules) ? dataRules : Array.isArray(nestedRules) ? nestedRules : [];
+      const metaType = (effectiveNetworkData as any)?.metadata?.type || (effectiveNetworkData as any)?.data?.metadata?.type || (effectiveNetworkData as any)?.network_data?.metadata?.type;
+      return (Array.isArray(rules) && rules.length > 0) || metaType === 'Rule based';
+    } catch {
+      return false;
+    }
+  }, [effectiveNetworkData]);
   // Parse rules to determine inhibitor relationships
   // Returns a Set of "source::target" strings where source inhibits target
   const inhibitorEdges = useMemo(() => {
@@ -256,7 +269,39 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
 
   // UPDATED: Include weight data and edge types in elements
   const elements = useMemo(() => {
-    const { nodes, edges } = getCurrentNetworkData;
+    // Prefer the current in-memory network view, but fall back to stored/currently computed network data.
+    let nodes = getCurrentNetworkData.nodes;
+    let edges = getCurrentNetworkData.edges;
+
+    // If Cytoscape is available, derive live elements (including positions) to ensure UI additions are captured.
+    if (cyRef.current) {
+      try {
+        const cy = cyRef.current;
+        const liveNodes = cy.nodes().map((n: any) => {
+          const pos = (typeof n.position === 'function') ? n.position() : (n.renderedPosition ? n.renderedPosition() : { x: 0, y: 0 });
+          return {
+            id: String(n.data('id')),
+            label: String(n.data('label') ?? n.data('id')),
+            type: String(n.data('type') ?? 'custom'),
+            weight: Number(n.data('weight') ?? defaultNodeWeight),
+            position: { x: pos.x, y: pos.y },
+            properties: n.data('properties') || {}
+          };
+        });
+        const liveEdges = cy.edges().map((e: any) => ({
+          source: String(e.data('source')),
+          target: String(e.data('target')),
+          weight: Number(e.data('weight') ?? defaultEdgeWeight),
+          interaction: e.data('interaction'),
+          properties: e.data('properties') || {}
+        }));
+
+        if (liveNodes && liveNodes.length > 0) nodes = liveNodes;
+        if (liveEdges && liveEdges.length > 0) edges = liveEdges;
+      } catch (e) {
+        // If any error occurs, fall back to computed network data
+      }
+    }
     
     // Build a map from node id to label for reverse lookup
     const nodeIdToLabel = new Map<string, string>();
@@ -273,8 +318,18 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
         id: n.id,
         label: n.label ?? n.id,
         type: n.type ?? 'custom',
-        weight: n.weight ?? defaultNodeWeight,
-        properties: n.properties || {}
+        // Do not expose node weight in the UI when rule-based
+        ...(isRuleBased ? {} : { weight: n.weight ?? defaultNodeWeight }),
+        properties: (() => {
+          const props = n.properties || {};
+          if (isRuleBased) {
+            const copy = { ...props };
+            // Remove bias when rule-based
+            if ('bias' in copy) delete copy.bias;
+            return copy;
+          }
+          return props;
+        })()
       },
     }));
 
@@ -374,7 +429,75 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
   // Save network function
   const saveNetwork = async (isUpdate: boolean = false) => {
     try {
-      const { nodes, edges } = getCurrentNetworkData;
+      // Build merged nodes/edges from: live Cytoscape -> local modifications -> fetched data
+      const originalNodes = Array.isArray(getCurrentNetworkData.nodes) ? getCurrentNetworkData.nodes : [];
+      const originalEdges = Array.isArray(getCurrentNetworkData.edges) ? getCurrentNetworkData.edges : [];
+
+      const nodeMap = new Map<string, any>();
+      const edgeMap = new Map<string, any>();
+
+      // 1) Start with fetched/computed nodes/edges
+      for (const n of originalNodes) {
+        if (!n || !n.id) continue;
+        nodeMap.set(n.id, { ...n });
+      }
+      for (const e of originalEdges) {
+        if (!e || !e.source || !e.target) continue;
+        edgeMap.set(`${e.source}::${e.target}`, { ...e });
+      }
+
+      // 2) Apply local modifications (explicit local arrays)
+      for (const ln of localNodes) {
+        if (!ln || !ln.id) continue;
+        nodeMap.set(ln.id, { ...nodeMap.get(ln.id), ...ln });
+      }
+      for (const le of localEdges) {
+        if (!le || !le.source || !le.target) continue;
+        edgeMap.set(`${le.source}::${le.target}`, { ...edgeMap.get(`${le.source}::${le.target}`), ...le });
+      }
+
+      // 3) Prefer live Cytoscape element data (positions, latest labels/weights)
+      if (cyRef.current) {
+        try {
+          const cy = cyRef.current;
+          cy.nodes().forEach((n: any) => {
+            try {
+              const id = String(n.data('id'));
+              const pos = (typeof n.position === 'function') ? n.position() : (n.renderedPosition ? n.renderedPosition() : { x: 0, y: 0 });
+              const entry = {
+                id,
+                label: String(n.data('label') ?? id),
+                type: String(n.data('type') ?? 'custom'),
+                weight: Number(n.data('weight') ?? defaultNodeWeight),
+                position: { x: pos.x, y: pos.y },
+                properties: n.data('properties') || {}
+              };
+              nodeMap.set(id, entry);
+            } catch { }
+          });
+          cy.edges().forEach((e: any) => {
+            try {
+              const src = String(e.data('source'));
+              const tgt = String(e.data('target'));
+              const key = `${src}::${tgt}`;
+              const entry = {
+                source: src,
+                target: tgt,
+                weight: Number(e.data('weight') ?? defaultEdgeWeight),
+                interaction: e.data('interaction'),
+                properties: e.data('properties') || {}
+              };
+              edgeMap.set(key, entry);
+            } catch { }
+          });
+        } catch (e) {
+          // ignore cy extraction errors
+        }
+      }
+
+      // Build arrays from maps, excluding deleted ids
+      const nodes = Array.from(nodeMap.values()).filter((n: any) => !deletedNodeIds.has(n.id));
+      const edges = Array.from(edgeMap.values()).filter((e: any) => !deletedEdgeIds.has(`edge:${e.source}:${e.target}`));
       // Validate and de-duplicate edges by source-target
       const seen = new Set<string>();
       const dedupedEdges = edges.filter((e: any) => {
@@ -394,18 +517,43 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
         });
       }
       
-      // Preserve existing metadata and rules from the network
-      const existingMetadata = (network && ((network as any).metadata || (network as any).data?.metadata)) || {};
-      const existingRules = (effectiveNetworkData as any)?.rules || [];
-      const payload = { 
-        nodes, 
+      // Preserve existing metadata and rules from the network (support multiple shapes)
+      const existingMetadata = (network && ((network as any).metadata || (network as any).data?.metadata || (network as any).network_data?.metadata)) || {};
+      const existingRules = (effectiveNetworkData as any)?.rules || (effectiveNetworkData as any)?.data?.rules || (effectiveNetworkData as any)?.network_data?.rules || [];
+      // Determine final rules and metadata
+      const finalRules = Array.isArray(existingRules) ? existingRules : (existingRules ? [existingRules] : []);
+      const finalMetadata: any = { ...existingMetadata };
+      // If rules exist, mark as Rule based; otherwise if graph has nodes+edges mark weight based
+      if (Array.isArray(finalRules) && finalRules.length > 0) {
+        finalMetadata.type = 'Rule based';
+      } else if (Array.isArray(nodes) && nodes.length > 0 && Array.isArray(dedupedEdges) && dedupedEdges.length > 0) {
+        finalMetadata.type = 'weight based';
+      }
+
+      // If rule-based, strip node weights and biases before saving
+      const nodesToSave = (Array.isArray(nodes) ? nodes : []).map((n: any) => {
+        if (finalMetadata.type === 'Rule based') {
+          const copy: any = { ...n };
+          if ('weight' in copy) delete copy.weight;
+          if (copy.properties) {
+            const p = { ...copy.properties };
+            if ('bias' in p) delete p.bias;
+            copy.properties = p;
+          }
+          return copy;
+        }
+        return n;
+      });
+
+      const payload = {
+        nodes: nodesToSave,
         edges: dedupedEdges,
-        rules: existingRules,
-        metadata: { 
-          ...existingMetadata,
-          // Note: thresholdMultiplier would be added here when UI supports it
-        } 
+        rules: finalRules,
+        metadata: finalMetadata
       };
+
+      // Debug: log payload to aid troubleshooting when saves result in empty network
+      try { console.debug('[NetworkGraph] saving payload', payload); } catch (e) { }
 
       if (isUpdate && networkId) {
         const { data, error } = await supabase
@@ -799,6 +947,16 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
           return;
         }
 
+        // If this network is rule-based, do not allow viewing node properties
+        if (isRuleBased) {
+          try { showToast({ title: 'Rule-based network', description: 'Node properties are not available for rule-based networks.', variant: 'default' }); } catch { }
+          // Ensure nothing is selected
+          try { node.unselect(); cy.elements().removeClass('faded').removeClass('connected'); } catch { }
+          setSelectedNode(null);
+          setSelectedEdge(null);
+          return;
+        }
+
         node.select();
         const neighborhood = node.closedNeighborhood();
         cy.elements().removeClass('faded').removeClass('connected');
@@ -845,13 +1003,16 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
           setSelectedNode(null);
           setSelectedEdge(null);
 
-          if (toolRef.current === 'add-node') {
-            handleAddNodeWithMode(evt);
-          }
+          // Do not allow add-node/add-edge modes on rule-based networks
+          if (!isRuleBased) {
+            if (toolRef.current === 'add-node') {
+              handleAddNodeWithMode(evt);
+            }
 
-          if (toolRef.current === 'add-edge' && edgeSourceRef.current) {
-            cy.getElementById(edgeSourceRef.current)?.removeClass('edge-source');
-            setEdgeSourceId(null);
+            if (toolRef.current === 'add-edge' && edgeSourceRef.current) {
+              cy.getElementById(edgeSourceRef.current)?.removeClass('edge-source');
+              setEdgeSourceId(null);
+            }
           }
         }
       });
@@ -944,18 +1105,20 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
     } else if (tool === 'delete') {
       container.style.cursor = 'not-allowed';
     } else {
-      container.style.cursor = 'default';
-    }
-
-    if (tool !== 'add-edge' && edgeSourceId && cyRef.current) {
-      cyRef.current.getElementById(edgeSourceId)?.removeClass('edge-source');
-      setEdgeSourceId(null);
-    }
-
-    if (tool !== 'delete' && cyRef.current) {
-      cyRef.current.elements().removeClass('delete-candidate');
+      container.style.cursor = 'default'; // This line is unchanged but needs to be retained for context
     }
   }, [tool, edgeSourceId]);
+
+  // If network is rule-based, force select tool and make canvas show not-allowed cursor
+  useEffect(() => {
+    if (isRuleBased) {
+      setTool('select');
+      // Clear any existing selection so properties panel is hidden
+      setSelectedNode(null);
+      setSelectedEdge(null);
+    }
+  }, [isRuleBased]);
+  
 
   // When tool changes, enable/disable edgehandles if available
   useEffect(() => {
@@ -999,11 +1162,19 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
       if (!cyRef.current) return null;
       try {
         const cy = cyRef.current;
-        const nodes = cy.nodes().map((n: any) => ({
-          id: String(n.data('id')),
-          label: String(n.data('label') ?? n.data('id')),
-          properties: n.data('properties') || {},
-        }));
+        const nodes = cy.nodes().map((n: any) => {
+          const props = n.data('properties') || {};
+          // If rule-based, do not expose weight or bias in live weighted config
+          return {
+            id: String(n.data('id')),
+            label: String(n.data('label') ?? n.data('id')),
+            properties: isRuleBased ? (() => {
+              const copy = { ...props };
+              if ('bias' in copy) delete copy.bias;
+              return copy;
+            })() : props,
+          };
+        });
         const edges = cy.edges().map((e: any) => ({
           source: String(e.data('source')),
           target: String(e.data('target')),
@@ -1113,6 +1284,8 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                         variant="outline"
                         size="sm"
                         onClick={() => saveNetwork(true)}
+                        disabled={isRuleBased}
+                        title={isRuleBased ? 'Cannot update Rule based network' : undefined}
                       >
                         Update Current
                       </Button>
@@ -1144,6 +1317,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
             size="icon"
             variant={tool === 'add-node' ? 'default' : 'ghost'}
             onClick={() => setTool('add-node')}
+            disabled={isRuleBased}
             className="h-12 w-12"
             title="Add node tool"
           >
@@ -1162,6 +1336,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                 type: 'custom',
                 weight: defaultNodeWeight
               };
+              if (isRuleBased) return;
               setLocalNodes(prev => [...prev, newNode]);
               nodeCounterRef.current++;
               setTimeout(() => {
@@ -1198,6 +1373,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
             variant={tool === 'add-edge' ? 'default' : 'ghost'}
             className="h-12 w-12"
             onClick={() => {
+              if (isRuleBased) return;
               setTool('add-edge');
               if (selectedNode && cyRef.current) {
                 const id = selectedNode.id;
@@ -1205,6 +1381,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                 try { cyRef.current.getElementById(id)?.addClass('edge-source'); } catch { }
               }
             }}
+            disabled={isRuleBased}
             title="Add edge tool"
           >
             <LinkIcon />
@@ -1214,6 +1391,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
             size="icon"
             variant={tool === 'delete' ? 'destructive' : 'ghost'}
             onClick={() => setTool('delete')}
+            disabled={isRuleBased}
             className="h-12 w-12"
             title="Delete tool"
           >
@@ -1300,76 +1478,80 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Weight</label>
-                      <Input
-                        type="number"
-                        value={selectedNode.weight ?? defaultNodeWeight}
-                        onChange={(e) => {
-                          const newWeight = parseFloat(e.target.value) || defaultNodeWeight;
-                          setSelectedNode(prev => prev ? { ...prev, weight: newWeight } : null);
-                          if (cyRef.current) {
-                            const node = cyRef.current.getElementById(selectedNode.id);
-                            if (node) {
-                              node.data('weight', newWeight);
-                            }
-                          }
-                          const isLocal = localNodes.some(n => n.id === selectedNode.id);
-                          if (isLocal) {
-                            // Update existing local node
-                            setLocalNodes(prev =>
-                              prev.map(n => n.id === selectedNode.id ? { ...n, weight: newWeight } : n)
-                            );
-                          } else {
-                            // Node from network, add to local modifications only if not already there
-                            setLocalNodes(prev => {
-                              const alreadyModified = prev.find(n => n.id === selectedNode.id);
-                              if (alreadyModified) {
-                                return prev.map(n => n.id === selectedNode.id ? { ...n, weight: newWeight } : n);
+                    {!isRuleBased && (
+                      <>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Weight</label>
+                          <Input
+                            type="number"
+                            value={selectedNode.weight ?? defaultNodeWeight}
+                            onChange={(e) => {
+                              const newWeight = parseFloat(e.target.value) || defaultNodeWeight;
+                              setSelectedNode(prev => prev ? { ...prev, weight: newWeight } : null);
+                              if (cyRef.current) {
+                                const node = cyRef.current.getElementById(selectedNode.id);
+                                if (node) {
+                                  node.data('weight', newWeight);
+                                }
                               }
-                              return [...prev, { ...selectedNode, weight: newWeight }];
-                            });
-                          }
-                        }}
-                        min="0"
-                        step="0.1"
-                        className="w-full"
-                      />
-                      <div className="text-xs text-muted-foreground">Node weight is used in weighted analysis; larger values increase influence.</div>
-                    </div>
+                              const isLocal = localNodes.some(n => n.id === selectedNode.id);
+                              if (isLocal) {
+                                // Update existing local node
+                                setLocalNodes(prev =>
+                                  prev.map(n => n.id === selectedNode.id ? { ...n, weight: newWeight } : n)
+                                );
+                              } else {
+                                // Node from network, add to local modifications only if not already there
+                                setLocalNodes(prev => {
+                                  const alreadyModified = prev.find(n => n.id === selectedNode.id);
+                                  if (alreadyModified) {
+                                    return prev.map(n => n.id === selectedNode.id ? { ...n, weight: newWeight } : n);
+                                  }
+                                  return [...prev, { ...selectedNode, weight: newWeight }];
+                                });
+                              }
+                            }}
+                            min="0"
+                            step="0.1"
+                            className="w-full"
+                          />
+                          <div className="text-xs text-muted-foreground">Node weight is used in weighted analysis; larger values increase influence.</div>
+                        </div>
 
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Bias</label>
-                      <Input
-                        type="number"
-                        value={Number((selectedNode.properties?.bias ?? 0))}
-                        onChange={(e) => {
-                          const newBias = parseFloat(e.target.value) || 0;
-                          setSelectedNode(prev => prev ? { ...prev, properties: { ...(prev.properties || {}), bias: newBias } } : null);
-                          
-                          const isLocal = localNodes.some(n => n.id === selectedNode.id);
-                          if (isLocal) {
-                            // Update existing local node
-                            setLocalNodes(prev => prev.map(n => (
-                              n.id === selectedNode.id ? { ...n, properties: { ...(n.properties || {}), bias: newBias } } : n
-                            )));
-                          } else {
-                            // Node from network - add to modifications if not already there
-                            const updatedNode = { ...selectedNode, properties: { ...(selectedNode.properties || {}), bias: newBias } };
-                            setLocalNodes(prev => {
-                              const alreadyModified = prev.find(n => n.id === selectedNode.id);
-                              if (alreadyModified) {
-                                return prev.map(n => n.id === selectedNode.id ? updatedNode : n);
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Bias</label>
+                          <Input
+                            type="number"
+                            value={Number((selectedNode.properties?.bias ?? 0))}
+                            onChange={(e) => {
+                              const newBias = parseFloat(e.target.value) || 0;
+                              setSelectedNode(prev => prev ? { ...prev, properties: { ...(prev.properties || {}), bias: newBias } } : null);
+                              
+                              const isLocal = localNodes.some(n => n.id === selectedNode.id);
+                              if (isLocal) {
+                                // Update existing local node
+                                setLocalNodes(prev => prev.map(n => (
+                                  n.id === selectedNode.id ? { ...n, properties: { ...(n.properties || {}), bias: newBias } } : n
+                                )));
+                              } else {
+                                // Node from network - add to modifications if not already there
+                                const updatedNode = { ...selectedNode, properties: { ...(selectedNode.properties || {}), bias: newBias } };
+                                setLocalNodes(prev => {
+                                  const alreadyModified = prev.find(n => n.id === selectedNode.id);
+                                  if (alreadyModified) {
+                                    return prev.map(n => n.id === selectedNode.id ? updatedNode : n);
+                                  }
+                                  return [...prev, updatedNode];
+                                });
                               }
-                              return [...prev, updatedNode];
-                            });
-                          }
-                        }}
-                        step="0.1"
-                        className="w-full"
-                      />
-                      <div className="text-xs text-muted-foreground">Bias shifts the threshold for this node in weighted analysis.</div>
-                    </div>
+                            }}
+                            step="0.1"
+                            className="w-full"
+                          />
+                          <div className="text-xs text-muted-foreground">Bias shifts the threshold for this node in weighted analysis.</div>
+                        </div>
+                      </>
+                    )}
 
                     <div className="space-y-2">
                       <label className="text-sm font-medium">ID</label>
