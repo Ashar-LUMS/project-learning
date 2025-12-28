@@ -909,100 +909,6 @@ function ProjectVisualizationPage() {
       const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
       if (!lines.length) throw new Error('Rules file is empty.');
       setImportedRules(lines);
-
-      // Auto-create a Rule-based network immediately from the uploaded rules file
-      // Mirror the behavior in RulesPage.handleCreateNetwork so the created network
-      // matches one created via manual rules entry.
-      if (projectId) {
-        setIsSavingImport(true);
-        try {
-          const rules = lines;
-          // Extract node names and edges from rules (same logic as RulesPage)
-          const nodeSet = new Set<string>();
-          const edgeMap = new Map<string, Set<string>>(); // target -> sources
-          rules.forEach(rule => {
-            const match = rule.match(/^([a-zA-Z0-9_]+)\s*=/);
-            if (match) {
-              const target = match[1];
-              nodeSet.add(target);
-
-              const exprMatch = rule.match(/=\s*(.+)$/);
-              if (exprMatch) {
-                const expr = exprMatch[1];
-                const identifiers = expr.match(/[a-zA-Z0-9_]+/g) || [];
-                identifiers.forEach(id => {
-                  if (!['AND', 'OR', 'XOR', 'NAND', 'NOR', 'NOT'].includes(id.toUpperCase())) {
-                    nodeSet.add(id);
-                    if (id !== target) {
-                      if (!edgeMap.has(target)) edgeMap.set(target, new Set());
-                      edgeMap.get(target)!.add(id);
-                    }
-                  }
-                });
-              }
-            }
-          });
-
-          const nodes = Array.from(nodeSet).map((id, i) => ({
-            id,
-            label: id,
-            position: { x: 100 + (i % 5) * 150, y: 100 + Math.floor(i / 5) * 150 }
-          }));
-
-          const edges: { source: string; target: string; weight?: number }[] = [];
-          for (const [target, sources] of edgeMap.entries()) {
-            for (const source of sources) {
-              edges.push({ source, target, weight: 1 });
-            }
-          }
-
-          const networkData = {
-            nodes,
-            edges,
-            rules: rules.map(r => ({ name: r, enabled: true })),
-            metadata: { createdFrom: 'rules', type: 'Rule based', importedAt: new Date().toISOString(), sourceFile: file.name }
-          };
-
-          const firstTarget = rules[0]?.split('=')[0]?.trim() || 'Rules';
-          const networkName = `Rules: ${firstTarget}${rules.length > 1 ? '...' : ''}`;
-
-          // Insert network row
-          const { data: newNetwork, error: createError } = await supabase
-            .from('networks')
-            .insert({ name: networkName, network_data: networkData })
-            .select()
-            .single();
-          if (createError) throw createError;
-
-          // Link to project
-          const { data: projectData, error: projErr } = await supabase
-            .from('projects')
-            .select('networks')
-            .eq('id', projectId)
-            .maybeSingle();
-          if (projErr) throw projErr;
-          const existingNetworks = Array.isArray(projectData?.networks) ? projectData!.networks as string[] : [];
-
-          const { error: updateError } = await supabase
-            .from('projects')
-            .update({ networks: [newNetwork.id, ...(existingNetworks || [])] })
-            .eq('id', projectId);
-          if (updateError) throw updateError;
-
-          // Refresh and select
-          refreshNetworks();
-          selectNetwork(newNetwork.id);
-          setRecentNetworkIds(prev => [newNetwork.id, ...prev.filter(id => id !== newNetwork.id)].slice(0, MAX_RECENT_NETWORKS));
-          setIsImportOpen(false);
-          showToast({ title: 'Imported Rules', description: `Created network "${networkName}" from rules file.` });
-        } catch (err) {
-          const errorMessage = err instanceof Error ? err.message : 'Failed to create network from rules file';
-          setImportError(errorMessage);
-          showToast({ title: 'Import Failed', description: errorMessage, variant: 'destructive' });
-        } finally {
-          setIsSavingImport(false);
-        }
-      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to read rules file';
       setImportedRules(null);
@@ -1036,21 +942,72 @@ function ProjectVisualizationPage() {
   const onSaveImportedNetwork = async () => {
     try {
       if (!projectId) throw new Error('Missing project identifier.');
-      if (!importedNetwork) throw new Error('Import a network JSON first.');
+      if (!importedNetwork && !Array.isArray(importedRules)) throw new Error('Import a rules TXT first.');
       setIsSavingImport(true);
       setImportError(null);
 
-      const networkPayload = {
-        nodes: importedNetwork.nodes ?? [],
-        edges: importedNetwork.edges ?? [],
-        rules: importedRules ?? importedNetwork.rules ?? null,
-        metadata: {
-          ...(importedNetwork.metadata || {}),
-          importedAt: new Date().toISOString(),
-          sourceFile: networkFileName || undefined,
-          rulesFile: rulesFileName || undefined,
-        },
-      };
+      // Build payload differently depending on whether a full network JSON was provided
+      let networkPayload: any;
+      if (importedNetwork) {
+        networkPayload = {
+          nodes: importedNetwork.nodes ?? [],
+          edges: importedNetwork.edges ?? [],
+          rules: importedRules ?? importedNetwork.rules ?? null,
+          metadata: {
+            ...(importedNetwork.metadata || {}),
+            importedAt: new Date().toISOString(),
+            sourceFile: networkFileName || undefined,
+            rulesFile: rulesFileName || undefined,
+          },
+        };
+      } else {
+        // Construct a rule-based network from uploaded rules
+        const rules = importedRules || [];
+        const nodeSet = new Set<string>();
+        const edgeMap = new Map<string, Set<string>>(); // target -> sources
+        rules.forEach(rule => {
+          const match = rule.match(/^([a-zA-Z0-9_]+)\s*=/);
+          if (match) {
+            const target = match[1];
+            nodeSet.add(target);
+
+            const exprMatch = rule.match(/=\s*(.+)$/);
+            if (exprMatch) {
+              const expr = exprMatch[1];
+              const identifiers = expr.match(/[a-zA-Z0-9_]+/g) || [];
+              identifiers.forEach(id => {
+                if (!['AND', 'OR', 'XOR', 'NAND', 'NOR', 'NOT'].includes(id.toUpperCase())) {
+                  nodeSet.add(id);
+                  if (id !== target) {
+                    if (!edgeMap.has(target)) edgeMap.set(target, new Set());
+                    edgeMap.get(target)!.add(id);
+                  }
+                }
+              });
+            }
+          }
+        });
+
+        const nodes = Array.from(nodeSet).map((id, i) => ({
+          id,
+          label: id,
+          position: { x: 100 + (i % 5) * 150, y: 100 + Math.floor(i / 5) * 150 }
+        }));
+
+        const edges: { source: string; target: string; weight?: number }[] = [];
+        for (const [target, sources] of edgeMap.entries()) {
+          for (const source of sources) {
+            edges.push({ source, target, weight: 1 });
+          }
+        }
+
+        networkPayload = {
+          nodes,
+          edges,
+          rules: rules.map(r => ({ name: r, enabled: true })),
+          metadata: { createdFrom: 'rules', type: 'Rule based', importedAt: new Date().toISOString(), sourceFile: networkFileName, rulesFile: rulesFileName }
+        };
+      }
 
       // 1) Insert network
       const { data: created, error: createErr } = await supabase
@@ -2264,7 +2221,7 @@ function ProjectVisualizationPage() {
             <Button variant="outline" onClick={() => setIsImportOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={onSaveImportedNetwork} disabled={!importedNetwork || isSavingImport}>
+            <Button onClick={onSaveImportedNetwork} disabled={!(importedNetwork || Array.isArray(importedRules)) || isSavingImport}>
               {isSavingImport ? 'Saving…' : 'Save & Link'}
             </Button>
           </DialogFooter>
