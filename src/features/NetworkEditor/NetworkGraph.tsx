@@ -947,11 +947,19 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
           return;
         }
 
-        // If this network is rule-based, do not allow viewing node properties
+        // If this network is rule-based, do not open the properties panel,
+        // but still highlight the node's neighborhood (do not fade neighbors).
         if (isRuleBased) {
-          try { showToast({ title: 'Rule-based network', description: 'Node properties are not available for rule-based networks.', variant: 'default' }); } catch { }
-          // Ensure nothing is selected
-          try { node.unselect(); cy.elements().removeClass('faded').removeClass('connected'); } catch { }
+          //try { showToast({ title: 'Rule-based network', description: 'Node properties are not available for rule-based networks.', variant: 'default' }); } catch { }
+          try {
+            const neighborhood = node.closedNeighborhood();
+            cy.elements().removeClass('faded').removeClass('connected');
+            cy.elements().not(neighborhood).addClass('faded');
+            // Add 'connected' class to neighbors (excluding the clicked node itself)
+            neighborhood.nodes().not(node).addClass('connected');
+            try { node.unselect(); } catch { }
+          } catch { }
+          // Ensure properties panel remains hidden
           setSelectedNode(null);
           setSelectedEdge(null);
           return;
