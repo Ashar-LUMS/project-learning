@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/toast';
-import { Play, Trash2, Save, Plus } from 'lucide-react';
+import { Trash2, Save, Plus } from 'lucide-react';
 import { supabase } from '@/supabaseClient';
 import type { ProjectNetworkRecord } from '@/hooks/useProjectNetworks';
 import type { NetworkData } from '@/types/network';
@@ -363,35 +363,7 @@ Clb56 = Mcm1`;
           </CardContent>
         </Card>
 
-        {/* Info Panel */}
-        <Card className="flex-1 flex flex-col">
-          <CardHeader>
-            <CardTitle>Run Analysis in Inference Tab</CardTitle>
-          </CardHeader>
-          <CardContent className="flex-1 flex items-center justify-center">
-            <div className="text-center space-y-4 max-w-md">
-              <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
-                <Play className="w-8 h-8 text-primary" />
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-lg font-semibold">Analysis Available in Inference Tab</h3>
-                <p className="text-sm text-muted-foreground">
-                  After saving your rules, switch to the <strong>Inference</strong> tab to run deterministic analysis and view attractor results.
-                </p>
-              </div>
-              <div className="pt-4 space-y-2 text-xs text-muted-foreground text-left">
-                <p>💡 <strong>Tip:</strong> Save your rules first using the "Save to Network" button above</p>
-                <p>📊 The Inference tab provides comprehensive analysis including:</p>
-                <ul className="list-disc list-inside pl-4 space-y-1">
-                  <li>Rule-based deterministic analysis</li>
-                  <li>Weighted network analysis</li>
-                  <li>Probabilistic analysis</li>
-                  <li>Attractor visualization</li>
-                </ul>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Info Panel removed per UX request */}
       </div>
     </div>
   );
