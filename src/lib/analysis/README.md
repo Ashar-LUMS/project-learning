@@ -82,10 +82,10 @@ All options are optional and have sensible defaults.
 
 ```typescript
 interface WeightedAnalysisOptions {
-  /** Maximum states to explore (default: 2^17 ≈ 131K) */
+  /** Maximum states to explore (default: 2^20) */
   stateCap?: number;
   
-  /** Maximum steps per trajectory (default: 2^17) */
+  /** Maximum steps per trajectory (default: 2^20) */
   stepCap?: number;
   
   /** Behavior when weighted sum equals threshold */

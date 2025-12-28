@@ -23,7 +23,6 @@ import {
   Download,
   Play,
   BarChart3,
-  Plus as PlusIcon,
   Calendar,
   Users,
   User
@@ -301,25 +300,6 @@ function ProjectsSidebar() {
               </p>
             </div>
           </div>
-        </div>
-      </div>
-
-      <Separator className="bg-border/50" />
-
-      {/* Quick Actions */}
-      <div className="space-y-2">
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">
-          Quick Actions
-        </p>
-        <div className="grid gap-2">
-          <Button className="h-10 gap-2 justify-start shadow-sm hover:shadow-md transition-shadow" variant="default">
-            <PlusIcon className="w-4 h-4" />
-            <span>New Project</span>
-          </Button>
-          <Button className="h-10 gap-2 justify-start" variant="outline">
-            <Upload className="w-4 h-4" />
-            <span>Import Project</span>
-          </Button>
         </div>
       </div>
 

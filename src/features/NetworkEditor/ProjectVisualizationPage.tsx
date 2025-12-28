@@ -1560,7 +1560,6 @@ function ProjectVisualizationPage() {
                             <table className="w-full text-xs border-collapse">
                               <thead>
                                 <tr>
-                                  <th className="text-left p-1 font-semibold">State</th>
                                   {ruleBasedResult.nodeOrder.map((n: string) => (
                                     <th key={n} className="p-1 font-medium">{ruleBasedResult.nodeLabels[n]}</th>
                                   ))}
@@ -1569,7 +1568,6 @@ function ProjectVisualizationPage() {
                               <tbody>
                                 {attr.states.map((s: any, si: number) => (
                                   <tr key={si} className="odd:bg-muted/40">
-                                    <td className="p-1 font-mono">{s.binary}</td>
                                     {ruleBasedResult.nodeOrder.map((n: string) => (
                                       <td key={n} className="p-1 text-center">{s.values[n]}</td>
                                     ))}
@@ -1634,7 +1632,6 @@ function ProjectVisualizationPage() {
                             <table className="w-full text-xs border-collapse">
                               <thead>
                                 <tr>
-                                  <th className="text-left p-1 font-semibold">State</th>
                                   {weightedResult.nodeOrder.map((n: string) => (
                                     <th key={n} className="p-1 font-medium">{weightedResult.nodeLabels[n]}</th>
                                   ))}
@@ -1643,7 +1640,6 @@ function ProjectVisualizationPage() {
                               <tbody>
                                 {attr.states.map((s: StateSnapshot, si: number) => (
                                   <tr key={si} className="odd:bg-muted/40">
-                                    <td className="p-1 font-mono">{s.binary}</td>
                                     {weightedResult.nodeOrder.map((n: string) => (
                                       <td key={n} className="p-1 text-center">{s.values[n]}</td>
                                     ))}

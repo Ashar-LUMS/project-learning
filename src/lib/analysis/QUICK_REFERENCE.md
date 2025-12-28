@@ -213,10 +213,10 @@ const edges = matrixToEdges(wm);
 
 /*
 interface WeightedAnalysisOptions {
-  // Maximum states to explore (default: 2^17 = 131,072)
+  // Maximum states to explore (default: 2^20)
   stateCap?: number;
 
-  // Maximum steps per trajectory (default: 2^17)
+  // Maximum steps per trajectory (default: 2^20)
   stepCap?: number;
 
   // Behavior when weighted sum equals threshold
