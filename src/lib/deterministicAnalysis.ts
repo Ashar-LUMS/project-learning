@@ -12,6 +12,7 @@
  */
 
 import type { DeterministicAnalysisResult, StateSnapshot } from './analysis/types';
+import { ANALYSIS_CONFIG } from '@/config/constants';
 
 interface RuleParsed {
   target: string;
@@ -212,8 +213,8 @@ export function performDeterministicAnalysis(
     stepCap?: number;
   } = {}
 ): DeterministicAnalysisResult {
-  const stateCap = options.stateCap ?? 2 ** 17;
-  const stepCap = options.stepCap ?? 2 ** 17;
+  const stateCap = options.stateCap ?? ANALYSIS_CONFIG.DEFAULT_STATE_CAP;
+  const stepCap = options.stepCap ?? ANALYSIS_CONFIG.DEFAULT_STEP_CAP;
 
   // Parse all rules
   const parsedRules: RuleParsed[] = [];
