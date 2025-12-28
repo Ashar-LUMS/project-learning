@@ -409,8 +409,8 @@ function NetworkEditorPage() {
         <SelectContent>
           {networks.map((network: ProjectNetworkRecord) => (
             <SelectItem key={network.id} value={network.id}>
-              <div className="flex items-center justify-between w-full">
-                <span className="font-medium">{network.name}</span>
+              <div className="flex items-center justify-between w-full min-w-0">
+                <span className="font-medium truncate">{network.name}</span>
                 {network.created_at && (
                   <Badge variant="secondary" className="ml-2 text-xs">
                     {new Date(network.created_at).toLocaleDateString()}

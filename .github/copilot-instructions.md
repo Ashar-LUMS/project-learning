@@ -32,7 +32,7 @@ Guidance for AI coding agents contributing to this Vite + React + TypeScript wor
 - Project view (`ProjectVisualizationPage.tsx`): reuses the layout, supports network creation/import, optional rule inference via `lib/openRouter`, and routes weighted runs through the same normalization helper as the editor page.
 
 ## Analysis Engines
-- Rule-based analysis lives in `src/lib/deterministicAnalysis.ts` (shunting-yard parser, synchronous updates, 20 node cap, state/step caps default to 2^17).
+- Rule-based analysis lives in `src/lib/deterministicAnalysis.ts` (shunting-yard parser, synchronous updates, 18 node cap, state/step caps default to the application setting `ANALYSIS_CONFIG.DEFAULT_STATE_CAP` — currently 2^18).
 - Weighted analysis moved to `src/lib/analysis/*`:
   - `weightedDeterministicAnalysis.ts` exports `performWeightedAnalysis` built on adjacency matrices, configurable tie behavior (`zero-as-zero`, `zero-as-one`, `hold`), optional biases, and threshold multiplier.
   - `matrixUtils.ts` offers `edgesToMatrix`, `matrixToEdges`, `getInDegree`, and `computeThreshold` helpers; `index.ts` re-exports the types + utilities.
@@ -60,7 +60,7 @@ Guidance for AI coding agents contributing to this Vite + React + TypeScript wor
 - When wiring new Supabase mutations, mirror the ordering/uniqueness guarantees in `useProjectNetworks` so lists stay stable across edits.
 
 ## Gotchas
-- Analysis caps: both engines respect `stateCap`/`stepCap` defaults of 2^17. Large networks surface warnings and may truncate exploration.
+- Analysis caps: both engines respect `stateCap`/`stepCap` defaults from `ANALYSIS_CONFIG` (currently 2^20). Large networks surface warnings and may truncate exploration.
 - Rule parser: identifiers are case-insensitive but resolved against known node ids/labels; ensure node ids exist before running deterministic analysis.
 - Weighted analysis expects weights aligned to the node order and biases keyed by node id. Missing entries default to zero.
 - Cytoscape init happens once; when adding new effects ensure they guard against re-initializing the instance or breaking the reconcile diff.

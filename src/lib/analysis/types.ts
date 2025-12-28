@@ -43,9 +43,9 @@ export interface DeterministicAnalysisResult {
 }
 
 export interface DeterministicAnalysisOptions {
-  /** Maximum number of initial states to explore exhaustively (defaults to 2^17). */
+  /** Maximum number of initial states to explore exhaustively (defaults to `ANALYSIS_CONFIG.DEFAULT_STATE_CAP`, currently 2^18). */
   stateCap?: number;
-  /** Hard ceiling for per-path traversal steps (defaults to 2^17). */
+  /** Hard ceiling for per-path traversal steps (defaults to `ANALYSIS_CONFIG.DEFAULT_STEP_CAP`, currently 2^18). */
   stepCap?: number;
 }
 

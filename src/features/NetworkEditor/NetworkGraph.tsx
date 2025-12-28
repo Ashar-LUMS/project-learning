@@ -89,6 +89,33 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
     setManualRefresh((p) => p + 1);
   }, [networkId]);
 
+  // When the selected network changes, clear any local modifications and
+  // reinitialize the Cytoscape instance to avoid showing the previous
+  // network's elements (fixes stale canvas after switching networks).
+  useEffect(() => {
+    // Clear in-memory edits/selection
+    setLocalNodes([]);
+    setLocalEdges([]);
+    setDeletedNodeIds(new Set());
+    setDeletedEdgeIds(new Set());
+    setSelectedNode(null);
+    setSelectedEdge(null);
+    setEdgeSourceId(null);
+
+    // Destroy existing cytoscape instance so it is recreated with new elements
+    if (cyRef.current) {
+      try {
+        cyRef.current.destroy();
+      } catch (e) {
+        // ignore destroy errors
+      }
+      cyRef.current = null;
+    }
+
+    // bump manual refresh so hooks relying on it will refetch
+    setManualRefresh(p => p + 1);
+  }, [networkId]);
+
   const containerRef = useRef<HTMLDivElement | null>(null);
   const cyRef = useRef<Core | null>(null);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);

@@ -51,8 +51,8 @@ export interface WeightedNode {
 export type TieBehavior = 'zero-as-zero' | 'zero-as-one' | 'hold';
 
 export interface WeightedAnalysisOptions {
-  stateCap?: number;   // maximum number of states to explore (defaults to 2^17)
-  stepCap?: number;    // maximum steps per trajectory (defaults to 2^17)
+  stateCap?: number;   // maximum number of states to explore (defaults to ANALYSIS_CONFIG.DEFAULT_STATE_CAP if available; historically 2^18 here)
+  stepCap?: number;    // maximum steps per trajectory (defaults to ANALYSIS_CONFIG.DEFAULT_STEP_CAP if available; historically 2^18 here)
   tieBehavior?: TieBehavior; // how to resolve net input == 0
 }
 

@@ -1101,8 +1101,8 @@ function ProjectVisualizationPage() {
                       : "border-transparent bg-card hover:border-muted hover:bg-muted"
                   )}
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm font-medium text-foreground line-clamp-1">{network.name}</span>
+                  <div className="flex items-center justify-between gap-3 min-w-0">
+                    <span className="text-sm font-medium text-foreground truncate">{network.name}</span>
                     {isActive && (
                       <span className="text-[10px] uppercase tracking-wide text-primary">Active</span>
                     )}

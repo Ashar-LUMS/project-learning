@@ -36,7 +36,7 @@ export function WeightedAnalysisTab() {
     await run(nodes, edges, {
       thresholdMultiplier,
       tieBehavior,
-      stateCap: 2 ** 17,
+      stateCap: 2 ** 18, // prefer ANALYSIS_CONFIG.DEFAULT_STATE_CAP
     });
   };
 

@@ -19,7 +19,7 @@ The weighted deterministic engine exhaustively explores network state space usin
 - Three tie-breaking behaviors: `zero-as-zero`, `zero-as-one`, `hold`
 - Configurable threshold multiplier (default: 0.5)
 - Basin size and basin share computation
-- State/step caps (default: 2^17) for large networks
+- State/step caps (default: 2^18 via `ANALYSIS_CONFIG.DEFAULT_STATE_CAP`) for large networks
 - Attractor detection (fixed points and limit cycles)
 
 **Integration:** Fully wired into both `NetworkEditorPage` and `ProjectVisualizationPage` with live graph support, persistent tie behavior, and threshold multiplier stored in `network_data.metadata`.
