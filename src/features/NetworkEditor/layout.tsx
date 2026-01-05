@@ -56,7 +56,7 @@ export interface NetworkEditorLayoutProps {
   };
 }
 
-type TabType = 'projects' | 'network-inference' | 'network' | 'therapeutics' | 'env' | 'cell-circuits' | 'cell-lines' | 'simulation' | 'analysis' | 'results';
+type TabType = 'projects' | 'network-inference' | 'network' | 'therapeutics' | 'env' | 'cell-circuits' | 'cell-lines' | 'simulation' | 'analysis' | 'results' | 'autonetcan';
 
 export default function NetworkEditorLayout({
   children,
@@ -107,6 +107,7 @@ export default function NetworkEditorLayout({
     { id: 'projects' as TabType, label: 'Projects', icon: Folder, color: 'text-blue-600' },
     { id: 'network' as TabType, label: 'Network', icon: Network, color: 'text-green-600' },
     { id: 'network-inference' as TabType, label: 'Inference', icon: Waypoints, color: 'text-purple-600' },
+    { id: 'autonetcan' as TabType, label: 'AutoNetCan', icon: Cpu, color: 'text-teal-600' },
     { id: 'therapeutics' as TabType, label: 'Therapeutics', icon: Pill, color: 'text-red-600' },
     { id: 'env' as TabType, label: 'Environment', icon: Container, color: 'text-amber-600' },
     { id: 'cell-circuits' as TabType, label: 'Circuits', icon: CircuitBoard, color: 'text-indigo-600' },
@@ -197,6 +198,8 @@ function renderTabContent(activeTab: TabType, networkSidebar?: React.ReactNode, 
       return <AnalysisSidebar />;
     case 'results':
       return <ResultsSidebar />;
+    case 'autonetcan':
+      return <AutoNetCanSidebar />;
     default:
       return <ProjectsSidebar />;
   }
@@ -667,6 +670,90 @@ function SimulationSidebar() {
       </div>
       <Separator />
       {/* Add simulation controls */}
+    </div>
+  );
+}
+
+// AutoNetCan Integration Sidebar
+function AutoNetCanSidebar() {
+  return (
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <h2 className="text-2xl font-bold tracking-tight text-foreground">
+          AutoNetCan
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Automated Network Construction for Cancer Systems Biology
+        </p>
+      </div>
+
+      <Separator />
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">About AutoNetCan</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>
+            AutoNetCan is an automated web server to construct biomolecular networks for translational cancer systems biology.
+          </p>
+          <p>
+            It integrates omics datasets, pathway databases, and interactome resources to build Boolean network models.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">Quick Actions</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Button
+            variant="outline"
+            className="w-full gap-2"
+            onClick={() => window.open('https://autonetcan.lums.edu.pk/', '_blank')}
+          >
+            <Upload className="w-4 h-4" />
+            Open in New Tab
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full gap-2"
+            onClick={() => window.open('https://autonetcan.lums.edu.pk/manual/AutoNetCan%20User%20Manual%20-%20v4.pdf', '_blank')}
+          >
+            <Download className="w-4 h-4" />
+            Download User Manual
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">Pipeline Steps</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-xs text-muted-foreground">
+          <div className="flex items-start gap-2">
+            <Badge variant="outline" className="text-xs">1</Badge>
+            <span>Acquisition of Nodes</span>
+          </div>
+          <div className="flex items-start gap-2">
+            <Badge variant="outline" className="text-xs">2</Badge>
+            <span>Node Enrichment</span>
+          </div>
+          <div className="flex items-start gap-2">
+            <Badge variant="outline" className="text-xs">3</Badge>
+            <span>Connecting Maps & Interactome</span>
+          </div>
+          <div className="flex items-start gap-2">
+            <Badge variant="outline" className="text-xs">4</Badge>
+            <span>Logical Modeling</span>
+          </div>
+          <div className="flex items-start gap-2">
+            <Badge variant="outline" className="text-xs">5</Badge>
+            <span>In-Silico Cancer Models</span>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

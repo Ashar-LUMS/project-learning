@@ -40,7 +40,7 @@ type ProjectRecord = {
 
 // network records provided by useProjectNetworks
 
-type TabType = 'projects' | 'network' | 'therapeutics' | 'analysis' | 'results' | 'network-inference' | 'env' | 'cell-circuits' | 'cell-lines' | 'simulation';
+type TabType = 'projects' | 'network' | 'therapeutics' | 'analysis' | 'results' | 'network-inference' | 'env' | 'cell-circuits' | 'cell-lines' | 'simulation' | 'autonetcan';
 
 const MAX_RECENT_NETWORKS = 10;
 
@@ -2099,6 +2099,34 @@ function ProjectVisualizationPage() {
         return (
           <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
             Workspace for this tab is coming soon.
+          </div>
+        );
+
+      case 'autonetcan':
+        return (
+          <div className="h-full w-full flex flex-col" style={{ minHeight: '100%' }}>
+            {/* Iframe container */}
+            <div className="flex-1 w-full" style={{ minHeight: 'calc(100vh - 200px)' }}>
+              <iframe
+                src="https://autonetcan.lums.edu.pk/"
+                className="w-full h-full border-0"
+                style={{ minHeight: 'calc(100vh - 200px)' }}
+                title="AutoNetCan - Automated Network Construction"
+                allow="clipboard-write"
+                referrerPolicy="no-referrer-when-downgrade"
+                onLoad={(e) => {
+                  const iframe = e.target as HTMLIFrameElement;
+                  console.log('[AutoNetCan iframe] ✓ onLoad fired - iframe element loaded', {
+                    src: iframe.src,
+                    width: iframe.offsetWidth,
+                    height: iframe.offsetHeight,
+                  });
+                }}
+                onError={(e) => {
+                  console.error('[AutoNetCan iframe] ✗ onError - network/load error', e);
+                }}
+              />
+            </div>
           </div>
         );
 

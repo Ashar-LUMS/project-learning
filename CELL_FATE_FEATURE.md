@@ -127,7 +127,7 @@ Attractors keyed by their index (0, 1, 2, ...) from analysis results
 ## Files Modified
 
 1. `src/types/network.ts` - Added CellFate interface
-2. `src/features/NetworkEditor/FateClassification.tsx` - New component (231 lines)
+2. `src/features/NetworkEditor/FateClassification.tsx` - New component (230 lines)
 3. `src/features/NetworkEditor/ProjectVisualizationPage.tsx` - Integration + handlers
 4. `src/features/NetworkEditor/layout.tsx` - Minor cleanup
 

@@ -101,19 +101,19 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
           center: { x: 0, y: 0, z: 0 },
         },
         xaxis: {
-          title: '',
+          title: 'Node Grid X',
           showgrid: true,
           gridcolor: '#e0e0e0',
           showticklabels: false,
         },
         yaxis: {
-          title: '',
+          title: 'Node Grid Y',
           showgrid: true,
           gridcolor: '#e0e0e0',
           showticklabels: false,
         },
         zaxis: {
-          title: type === 'probability' ? 'P' : 'Energy',
+          title: type === 'probability' ? 'Probability' : 'Potential Energy',
           showgrid: true,
           gridcolor: '#e0e0e0',
         },

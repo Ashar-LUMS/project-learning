@@ -34,7 +34,7 @@ function NetworkEditorPage() {
     console.log('[NetworkEditorPage] Render #' + (window as any).__networkEditorPageRenderCount);
   }
   const { showToast } = useToast();
-  const [activeTab, setActiveTab] = useState<'projects' | 'network' | 'therapeutics' | 'analysis' | 'results' | 'network-inference' | 'env' | 'cell-circuits' | 'cell-lines' | 'simulation'>('projects');
+  const [activeTab, setActiveTab] = useState<'projects' | 'network' | 'therapeutics' | 'analysis' | 'results' | 'network-inference' | 'env' | 'cell-circuits' | 'cell-lines' | 'simulation' | 'autonetcan'>('projects');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   // networks managed via hook now
   const [rulesText, setRulesText] = useState('');
@@ -850,6 +850,57 @@ function NetworkEditorPage() {
                   </Card>
                 )}
               </div>
+            </div>
+          </div>
+        );
+
+      case 'autonetcan':
+        return (
+          <div className="h-full w-full flex flex-col" style={{ minHeight: '100%' }}>
+            {/* Header with fallback options */}
+            <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30 shrink-0">
+              <div className="space-y-0.5">
+                <h2 className="text-lg font-semibold">AutoNetCan</h2>
+                <p className="text-xs text-muted-foreground">Automated Network Construction for Cancer Systems Biology</p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open('https://autonetcan.lums.edu.pk/createNetwork', '_blank')}
+                >
+                  Open in New Tab ↗
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => window.open('https://autonetcan.lums.edu.pk/', '_blank')}
+                >
+                  Homepage
+                </Button>
+              </div>
+            </div>
+            {/* Iframe container */}
+            <div className="flex-1 w-full" style={{ minHeight: 'calc(100vh - 200px)' }}>
+              <iframe
+                src="https://autonetcan.lums.edu.pk/createNetwork"
+                className="w-full h-full border-0"
+                style={{ minHeight: 'calc(100vh - 200px)' }}
+                title="AutoNetCan - Automated Network Construction"
+                allow="clipboard-write"
+                referrerPolicy="no-referrer-when-downgrade"
+                onLoad={(e) => {
+                  const iframe = e.target as HTMLIFrameElement;
+                  console.log('[AutoNetCan iframe] ✓ onLoad fired - iframe element loaded', {
+                    src: iframe.src,
+                    width: iframe.offsetWidth,
+                    height: iframe.offsetHeight,
+                  });
+                }}
+                onError={(e) => {
+                  console.error('[AutoNetCan iframe] ✗ onError - network/load error', e);
+                }}
+              />
             </div>
           </div>
         );
