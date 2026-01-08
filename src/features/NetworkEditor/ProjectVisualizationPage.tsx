@@ -1051,6 +1051,68 @@ function ProjectVisualizationPage() {
     [recentNetworkIds, networks]
   );
 
+  // Helper to determine network type from data
+  const getNetworkType = useCallback((network: ProjectNetworkRecord): 'rule-based' | 'weight-based' => {
+    const data = network.data;
+    if (!data) return 'weight-based'; // Default to weight-based if no data
+    
+    // Check metadata.type first (authoritative source)
+    const metaType = data.metadata?.type;
+    if (metaType === 'Rule based') return 'rule-based';
+    if (metaType === 'weight based') return 'weight-based';
+    
+    // Fallback: check if network has rules
+    if (Array.isArray(data.rules) && data.rules.length > 0) return 'rule-based';
+    
+    return 'weight-based';
+  }, []);
+
+  // Bifurcate networks by type
+  const { ruleBasedNetworks, weightBasedNetworks } = useMemo(() => {
+    const ruleBased: ProjectNetworkRecord[] = [];
+    const weightBased: ProjectNetworkRecord[] = [];
+    
+    // Use recent networks order for display
+    sidebarRecentNetworks.forEach(network => {
+      if (getNetworkType(network) === 'rule-based') {
+        ruleBased.push(network);
+      } else {
+        weightBased.push(network);
+      }
+    });
+    
+    return { ruleBasedNetworks: ruleBased, weightBasedNetworks: weightBased };
+  }, [sidebarRecentNetworks, getNetworkType]);
+
+  // Render a single network item in the sidebar
+  const renderNetworkItem = useCallback((network: ProjectNetworkRecord) => {
+    const createdLabel = formatTimestamp(network.created_at);
+    const isActive = network.id === selectedNetworkId;
+    return (
+      <button
+        key={network.id}
+        type="button"
+        onClick={() => handleSelectNetwork(network.id)}
+        className={cn(
+          "w-full rounded-lg border p-3 text-left transition-colors", 
+          isActive
+            ? "border-primary bg-primary/10 text-primary"
+            : "border-transparent bg-card hover:border-muted hover:bg-muted"
+        )}
+      >
+        <div className="flex items-center justify-between gap-3 min-w-0">
+          <span className="text-sm font-medium text-foreground truncate">{network.name}</span>
+          {isActive && (
+            <span className="text-[10px] uppercase tracking-wide text-primary">Active</span>
+          )}
+        </div>
+        {createdLabel && (
+          <div className="mt-1 text-xs text-muted-foreground">Created {createdLabel}</div>
+        )}
+      </button>
+    );
+  }, [selectedNetworkId, handleSelectNetwork]);
+
   // removed local timestamp formatter in favor of shared utility
 
   const networkSidebarContent = (
@@ -1074,48 +1136,57 @@ function ProjectVisualizationPage() {
         </button>
       </div>
 
-      <div className="space-y-2">
-        <h3 className="text-sm font-semibold text-muted-foreground">Recently opened</h3>
-        {isLoading ? (
-          <div className="rounded-lg border border-dashed border-muted-foreground/30 p-3 text-xs text-muted-foreground">
-            Loading networks...
-          </div>
-        ) : sidebarRecentNetworks.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-muted-foreground/30 p-3 text-xs text-muted-foreground">
-            No networks linked to this project yet.
-          </div>
-        ) : (
+      {isLoading ? (
+        <div className="rounded-lg border border-dashed border-muted-foreground/30 p-3 text-xs text-muted-foreground">
+          Loading networks...
+        </div>
+      ) : sidebarRecentNetworks.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-muted-foreground/30 p-3 text-xs text-muted-foreground">
+          No networks linked to this project yet.
+        </div>
+      ) : (
+        <>
+          {/* Rule-Based Networks Section */}
           <div className="space-y-2">
-            {sidebarRecentNetworks.map((network) => {
-              const createdLabel = formatTimestamp(network.created_at);
-              const isActive = network.id === selectedNetworkId;
-              return (
-                <button
-                  key={network.id}
-                  type="button"
-                  onClick={() => handleSelectNetwork(network.id)}
-                  className={cn(
-                    "w-full rounded-lg border p-3 text-left transition-colors", 
-                    isActive
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-transparent bg-card hover:border-muted hover:bg-muted"
-                  )}
-                >
-                  <div className="flex items-center justify-between gap-3 min-w-0">
-                    <span className="text-sm font-medium text-foreground truncate">{network.name}</span>
-                    {isActive && (
-                      <span className="text-[10px] uppercase tracking-wide text-primary">Active</span>
-                    )}
-                  </div>
-                  {createdLabel && (
-                    <div className="mt-1 text-xs text-muted-foreground">Created {createdLabel}</div>
-                  )}
-                </button>
-              );
-            })}
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-muted-foreground">Rule-Based Networks</h3>
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">
+                {ruleBasedNetworks.length}
+              </Badge>
+            </div>
+            {ruleBasedNetworks.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-muted-foreground/20 p-2 text-xs text-muted-foreground/70 italic">
+                No rule-based networks
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {ruleBasedNetworks.map(renderNetworkItem)}
+              </div>
+            )}
           </div>
-        )}
-      </div>
+
+          <Separator className="my-3" />
+
+          {/* Weight-Based Networks Section */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-muted-foreground">Weight-Based Networks</h3>
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">
+                {weightBasedNetworks.length}
+              </Badge>
+            </div>
+            {weightBasedNetworks.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-muted-foreground/20 p-2 text-xs text-muted-foreground/70 italic">
+                No weight-based networks
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {weightBasedNetworks.map(renderNetworkItem)}
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 

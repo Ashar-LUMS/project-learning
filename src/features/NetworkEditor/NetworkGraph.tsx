@@ -10,6 +10,9 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import type { NetworkData } from '@/types/network';
 
+// Module-level flag to prevent duplicate edgehandles extension registration (survives HMR)
+let edgehandlesRegistered = false;
+
 type Node = {
   id: string;
   type: string;
@@ -819,7 +822,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
           fit: true,
           padding: 60,
         },
-        wheelSensitivity: 0.1, // Changed from 0.2 to reduce warning
+        wheelSensitivity: 1, // Default value to avoid Cytoscape warning
       });
 
       const cy = cyRef.current;
@@ -830,8 +833,13 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
             const ehModule = await import('cytoscape-edgehandles');
             const initializer = (ehModule && (ehModule.default || ehModule)) as any;
             if (typeof initializer === 'function') {
-              if (!cytoscape.prototype.edgehandles) {
+              // Check both module flag AND prototype to prevent duplicate registration
+              if (!edgehandlesRegistered && typeof (cytoscape as any).prototype?.edgehandles !== 'function') {
                 initializer(cytoscape);
+                edgehandlesRegistered = true;
+              } else {
+                // Already registered, just mark our flag
+                edgehandlesRegistered = true;
               }
               try {
                 ehRef.current = (cy as any).edgehandles({
