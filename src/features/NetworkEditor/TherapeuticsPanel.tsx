@@ -76,6 +76,7 @@ export function TherapeuticsPanel({
   });
   const [selectedTherapy, setSelectedTherapy] = useState<string | null>(null);
   const [newPropertyName, setNewPropertyName] = useState('');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   const availableExtensions = [
     'mg', 'mg/kg', 'g', 'µg', 'ml', 'ml/min', 'L',
@@ -322,32 +323,49 @@ export function TherapeuticsPanel({
       </div>
 
       {/* Collapsible Sidebar - Right Side */}
-      <div className="fixed right-0 top-0 bottom-0 w-80 border-l bg-background flex flex-col z-50">
-        <Collapsible defaultOpen className="flex flex-col flex-1">
-          <div className="flex items-center justify-between gap-4 px-4 py-3 border-b">
-            <h4 className="text-sm font-semibold">Therapy Properties</h4>
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="icon" className="size-8 h-8 w-8 p-0">
-                <ChevronsUpDown className="size-4" />
-                <span className="sr-only">Toggle</span>
-              </Button>
-            </CollapsibleTrigger>
-          </div>
+      <div 
+        className={`fixed right-0 top-46 bottom-0 border-l bg-background flex flex-col z-40 transition-all duration-300 ease-in-out shadow-lg overflow-hidden ${
+          isSidebarCollapsed ? 'w-10' : 'w-72'
+        }`}
+      >
+        {/* Collapse/Expand Button */}
+        <div className="flex items-center justify-between px-2 py-2 border-b bg-muted/30 flex-shrink-0">
+          <h4 className={`text-xs font-semibold transition-opacity duration-200 truncate ${
+            isSidebarCollapsed ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100'
+          }`}>
+            Therapy Properties
+          </h4>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="size-7 h-7 w-7 p-0 flex-shrink-0 ml-1" 
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            <ChevronsUpDown className={`size-3.5 transition-transform duration-300 ${
+              isSidebarCollapsed ? 'rotate-90' : ''
+            }`} />
+            <span className="sr-only">{isSidebarCollapsed ? 'Expand' : 'Collapse'}</span>
+          </Button>
+        </div>
+
+        {!isSidebarCollapsed && (
+        <Collapsible defaultOpen className="flex flex-col flex-1 overflow-hidden">
 
           <CollapsibleContent className="flex-1 overflow-hidden flex flex-col">
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+            <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1">
               {Object.entries(therapyProperties).map(([therapy, properties]) => (
-                <Collapsible key={therapy} defaultOpen className="border rounded-md">
-                  <div className="flex items-center justify-between px-3 py-2">
+                <Collapsible key={therapy} defaultOpen className="border rounded-md text-xs">
+                  <div className="flex items-center justify-between px-2 py-1.5">
                     <CollapsibleTrigger asChild>
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="flex-1 justify-start h-8 text-xs font-medium"
+                        className="flex-1 justify-start h-6 text-xs font-medium px-1"
                         onClick={() => setSelectedTherapy(selectedTherapy === therapy ? null : therapy)}
                       >
-                        <ChevronsUpDown className="size-3 mr-2" />
-                        {therapy}
+                        <ChevronsUpDown className="size-2.5 mr-1 flex-shrink-0" />
+                        <span className="truncate text-left">{therapy}</span>
                       </Button>
                     </CollapsibleTrigger>
                     <Badge variant="outline" className="text-[10px]">
@@ -355,39 +373,39 @@ export function TherapeuticsPanel({
                     </Badge>
                   </div>
 
-                  <CollapsibleContent className="px-3 py-2 border-t space-y-1.5">
+                  <CollapsibleContent className="px-2 py-1 border-t space-y-1">
                     {properties.length === 0 ? (
-                      <p className="text-xs text-muted-foreground italic">No properties yet</p>
+                      <p className="text-[9px] text-muted-foreground italic">No properties</p>
                     ) : (
-                      <div className="space-y-2">
+                      <div className="space-y-1">
                         {properties.map((prop, idx) => (
                           <div
                             key={idx}
-                            className="border rounded-md p-2 bg-background group"
+                            className="border rounded p-1 bg-background group"
                           >
-                            <div className="flex items-center justify-between mb-1.5">
-                              <span className="text-[10px] font-medium text-muted-foreground">
+                            <div className="flex items-center justify-between mb-0.5">
+                              <span className="text-[9px] font-medium text-muted-foreground truncate">
                                 {prop.name}
                               </span>
                               <button
                                 onClick={() => handleRemoveProperty(therapy, idx)}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-red-500 hover:text-red-700"
+                                className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-red-500 hover:text-red-700 flex-shrink-0"
                               >
-                                <Trash2 className="size-3" />
+                                <Trash2 className="size-2.5" />
                               </button>
                             </div>
-                            <div className="flex gap-1">
+                            <div className="flex gap-0.5">
                               <Input
-                                placeholder="Value"
+                                placeholder="Val"
                                 value={prop.value}
                                 onChange={(e) => handleUpdatePropertyValue(therapy, idx, e.target.value)}
-                                className="h-7 text-xs flex-1"
+                                className="h-5 text-xs flex-1 px-1 py-0.5"
                               />
                               <Select
                                 value={prop.extension}
                                 onValueChange={(value) => handleUpdatePropertyExtension(therapy, idx, value)}
                               >
-                                <SelectTrigger className="h-7 w-20 text-[10px]">
+                                <SelectTrigger className="h-5 w-14 text-[8px] px-0.5">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -405,9 +423,9 @@ export function TherapeuticsPanel({
                     )}
 
                     {selectedTherapy === therapy && (
-                      <div className="flex gap-1 pt-2 border-t mt-2">
+                      <div className="flex gap-0.5 pt-0.5 border-t mt-0.5">
                         <Input
-                          placeholder="Property name..."
+                          placeholder="Name"
                           value={newPropertyName}
                           onChange={(e) => setNewPropertyName(e.target.value)}
                           onKeyPress={(e) => {
@@ -415,15 +433,15 @@ export function TherapeuticsPanel({
                               handleAddProperty(therapy);
                             }
                           }}
-                          className="h-7 text-xs"
+                          className="h-5 text-xs px-1 py-0.5"
                         />
                         <Button
                           onClick={() => handleAddProperty(therapy)}
                           size="sm"
-                          className="h-7 px-2"
+                          className="h-5 px-1"
                           variant="default"
                         >
-                          <Plus className="size-3" />
+                          <Plus className="size-2" />
                         </Button>
                       </div>
                     )}
@@ -433,6 +451,7 @@ export function TherapeuticsPanel({
             </div>
           </CollapsibleContent>
         </Collapsible>
+        )}
       </div>
 
       <KnockInDialog
