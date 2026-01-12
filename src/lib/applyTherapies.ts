@@ -166,8 +166,105 @@ export function applyTherapiesToNetwork(
         }
       }
     } else if (therapy.type === 'knock-out') {
-      // TODO: Implement knock-out logic
-      // For knock-out: remove node or set it to always-off (0)
+      // Knock-out: Force the node to 0 (OFF) state
+      // The node stays in the network but its output is always 0
+      
+      // Check if the node exists in the network
+      const nodeExists = modifiedNodes.some(n => n.id === therapy.nodeName || n.label === therapy.nodeName);
+      
+      if (nodeExists) {
+        // Mark the node as knocked out
+        modifiedNodes = modifiedNodes.map(n => {
+          if (n.id === therapy.nodeName || n.label === therapy.nodeName) {
+            return {
+              ...n,
+              properties: {
+                ...(n.properties || {}),
+                knockedOut: true,
+                therapyId: therapy.id
+              }
+            };
+          }
+          return n;
+        });
+
+        // Override/create rule to force node to 0
+        const ruleExists = modifiedRules.some(r => r.name === therapy.nodeName);
+        if (ruleExists) {
+          modifiedRules = modifiedRules.map(r =>
+            r.name === therapy.nodeName
+              ? { ...r, action: '0', enabled: true }
+              : r
+          );
+        } else {
+          modifiedRules.push({
+            name: therapy.nodeName,
+            action: '0',
+            enabled: true
+          });
+        }
+
+        // Mark incoming edges as inactive (for visualization purposes)
+        modifiedEdges = modifiedEdges.map(e => {
+          if (e.target === therapy.nodeName) {
+            return {
+              ...e,
+              properties: {
+                ...(e.properties || {}),
+                knockedOutTarget: true,
+                therapyId: therapy.id
+              }
+            };
+          }
+          return e;
+        });
+
+        // Apply outward regulations (modify rules of downstream nodes)
+        for (const outward of therapy.outwardRegulations) {
+          // Add edge from knocked-out node to target node if not exists
+          const edgeExists = modifiedEdges.some(
+            e => e.source === therapy.nodeName && e.target === outward.targetNode
+          );
+          if (!edgeExists) {
+            modifiedEdges.push({
+              source: therapy.nodeName,
+              target: outward.targetNode,
+              properties: {
+                addedByTherapy: true,
+                therapyId: therapy.id,
+                type: 'outward-regulation',
+                knockedOutSource: true
+              }
+            });
+          }
+
+          // Update target node's rule
+          const existingRule = modifiedRules.find(r => r.name === outward.targetNode);
+          let newRuleAction: string;
+
+          if (existingRule && existingRule.action) {
+            // Combine with existing rule
+            newRuleAction = `(${existingRule.action}) ${outward.operator} (${outward.addition})`;
+          } else {
+            // No existing rule, just use the addition
+            newRuleAction = outward.addition;
+          }
+
+          if (existingRule) {
+            modifiedRules = modifiedRules.map(r =>
+              r.name === outward.targetNode
+                ? { ...r, action: newRuleAction }
+                : r
+            );
+          } else {
+            modifiedRules.push({
+              name: outward.targetNode,
+              action: newRuleAction,
+              enabled: true
+            });
+          }
+        }
+      }
     }
   }
 

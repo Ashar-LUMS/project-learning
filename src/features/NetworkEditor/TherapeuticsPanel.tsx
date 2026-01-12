@@ -15,8 +15,9 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { KnockInDialog } from './KnockInDialog';
+import { KnockOutDialog } from './KnockOutDialog';
 import type { NetworkNode, TherapeuticIntervention } from '@/types/network';
-import { Plus, X, Save, Syringe, ChevronsUpDown, Trash2 } from 'lucide-react';
+import { Plus, X, Save, Syringe, ChevronsUpDown, Trash2, Power } from 'lucide-react';
 import { supabase } from '@/supabaseClient';
 import { useToast } from '@/components/ui/toast';
 
@@ -40,6 +41,7 @@ export function TherapeuticsPanel({
   onInterventionsChange
 }: TherapeuticsPanelProps) {
   const [knockInDialogOpen, setKnockInDialogOpen] = useState(false);
+  const [knockOutDialogOpen, setKnockOutDialogOpen] = useState(false);
   const [selectedInterventionType, setSelectedInterventionType] = useState<InterventionType>('knock-in');
   const [interventions, setInterventions] = useState<TherapeuticIntervention[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -154,6 +156,29 @@ export function TherapeuticsPanel({
     onInterventionsChange?.(updatedInterventions);
   };
 
+  const handleKnockOut = (knockOutData: {
+    nodeName: string;
+    nodeRule: null;
+    fixedValue: 0;
+    outwardRegulations: Array<{
+      targetNode: string;
+      operator: '&&' | '||';
+      addition: string;
+      originalRule?: string;
+    }>;
+  }) => {
+    const newIntervention: TherapeuticIntervention = {
+      id: `knockout-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      type: 'knock-out',
+      ...knockOutData,
+      timestamp: Date.now()
+    };
+
+    const updatedInterventions = [...interventions, newIntervention];
+    setInterventions(updatedInterventions);
+    onInterventionsChange?.(updatedInterventions);
+  };
+
   const handleRemoveIntervention = (id: string) => {
     const updatedInterventions = interventions.filter(i => i.id !== id);
     // Optimistically update UI
@@ -239,13 +264,15 @@ export function TherapeuticsPanel({
             onClick={() => {
               if (selectedInterventionType === 'knock-in') {
                 setKnockInDialogOpen(true);
+              } else if (selectedInterventionType === 'knock-out') {
+                setKnockOutDialogOpen(true);
               }
-              // TODO: Handle other intervention types
+              // TODO: Handle edge intervention types
             }}
             size="sm"
             className="h-8 text-xs px-3"
-            disabled={selectedInterventionType !== 'knock-in'}
-            title={selectedInterventionType !== 'knock-in' ? 'Coming Soon' : undefined}
+            disabled={selectedInterventionType !== 'knock-in' && selectedInterventionType !== 'knock-out'}
+            title={selectedInterventionType !== 'knock-in' && selectedInterventionType !== 'knock-out' ? 'Coming Soon' : undefined}
           >
             <Plus className="w-3 h-3 mr-1" />
             Add
@@ -267,42 +294,51 @@ export function TherapeuticsPanel({
                   {interventions.length} intervention{interventions.length !== 1 ? 's' : ''}
                 </span>
               </div>
-              {interventions.map((intervention, index) => (
-                <div
-                  key={intervention.id}
-                  className="bg-card rounded-lg border border-l-4 border-l-blue-500 p-3 text-xs"
-                >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-1.5">
-                      <Badge className="bg-blue-600 text-[10px] px-1.5 py-0 h-4">
-                        #{index + 1}
-                      </Badge>
-                      <span className="font-semibold">{intervention.nodeName}</span>
+              {interventions.map((intervention, index) => {
+                const isKnockOut = intervention.type === 'knock-out';
+                return (
+                  <div
+                    key={intervention.id}
+                    className={`bg-card rounded-lg border border-l-4 ${isKnockOut ? 'border-l-red-500' : 'border-l-blue-500'} p-3 text-xs`}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <Badge className={`${isKnockOut ? 'bg-red-600' : 'bg-blue-600'} text-[10px] px-1.5 py-0 h-4`}>
+                          #{index + 1}
+                        </Badge>
+                        {isKnockOut && <Power className="w-3 h-3 text-red-500" />}
+                        <span className="font-semibold">{intervention.nodeName}</span>
+                        <Badge variant="outline" className={`text-[9px] px-1 py-0 ${isKnockOut ? 'text-red-600 border-red-300' : 'text-blue-600 border-blue-300'}`}>
+                          {isKnockOut ? 'Knock-Out' : 'Knock-In'}
+                        </Badge>
+                      </div>
+                      <button
+                        onClick={() => handleRemoveIntervention(intervention.id)}
+                        className="text-red-500 hover:text-red-700 p-0.5"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-                    <button
-                      onClick={() => handleRemoveIntervention(intervention.id)}
-                      className="text-red-500 hover:text-red-700 p-0.5"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  
-                  {/* Rule or Fixed Value */}
-                  <div className="bg-muted/50 rounded px-2 py-1.5 font-mono text-[10px] text-muted-foreground mb-1.5">
-                    {intervention.nodeRule 
-                      ? `${intervention.nodeName} = ${intervention.nodeRule}`
-                      : `${intervention.nodeName} = ${intervention.fixedValue} (fixed)`
-                    }
-                  </div>
+                    
+                    {/* Rule or Fixed Value */}
+                    <div className={`${isKnockOut ? 'bg-red-50 dark:bg-red-900/20' : 'bg-muted/50'} rounded px-2 py-1.5 font-mono text-[10px] ${isKnockOut ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'} mb-1.5`}>
+                      {isKnockOut
+                        ? `${intervention.nodeName} = 0 (FORCED OFF)`
+                        : intervention.nodeRule 
+                          ? `${intervention.nodeName} = ${intervention.nodeRule}`
+                          : `${intervention.nodeName} = ${intervention.fixedValue} (fixed)`
+                      }
+                    </div>
 
-                  {/* Outward Regulations Count */}
-                  {intervention.outwardRegulations.length > 0 && (
-                    <div className="text-[10px] text-muted-foreground">
-                      → Affects {intervention.outwardRegulations.length} node(s)
-                    </div>
-                  )}
-                </div>
-              ))}
+                    {/* Outward Regulations Count */}
+                    {intervention.outwardRegulations.length > 0 && (
+                      <div className="text-[10px] text-muted-foreground">
+                        → Affects {intervention.outwardRegulations.length} node(s)
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </>
           )}
         </div>
@@ -460,6 +496,14 @@ export function TherapeuticsPanel({
         existingNodes={nodes}
         existingRules={rules}
         onKnockIn={handleKnockIn}
+      />
+
+      <KnockOutDialog
+        open={knockOutDialogOpen}
+        onOpenChange={setKnockOutDialogOpen}
+        existingNodes={nodes}
+        existingRules={rules}
+        onKnockOut={handleKnockOut}
       />
     </>
   );
