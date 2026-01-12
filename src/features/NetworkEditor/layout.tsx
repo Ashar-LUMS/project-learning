@@ -25,7 +25,9 @@ import {
   BarChart3,
   Calendar,
   Users,
-  User
+  User,
+  PanelLeftClose,
+  PanelLeft
 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -103,6 +105,10 @@ export default function NetworkEditorLayout({
       attractorCount: weightedResult?.attractors?.length ?? 0,
     });
   }, [weightedResult]);
+
+  // Sidebar collapse state
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
   const tabs = [
     { id: 'projects' as TabType, label: 'Projects', icon: Folder, color: 'text-blue-600' },
     { id: 'network' as TabType, label: 'Network', icon: Network, color: 'text-green-600' },
@@ -156,16 +162,31 @@ export default function NetworkEditorLayout({
       {/* Main Content Area */}
       <div className="flex flex-1 overflow-hidden">
         {/* Enhanced Sidebar */}
-        <div className="w-80 border-r bg-background overflow-hidden flex flex-col">
-          <ScrollArea className="flex-1">
-            <div className="p-6">
-              {renderTabContent(activeTab, networkSidebar, inferenceSidebar, therapeuticsSidebar, inferenceActions)}
-            </div>
-          </ScrollArea>
+        <div className={cn(
+          "border-r bg-background overflow-hidden flex flex-col transition-all duration-300",
+          sidebarCollapsed ? "w-0" : "w-80"
+        )}>
+          {!sidebarCollapsed && (
+            <ScrollArea className="flex-1">
+              <div className="p-6">
+                {renderTabContent(activeTab, networkSidebar, inferenceSidebar, therapeuticsSidebar, inferenceActions)}
+              </div>
+            </ScrollArea>
+          )}
         </div>
 
         {/* Main Workspace */}
         <div className="flex-1 overflow-auto bg-gradient-to-br from-background to-muted/5 relative">
+          {/* Sidebar Toggle Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="absolute top-2 left-2 z-50 h-8 w-8 bg-background/80 backdrop-blur-sm border shadow-sm hover:bg-background"
+            title={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
+          >
+            {sidebarCollapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          </Button>
           <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-muted/5" />
           <div className="relative">
             {children}
