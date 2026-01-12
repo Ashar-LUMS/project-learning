@@ -409,10 +409,26 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
         nodeTypes.add((e.data as any).type || 'custom');
       }
     });
+    
+    // Professional, biology-inspired color palette with good contrast
+    const colorPalette = [
+      '#3b82f6', // Blue - primary nodes
+      '#10b981', // Emerald - secondary 
+      '#8b5cf6', // Violet - tertiary
+      '#f59e0b', // Amber - quaternary
+      '#ec4899', // Pink
+      '#06b6d4', // Cyan
+      '#84cc16', // Lime
+      '#f97316', // Orange
+      '#6366f1', // Indigo
+      '#14b8a6', // Teal
+      '#a855f7', // Purple
+      '#eab308', // Yellow
+    ];
+    
     const map = new Map<string, string>();
     Array.from(nodeTypes).forEach((t, i) => {
-      const hue = (i * 137) % 360;
-      map.set(t, `hsl(${hue}, 70%, 50%)`);
+      map.set(t, colorPalette[i % colorPalette.length]);
     });
     return map;
   }, [elements]);
@@ -725,49 +741,64 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
           {
             selector: 'node',
             style: {
-              'background-color': (ele: any) => typeColors.get(ele.data('type')) || '#6b7280',
+              'background-color': (ele: any) => typeColors.get(ele.data('type')) || '#3b82f6',
               'label': 'data(label)',
-              'color': '#111827',
-              'font-size': 14,
-              'text-valign': 'center',
+              'color': '#1e293b',
+              'font-size': 13,
+              'font-weight': 600,
+              'text-valign': 'bottom',
               'text-halign': 'center',
-              'width': 50,
-              'height': 50,
+              'text-margin-y': 8,
+              'width': 44,
+              'height': 44,
               'border-width': 3,
               'border-color': '#ffffff',
+              'text-outline-color': '#ffffff',
+              'text-outline-width': 2,
+              'text-outline-opacity': 0.8,
+              'background-opacity': 0.95,
+              'shadow-blur': 8,
+              'shadow-color': '#00000020',
+              'shadow-offset-x': 0,
+              'shadow-offset-y': 2,
+              'shadow-opacity': 0.3,
             },
           },
           {
             selector: 'edge',
             style: {
-              'width': 4,
-              'line-color': '#9ca3af',
-              'target-arrow-color': '#9ca3af',
+              'width': 2.5,
+              'line-color': '#64748b',
+              'target-arrow-color': '#64748b',
               'target-arrow-shape': 'triangle',
               'curve-style': 'bezier',
-              'arrow-scale': 1.2,
+              'arrow-scale': 1.1,
+              'line-opacity': 0.8,
             },
           },
           {
             selector: 'edge[edgeType = "inhibitor"]',
             style: {
-              'line-color': '#ef4444',
-              'target-arrow-color': '#ef4444',
+              'line-color': '#dc2626',
+              'target-arrow-color': '#dc2626',
               'target-arrow-shape': 'tee',
-              'width': 5,
+              'width': 3,
               'curve-style': 'bezier',
-              'arrow-scale': 1.3,
+              'arrow-scale': 1.2,
+              'line-style': 'solid',
+              'line-opacity': 0.9,
             },
           },
           {
             selector: 'edge[edgeType = "amplifier"]',
             style: {
-              'line-color': '#22c55e',
-              'target-arrow-color': '#22c55e',
+              'line-color': '#16a34a',
+              'target-arrow-color': '#16a34a',
               'target-arrow-shape': 'triangle',
-              'width': 5,
+              'width': 3,
               'curve-style': 'bezier',
-              'arrow-scale': 1.3,
+              'arrow-scale': 1.2,
+              'line-opacity': 0.9,
             },
           },
           {
@@ -775,44 +806,62 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
             style: {
               'border-color': '#f59e0b',
               'border-width': 4,
+              'background-opacity': 1,
             },
           },
           {
             selector: '.delete-candidate',
             style: {
-              'border-color': '#ef4444',
+              'border-color': '#dc2626',
               'border-width': 4,
-              'background-color': '#fee2e2',
+              'background-color': '#fecaca',
+              'background-opacity': 1,
             },
           },
           {
             selector: ':selected',
             style: {
               'border-width': 4,
-              'border-color': '#3b82f6',
-              'line-color': '#3b82f6',
-              'target-arrow-color': '#3b82f6',
+              'border-color': '#2563eb',
+              'line-color': '#2563eb',
+              'target-arrow-color': '#2563eb',
+              'background-opacity': 1,
+              'line-opacity': 1,
             },
           },
           {
             selector: '.faded',
             style: {
-              'opacity': 0.2
+              'opacity': 0.15
             }
           },
           {
             selector: '.connected',
             style: {
-              'border-color': '#60a5fa',
-              'border-width': 4
+              'border-color': '#3b82f6',
+              'border-width': 4,
+              'background-opacity': 1,
             }
           },
           {
             selector: '.knock-in-highlight',
             style: {
               'background-color': '#10b981',
-              'border-color': '#059669',
-              'border-width': 4
+              'border-color': '#047857',
+              'border-width': 4,
+              'background-opacity': 1,
+            }
+          },
+          {
+            selector: '.knock-out-highlight',
+            style: {
+              'background-color': '#94a3b8',
+              'border-color': '#dc2626',
+              'border-width': 4,
+              'background-opacity': 0.6,
+              'text-opacity': 0.6,
+            }
+          },
             }
           }
         ],
@@ -1345,12 +1394,12 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
       <div className="flex-1 flex relative min-h-0">
         {/* Left Sidebar - Toolbar */}
         {!hideControls && (
-          <div className="w-16 bg-gray-50 border-r flex flex-col items-center py-4 gap-2 z-20">
+          <div className="w-14 bg-white/80 backdrop-blur-sm border-r border-slate-200 flex flex-col items-center py-3 gap-1.5 z-20 shadow-sm">
             <Button
               size="icon"
               variant={tool === 'select' ? 'default' : 'ghost'}
               onClick={() => setTool('select')}
-              className="h-12 w-12"
+              className={`h-10 w-10 rounded-lg transition-all ${tool === 'select' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-100'}`}
               title="Select tool"
           >
             <CursorIcon />
@@ -1361,7 +1410,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
             variant={tool === 'add-node' ? 'default' : 'ghost'}
             onClick={() => setTool('add-node')}
             disabled={isRuleBased}
-            className="h-12 w-12"
+            className={`h-10 w-10 rounded-lg transition-all ${tool === 'add-node' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-100'} disabled:opacity-40`}
             title="Add node tool"
           >
             <PlusIcon />
@@ -1370,7 +1419,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
           <Button
             size="icon"
             variant="ghost"
-            className="h-12 w-12"
+            className="h-10 w-10 rounded-lg hover:bg-slate-100 disabled:opacity-40"
             onClick={() => {
               const newId = `n-${Date.now()}`;
               const newNode = {
@@ -1411,10 +1460,12 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
             <CircleIcon />
           </Button>
 
+          <div className="w-8 border-t border-slate-200 my-1" />
+
           <Button
             size="icon"
             variant={tool === 'add-edge' ? 'default' : 'ghost'}
-            className="h-12 w-12"
+            className={`h-10 w-10 rounded-lg transition-all ${tool === 'add-edge' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-100'} disabled:opacity-40`}
             onClick={() => {
               if (isRuleBased) return;
               setTool('add-edge');
@@ -1430,12 +1481,14 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
             <LinkIcon />
           </Button>
 
+          <div className="w-8 border-t border-slate-200 my-1" />
+
           <Button
             size="icon"
             variant={tool === 'delete' ? 'destructive' : 'ghost'}
             onClick={() => setTool('delete')}
             disabled={isRuleBased}
-            className="h-12 w-12"
+            className={`h-10 w-10 rounded-lg transition-all ${tool === 'delete' ? 'bg-red-600 text-white shadow-md' : 'hover:bg-red-50 hover:text-red-600'} disabled:opacity-40`}
             title="Delete tool"
           >
             <TrashIcon />
@@ -1448,7 +1501,11 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
           {/* Cytoscape container */}
           <div
             ref={containerRef}
-            className="w-full h-full bg-gradient-to-br from-gray-50 to-gray-100"
+            className="w-full h-full bg-gradient-to-br from-slate-50 via-slate-100/50 to-slate-100"
+            style={{ 
+              backgroundImage: 'radial-gradient(circle at 1px 1px, #e2e8f0 1px, transparent 0)',
+              backgroundSize: '24px 24px'
+            }}
             aria-label="Project network visualization"
             key="cytoscape-container"
           />
@@ -1456,16 +1513,17 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
 
         {/* Right Sidebar - Node/Edge Properties */}
         {!hideControls && (selectedNode || selectedEdge) && (
-          <div className="w-80 bg-white border-l flex-shrink-0 z-20">
-            <Card className="h-full border-0 rounded-none">
-              <CardHeader className="pb-3 border-b">
+          <div className="w-80 bg-white/95 backdrop-blur-sm border-l border-slate-200 flex-shrink-0 z-20 shadow-lg">
+            <Card className="h-full border-0 rounded-none bg-transparent">
+              <CardHeader className="pb-3 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">
+                  <CardTitle className="text-base font-semibold text-slate-800">
                     {selectedNode ? 'Node Properties' : 'Edge Properties'}
                   </CardTitle>
                   <Button
                     variant="ghost"
                     size="icon"
+                    className="h-8 w-8 rounded-lg hover:bg-slate-100"
                     onClick={() => {
                       setSelectedNode(null);
                       setSelectedEdge(null);
@@ -1483,10 +1541,11 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
               <CardContent className="p-4 space-y-4">
                 {selectedNode && (
                   <>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Label</label>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-slate-600 uppercase tracking-wide">Label</label>
                       <Input
                         value={selectedNode.label}
+                        className="h-9 text-sm border-slate-200 focus:border-blue-400 focus:ring-blue-400"
                         onChange={(e) => {
                           const newLabel = e.target.value;
                           setSelectedNode(prev => prev ? { ...prev, label: newLabel } : null);
@@ -1505,14 +1564,13 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                       />
                     </div>
 
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Type</label>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-slate-600 uppercase tracking-wide">Type</label>
                       <div className="flex items-center gap-2">
                         <Badge
-                          variant="secondary"
-                          className="text-sm px-2 py-1"
+                          className="text-xs px-2.5 py-1 font-medium shadow-sm"
                           style={{
-                            backgroundColor: typeColors.get(selectedNode.type) || '#6b7280',
+                            backgroundColor: typeColors.get(selectedNode.type) || '#3b82f6',
                             color: 'white'
                           }}
                         >
@@ -1523,8 +1581,8 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
 
                     {!isRuleBased && (
                       <>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Weight</label>
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-medium text-slate-600 uppercase tracking-wide">Weight</label>
                           <Input
                             type="number"
                             value={selectedNode.weight ?? defaultNodeWeight}
@@ -1556,13 +1614,13 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                             }}
                             min="0"
                             step="0.1"
-                            className="w-full"
+                            className="h-9 text-sm border-slate-200 focus:border-blue-400 focus:ring-blue-400"
                           />
-                          <div className="text-xs text-muted-foreground">Node weight is used in weighted analysis; larger values increase influence.</div>
+                          <p className="text-[10px] text-slate-500">Larger values increase node influence in weighted analysis.</p>
                         </div>
 
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Bias</label>
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-medium text-slate-600 uppercase tracking-wide">Bias</label>
                           <Input
                             type="number"
                             value={Number((selectedNode.properties?.bias ?? 0))}
@@ -1589,36 +1647,38 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                               }
                             }}
                             step="0.1"
-                            className="w-full"
+                            className="h-9 text-sm border-slate-200 focus:border-blue-400 focus:ring-blue-400"
                           />
-                          <div className="text-xs text-muted-foreground">Bias shifts the threshold for this node in weighted analysis.</div>
+                          <p className="text-[10px] text-slate-500">Bias shifts the threshold for this node.</p>
                         </div>
                       </>
                     )}
 
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">ID</label>
-                      <div className="text-sm text-gray-600 font-mono bg-gray-50 px-3 py-2 rounded border">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-slate-600 uppercase tracking-wide">ID</label>
+                      <div className="text-xs text-slate-600 font-mono bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
                         {selectedNode.id}
                       </div>
                     </div>
 
-                    <div className="flex gap-2 pt-2">
+                    <div className="flex gap-2 pt-3">
                       <Button
                         variant="outline"
+                        size="sm"
                         onClick={() => {
                           setEdgeSourceId(selectedNode.id);
                           if (cyRef.current) {
                             cyRef.current.getElementById(selectedNode.id)?.addClass('edge-source');
                           }
                         }}
-                        className="flex-1"
+                        className="flex-1 h-9 text-xs border-slate-200 hover:bg-slate-50"
                       >
                         Set as Source
                       </Button>
 
                       {edgeSourceId && edgeSourceId !== selectedNode.id && (
                         <Button
+                          size="sm"
                           onClick={() => {
                             const newEdgeId = `edge:${edgeSourceId}:${selectedNode.id}`;
                             if (cyRef.current) {
@@ -1645,23 +1705,24 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                             }
                             setEdgeSourceId(null);
                           }}
-                          className="flex-1"
+                          className="flex-1 h-9 text-xs bg-blue-600 hover:bg-blue-700"
                         >
                           Connect
                         </Button>
                       )}
                     </div>
 
-                    <div className="pt-4 border-t">
+                    <div className="pt-4 border-t border-slate-100">
                       <Button
                         variant="destructive"
+                        size="sm"
                         onClick={() => {
                           showConfirm(
                             `Are you sure you want to delete node "${selectedNode.label}"?`,
                             () => deleteNode(selectedNode.id)
                           );
                         }}
-                        className="w-full"
+                        className="w-full h-9 text-xs bg-red-600 hover:bg-red-700"
                       >
                         <TrashIcon />
                         Delete Node
@@ -1672,27 +1733,30 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
 
                 {selectedEdge && (
                   <>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Connection</label>
-                      <div className="text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded border">
-                        {selectedEdge.source} → {selectedEdge.target}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-slate-600 uppercase tracking-wide">Connection</label>
+                      <div className="flex items-center gap-2 text-sm text-slate-700 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
+                        <span className="font-medium">{selectedEdge.source}</span>
+                        <span className="text-slate-400">→</span>
+                        <span className="font-medium">{selectedEdge.target}</span>
                       </div>
                     </div>
 
                     {selectedEdge.interaction && (
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Interaction</label>
-                        <div className="text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded border">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-slate-600 uppercase tracking-wide">Interaction</label>
+                        <div className="text-sm text-slate-600 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
                           {selectedEdge.interaction}
                         </div>
                       </div>
                     )}
 
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Weight</label>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-slate-600 uppercase tracking-wide">Weight</label>
                       <Input
                         type="number"
                         value={selectedEdge.weight ?? defaultEdgeWeight}
+                        className="h-9 text-sm border-slate-200 focus:border-blue-400 focus:ring-blue-400"
                         onChange={(e) => {
                           const newWeight = parseFloat(e.target.value) || defaultEdgeWeight;
                           setSelectedEdge(prev => prev ? { ...prev, weight: newWeight } : null);
