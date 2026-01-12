@@ -757,11 +757,6 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
               'text-outline-width': 2,
               'text-outline-opacity': 0.8,
               'background-opacity': 0.95,
-              'shadow-blur': 8,
-              'shadow-color': '#00000020',
-              'shadow-offset-x': 0,
-              'shadow-offset-y': 2,
-              'shadow-opacity': 0.3,
             },
           },
           {
@@ -860,8 +855,6 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
               'border-width': 4,
               'background-opacity': 0.6,
               'text-opacity': 0.6,
-            }
-          },
             }
           }
         ],
@@ -1793,7 +1786,6 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                         }}
                         min="0"
                         step="0.1"
-                        className="w-full"
                       />
                       <div className="text-xs text-muted-foreground">Edge weight influences the target node’s net input. CSV import format: source,target,weight.</div>
                     </div>
