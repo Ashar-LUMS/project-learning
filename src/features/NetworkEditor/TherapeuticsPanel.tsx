@@ -8,9 +8,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { KnockInDialog } from './KnockInDialog';
 import type { NetworkNode, TherapeuticIntervention } from '@/types/network';
-import { Plus, X, Save, Syringe } from 'lucide-react';
+import { Plus, X, Save, Syringe, ChevronsUpDown, Trash2 } from 'lucide-react';
 import { supabase } from '@/supabaseClient';
 import { useToast } from '@/components/ui/toast';
 
@@ -39,6 +45,45 @@ export function TherapeuticsPanel({
   const [isSaving, setIsSaving] = useState(false);
   const { showToast } = useToast();
 
+  // Sidebar state
+  type PropertyItem = {
+    name: string;
+    value: string;
+    extension: string;
+  };
+
+  const [therapyProperties, setTherapyProperties] = useState<Record<string, PropertyItem[]>>({
+    'Chemotherapy': [
+      { name: 'Dosage', value: '100', extension: 'mg' },
+      { name: 'Frequency', value: '2', extension: 'times/day' },
+      { name: 'Duration', value: '6', extension: 'weeks' },
+    ],
+    'Immunotherapy': [
+      { name: 'Dose Level', value: '50', extension: 'mg/kg' },
+      { name: 'Infusion Rate', value: '1.5', extension: 'ml/min' },
+      { name: 'Cycles', value: '4', extension: 'cycles' },
+    ],
+    'Targeted Therapy': [
+      { name: 'Target Concentration', value: '200', extension: 'nM' },
+      { name: 'Administration', value: '1', extension: 'times/day' },
+      { name: 'Treatment Period', value: '12', extension: 'months' },
+    ],
+    'Gene Therapy': [
+      { name: 'Vector Dose', value: '1e12', extension: 'vg/kg' },
+      { name: 'Expression Level', value: '80', extension: '%' },
+      { name: 'Monitoring Period', value: '24', extension: 'weeks' },
+    ],
+  });
+  const [selectedTherapy, setSelectedTherapy] = useState<string | null>(null);
+  const [newPropertyName, setNewPropertyName] = useState('');
+
+  const availableExtensions = [
+    'mg', 'mg/kg', 'g', 'µg', 'ml', 'ml/min', 'L',
+    'nM', 'µM', 'mM', '%', 'vg/kg',
+    'times/day', 'times/week', 'days', 'weeks', 'months',
+    'cycles', 'units', 'IU'
+  ];
+
   useEffect(() => {
     if (existingTherapies && Array.isArray(existingTherapies)) {
       setInterventions(existingTherapies);
@@ -46,6 +91,44 @@ export function TherapeuticsPanel({
       setInterventions([]);
     }
   }, [existingTherapies]);
+
+  const handleAddProperty = (therapy: string) => {
+    if (newPropertyName.trim()) {
+      setTherapyProperties(prev => ({
+        ...prev,
+        [therapy]: [
+          ...(prev[therapy] || []),
+          { name: newPropertyName.trim(), value: '', extension: availableExtensions[0] }
+        ]
+      }));
+      setNewPropertyName('');
+    }
+  };
+
+  const handleRemoveProperty = (therapy: string, index: number) => {
+    setTherapyProperties(prev => ({
+      ...prev,
+      [therapy]: prev[therapy].filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleUpdatePropertyValue = (therapy: string, index: number, value: string) => {
+    setTherapyProperties(prev => ({
+      ...prev,
+      [therapy]: prev[therapy].map((prop, i) => 
+        i === index ? { ...prop, value } : prop
+      )
+    }));
+  };
+
+  const handleUpdatePropertyExtension = (therapy: string, index: number, extension: string) => {
+    setTherapyProperties(prev => ({
+      ...prev,
+      [therapy]: prev[therapy].map((prop, i) => 
+        i === index ? { ...prop, extension } : prop
+      )
+    }));
+  };
 
   const handleKnockIn = (knockInData: {
     nodeName: string;
@@ -132,108 +215,225 @@ export function TherapeuticsPanel({
   };
 
   return (
-    <div className="flex flex-col">
-      {/* Add Intervention Controls */}
-      <div className="flex items-center gap-2 mb-3">
-        <Select
-          value={selectedInterventionType}
-          onValueChange={(value) => setSelectedInterventionType(value as InterventionType)}
-        >
-          <SelectTrigger className="h-8 flex-1 text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="knock-in" className="text-xs">Knock In</SelectItem>
-            <SelectItem value="knock-out" className="text-xs">Knock Out</SelectItem>
-            <SelectItem value="edge-knock-in" className="text-xs">Edge Knock In</SelectItem>
-            <SelectItem value="edge-knock-out" className="text-xs">Edge Knock Out</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button
-          onClick={() => {
-            if (selectedInterventionType === 'knock-in') {
-              setKnockInDialogOpen(true);
-            }
-            // TODO: Handle other intervention types
-          }}
-          size="sm"
-          className="h-8 text-xs px-3"
-          disabled={selectedInterventionType !== 'knock-in'}
-          title={selectedInterventionType !== 'knock-in' ? 'Coming Soon' : undefined}
-        >
-          <Plus className="w-3 h-3 mr-1" />
-          Add
-        </Button>
-      </div>
+    <>
+      {/* Main Content */}
+      <div className="flex flex-col h-full">
+        {/* Add Intervention Controls */}
+        <div className="flex items-center gap-2 mb-3">
+          <Select
+            value={selectedInterventionType}
+            onValueChange={(value) => setSelectedInterventionType(value as InterventionType)}
+          >
+            <SelectTrigger className="h-8 flex-1 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="knock-in" className="text-xs">Knock In</SelectItem>
+              <SelectItem value="knock-out" className="text-xs">Knock Out</SelectItem>
+              <SelectItem value="edge-knock-in" className="text-xs">Edge Knock In</SelectItem>
+              <SelectItem value="edge-knock-out" className="text-xs">Edge Knock Out</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+            onClick={() => {
+              if (selectedInterventionType === 'knock-in') {
+                setKnockInDialogOpen(true);
+              }
+              // TODO: Handle other intervention types
+            }}
+            size="sm"
+            className="h-8 text-xs px-3"
+            disabled={selectedInterventionType !== 'knock-in'}
+            title={selectedInterventionType !== 'knock-in' ? 'Coming Soon' : undefined}
+          >
+            <Plus className="w-3 h-3 mr-1" />
+            Add
+          </Button>
+        </div>
 
-      {/* Interventions List */}
-      <div className="space-y-2">
-        {interventions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground border border-dashed rounded-lg">
-            <Syringe className="w-8 h-8 opacity-20 mb-2" />
-            <p className="text-xs">No interventions yet</p>
-            <p className="text-xs opacity-60">Select a type and click "Add"</p>
-          </div>
-        ) : (
-          <>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-muted-foreground">
-                {interventions.length} intervention{interventions.length !== 1 ? 's' : ''}
-              </span>
+        {/* Interventions List */}
+        <div className="space-y-2 flex-1 overflow-y-auto">
+          {interventions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground border border-dashed rounded-lg">
+              <Syringe className="w-8 h-8 opacity-20 mb-2" />
+              <p className="text-xs">No interventions yet</p>
+              <p className="text-xs opacity-60">Select a type and click "Add"</p>
             </div>
-            {interventions.map((intervention, index) => (
-              <div
-                key={intervention.id}
-                className="bg-card rounded-lg border border-l-4 border-l-blue-500 p-3 text-xs"
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <Badge className="bg-blue-600 text-[10px] px-1.5 py-0 h-4">
-                      #{index + 1}
-                    </Badge>
-                    <span className="font-semibold">{intervention.nodeName}</span>
-                  </div>
-                  <button
-                    onClick={() => handleRemoveIntervention(intervention.id)}
-                    className="text-red-500 hover:text-red-700 p-0.5"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-                
-                {/* Rule or Fixed Value */}
-                <div className="bg-muted/50 rounded px-2 py-1.5 font-mono text-[10px] text-muted-foreground mb-1.5">
-                  {intervention.nodeRule 
-                    ? `${intervention.nodeName} = ${intervention.nodeRule}`
-                    : `${intervention.nodeName} = ${intervention.fixedValue} (fixed)`
-                  }
-                </div>
-
-                {/* Outward Regulations Count */}
-                {intervention.outwardRegulations.length > 0 && (
-                  <div className="text-[10px] text-muted-foreground">
-                    → Affects {intervention.outwardRegulations.length} node(s)
-                  </div>
-                )}
+          ) : (
+            <>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-muted-foreground">
+                  {interventions.length} intervention{interventions.length !== 1 ? 's' : ''}
+                </span>
               </div>
-            ))}
-          </>
+              {interventions.map((intervention, index) => (
+                <div
+                  key={intervention.id}
+                  className="bg-card rounded-lg border border-l-4 border-l-blue-500 p-3 text-xs"
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <Badge className="bg-blue-600 text-[10px] px-1.5 py-0 h-4">
+                        #{index + 1}
+                      </Badge>
+                      <span className="font-semibold">{intervention.nodeName}</span>
+                    </div>
+                    <button
+                      onClick={() => handleRemoveIntervention(intervention.id)}
+                      className="text-red-500 hover:text-red-700 p-0.5"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  
+                  {/* Rule or Fixed Value */}
+                  <div className="bg-muted/50 rounded px-2 py-1.5 font-mono text-[10px] text-muted-foreground mb-1.5">
+                    {intervention.nodeRule 
+                      ? `${intervention.nodeName} = ${intervention.nodeRule}`
+                      : `${intervention.nodeName} = ${intervention.fixedValue} (fixed)`
+                    }
+                  </div>
+
+                  {/* Outward Regulations Count */}
+                  {intervention.outwardRegulations.length > 0 && (
+                    <div className="text-[10px] text-muted-foreground">
+                      → Affects {intervention.outwardRegulations.length} node(s)
+                    </div>
+                  )}
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+
+        {/* Save Button */}
+        {interventions.length > 0 && (
+          <div className="mt-4">
+            <Button
+              onClick={handleSaveTherapies}
+              className="w-full h-9 text-xs"
+              disabled={isSaving}
+            >
+              <Save className="w-3.5 h-3.5 mr-1.5" />
+              {isSaving ? 'Saving...' : 'Save Interventions'}
+            </Button>
+          </div>
         )}
       </div>
 
-      {/* Save Button */}
-      {interventions.length > 0 && (
-        <div className="mt-4">
-          <Button
-            onClick={handleSaveTherapies}
-            className="w-full h-9 text-xs"
-            disabled={isSaving}
-          >
-            <Save className="w-3.5 h-3.5 mr-1.5" />
-            {isSaving ? 'Saving...' : 'Save Interventions'}
-          </Button>
-        </div>
-      )}
+      {/* Collapsible Sidebar - Right Side */}
+      <div className="fixed right-0 top-0 bottom-0 w-80 border-l bg-background flex flex-col z-50">
+        <Collapsible defaultOpen className="flex flex-col flex-1">
+          <div className="flex items-center justify-between gap-4 px-4 py-3 border-b">
+            <h4 className="text-sm font-semibold">Therapy Properties</h4>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="icon" className="size-8 h-8 w-8 p-0">
+                <ChevronsUpDown className="size-4" />
+                <span className="sr-only">Toggle</span>
+              </Button>
+            </CollapsibleTrigger>
+          </div>
+
+          <CollapsibleContent className="flex-1 overflow-hidden flex flex-col">
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+              {Object.entries(therapyProperties).map(([therapy, properties]) => (
+                <Collapsible key={therapy} defaultOpen className="border rounded-md">
+                  <div className="flex items-center justify-between px-3 py-2">
+                    <CollapsibleTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="flex-1 justify-start h-8 text-xs font-medium"
+                        onClick={() => setSelectedTherapy(selectedTherapy === therapy ? null : therapy)}
+                      >
+                        <ChevronsUpDown className="size-3 mr-2" />
+                        {therapy}
+                      </Button>
+                    </CollapsibleTrigger>
+                    <Badge variant="outline" className="text-[10px]">
+                      {properties.length}
+                    </Badge>
+                  </div>
+
+                  <CollapsibleContent className="px-3 py-2 border-t space-y-1.5">
+                    {properties.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">No properties yet</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {properties.map((prop, idx) => (
+                          <div
+                            key={idx}
+                            className="border rounded-md p-2 bg-background group"
+                          >
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-[10px] font-medium text-muted-foreground">
+                                {prop.name}
+                              </span>
+                              <button
+                                onClick={() => handleRemoveProperty(therapy, idx)}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-red-500 hover:text-red-700"
+                              >
+                                <Trash2 className="size-3" />
+                              </button>
+                            </div>
+                            <div className="flex gap-1">
+                              <Input
+                                placeholder="Value"
+                                value={prop.value}
+                                onChange={(e) => handleUpdatePropertyValue(therapy, idx, e.target.value)}
+                                className="h-7 text-xs flex-1"
+                              />
+                              <Select
+                                value={prop.extension}
+                                onValueChange={(value) => handleUpdatePropertyExtension(therapy, idx, value)}
+                              >
+                                <SelectTrigger className="h-7 w-20 text-[10px]">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {availableExtensions.map((ext) => (
+                                    <SelectItem key={ext} value={ext} className="text-xs">
+                                      {ext}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {selectedTherapy === therapy && (
+                      <div className="flex gap-1 pt-2 border-t mt-2">
+                        <Input
+                          placeholder="Property name..."
+                          value={newPropertyName}
+                          onChange={(e) => setNewPropertyName(e.target.value)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              handleAddProperty(therapy);
+                            }
+                          }}
+                          className="h-7 text-xs"
+                        />
+                        <Button
+                          onClick={() => handleAddProperty(therapy)}
+                          size="sm"
+                          className="h-7 px-2"
+                          variant="default"
+                        >
+                          <Plus className="size-3" />
+                        </Button>
+                      </div>
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
+              ))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      </div>
 
       <KnockInDialog
         open={knockInDialogOpen}
@@ -242,6 +442,6 @@ export function TherapeuticsPanel({
         existingRules={rules}
         onKnockIn={handleKnockIn}
       />
-    </div>
+    </>
   );
 }
