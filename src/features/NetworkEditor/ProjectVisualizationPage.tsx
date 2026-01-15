@@ -2179,7 +2179,7 @@ function ProjectVisualizationPage() {
             {/* Iframe container */}
             <div className="flex-1 w-full" style={{ minHeight: 'calc(100vh - 200px)' }}>
               <iframe
-                src="https://autonetcan.lums.edu.pk/"
+                src="https://autonetcan.lums.edu.pk/createNetwork"
                 className="w-full h-full border-0"
                 style={{ minHeight: 'calc(100vh - 200px)' }}
                 title="AutoNetCan - Automated Network Construction"

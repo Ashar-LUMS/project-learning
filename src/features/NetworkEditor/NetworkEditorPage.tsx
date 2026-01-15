@@ -874,7 +874,7 @@ function NetworkEditorPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => window.open('https://autonetcan.lums.edu.pk/', '_blank')}
+                  onClick={() => window.open('https://autonetcan.lums.edu.pk/createNetwork', '_blank')}
                 >
                   Homepage
                 </Button>
