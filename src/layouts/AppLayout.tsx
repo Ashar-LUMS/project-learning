@@ -310,7 +310,7 @@ const AppLayout = () => {
       ) : null}
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100">
-        <div className="container mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+        <div className="container px-4 sm:px-6 h-14 flex items-center justify-between">
           {/* Logo Section */}
           <Link to="/app" className="flex items-center shrink-0">
             <img 
@@ -321,7 +321,7 @@ const AppLayout = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-2">
+          <nav className="hidden md:flex gap-2">
             <Link
               to="/app"
               className="text-gray-600 hover:text-[#2f5597] transition-colors duration-200 font-medium text-sm px-3 py-2 rounded-lg hover:bg-blue-50"
@@ -332,7 +332,7 @@ const AppLayout = () => {
             {/* User Avatar Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-9 w-9 rounded-full hover:bg-gray-100 transition-all duration-200 border border-gray-200 p-0">
+                <Button variant="ghost" className="relative h-9 w-9 rounded-full hover:bg-gray-200 transition-all duration-200 border border-gray-200 p-0">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={user?.user_metadata?.avatar_url} alt={user?.user_metadata?.name} />
                     <AvatarFallback className="bg-gradient-to-br from-blue-100 to-blue-200 text-blue-700 text-sm font-medium">
