@@ -111,9 +111,9 @@ export default function NetworkEditorLayout({
 
   const tabs = [
     { id: 'projects' as TabType, label: 'Projects', icon: Folder, color: 'text-blue-600' },
-    { id: 'network' as TabType, label: 'Network', icon: Network, color: 'text-green-600' },
-    { id: 'network-inference' as TabType, label: 'Inference', icon: Waypoints, color: 'text-purple-600' },
+    { id: 'network' as TabType, label: 'Manual Network Construction', icon: Network, color: 'text-green-600' },
     { id: 'autonetcan' as TabType, label: 'AutoNetCan', icon: Cpu, color: 'text-teal-600' },
+    { id: 'network-inference' as TabType, label: 'Network Analysis', icon: Waypoints, color: 'text-purple-600' },
     { id: 'therapeutics' as TabType, label: 'Therapeutics', icon: Pill, color: 'text-red-600' },
     { id: 'env' as TabType, label: 'Environment', icon: Container, color: 'text-amber-600' },
     { id: 'cell-circuits' as TabType, label: 'Circuits', icon: CircuitBoard, color: 'text-indigo-600' },
@@ -732,7 +732,7 @@ function AutoNetCanSidebar() {
           <Button
             variant="outline"
             className="w-full gap-2"
-            onClick={() => window.open('https://autonetcan.lums.edu.pk/', '_blank')}
+            onClick={() => window.open('https://autonetcan.lums.edu.pk/createNetwork', '_blank')}
           >
             <Upload className="w-4 h-4" />
             Open in New Tab

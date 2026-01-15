@@ -54,6 +54,14 @@ export function TherapeuticsPanel({
     extension: string;
   };
 
+  type TargetedTherapyNode = {
+    id: string;
+    nodeId: string;
+    modulationMode: string;
+    value: string;
+    extension: string;
+  };
+
   const [therapyProperties, setTherapyProperties] = useState<Record<string, PropertyItem[]>>({
     'Chemotherapy': [
       { name: 'Dosage', value: '100', extension: 'mg' },
@@ -65,17 +73,17 @@ export function TherapeuticsPanel({
       { name: 'Infusion Rate', value: '1.5', extension: 'ml/min' },
       { name: 'Cycles', value: '4', extension: 'cycles' },
     ],
-    'Targeted Therapy': [
-      { name: 'Target Concentration', value: '200', extension: 'nM' },
-      { name: 'Administration', value: '1', extension: 'times/day' },
-      { name: 'Treatment Period', value: '12', extension: 'months' },
-    ],
     'Gene Therapy': [
       { name: 'Vector Dose', value: '1e12', extension: 'vg/kg' },
       { name: 'Expression Level', value: '80', extension: '%' },
       { name: 'Monitoring Period', value: '24', extension: 'weeks' },
     ],
   });
+
+  const [targetedTherapyNodes, setTargetedTherapyNodes] = useState<TargetedTherapyNode[]>([
+    { id: 'tt1', nodeId: '', modulationMode: 'inhibit', value: '100', extension: 'nM' },
+  ]);
+
   const [selectedTherapy, setSelectedTherapy] = useState<string | null>(null);
   const [newPropertyName, setNewPropertyName] = useState('');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -86,6 +94,35 @@ export function TherapeuticsPanel({
     'times/day', 'times/week', 'days', 'weeks', 'months',
     'cycles', 'units', 'IU'
   ];
+
+  const modulationModes = ['inhibit', 'activate', 'enhance', 'suppress', 'modulate'];
+
+  const handleAddTargetedNode = () => {
+    setTargetedTherapyNodes(prev => [
+      ...prev,
+      { 
+        id: `tt${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, 
+        nodeId: '', 
+        modulationMode: 'inhibit', 
+        value: '', 
+        extension: 'nM' 
+      }
+    ]);
+  };
+
+  const handleRemoveTargetedNode = (id: string) => {
+    setTargetedTherapyNodes(prev => prev.filter(node => node.id !== id));
+  };
+
+  const handleUpdateTargetedNode = (
+    id: string,
+    field: 'nodeId' | 'modulationMode' | 'value' | 'extension',
+    value: string
+  ) => {
+    setTargetedTherapyNodes(prev =>
+      prev.map(node => node.id === id ? { ...node, [field]: value } : node)
+    );
+  };
 
   useEffect(() => {
     if (existingTherapies && Array.isArray(existingTherapies)) {
@@ -484,6 +521,123 @@ export function TherapeuticsPanel({
                   </CollapsibleContent>
                 </Collapsible>
               ))}
+
+              {/* Targeted Therapy Section */}
+              <Collapsible defaultOpen className="border rounded-md text-xs">
+                <div className="flex items-center justify-between px-2 py-1.5">
+                  <CollapsibleTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="flex-1 justify-start h-6 text-xs font-medium px-1"
+                      onClick={() => setSelectedTherapy(selectedTherapy === 'Targeted Therapy' ? null : 'Targeted Therapy')}
+                    >
+                      <ChevronsUpDown className="size-2.5 mr-1 flex-shrink-0" />
+                      <span className="truncate text-left">Targeted Therapy</span>
+                    </Button>
+                  </CollapsibleTrigger>
+                  <Badge variant="outline" className="text-[10px]">
+                    {targetedTherapyNodes.length}
+                  </Badge>
+                </div>
+
+                <CollapsibleContent className="px-2 py-1 border-t space-y-1">
+                  {targetedTherapyNodes.length === 0 ? (
+                    <p className="text-[9px] text-muted-foreground italic">No target nodes</p>
+                  ) : (
+                    <div className="space-y-1">
+                      {targetedTherapyNodes.map((targetNode) => (
+                        <div
+                          key={targetNode.id}
+                          className="border rounded p-1 bg-background group"
+                        >
+                          <div className="flex items-center gap-0.5">
+                            {/* Target Node Dropdown */}
+                            <Select
+                              value={targetNode.nodeId}
+                              onValueChange={(value) => handleUpdateTargetedNode(targetNode.id, 'nodeId', value)}
+                            >
+                              <SelectTrigger className="h-5 text-xs flex-1 px-1 py-0.5">
+                                <SelectValue placeholder="Node" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {nodes.map((node) => (
+                                  <SelectItem key={node.id} value={node.id} className="text-xs">
+                                    {node.label || node.id}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+
+                            {/* Modulation Mode Dropdown */}
+                            <Select
+                              value={targetNode.modulationMode}
+                              onValueChange={(value) => handleUpdateTargetedNode(targetNode.id, 'modulationMode', value)}
+                            >
+                              <SelectTrigger className="h-5 text-xs w-20 px-1 py-0.5">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {modulationModes.map((mode) => (
+                                  <SelectItem key={mode} value={mode} className="text-xs">
+                                    {mode}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+
+                            {/* Value Input */}
+                            <Input
+                              placeholder="Val"
+                              value={targetNode.value}
+                              onChange={(e) => handleUpdateTargetedNode(targetNode.id, 'value', e.target.value)}
+                              className="h-5 text-xs w-16 px-1 py-0.5"
+                            />
+
+                            {/* Extension Dropdown */}
+                            <Select
+                              value={targetNode.extension}
+                              onValueChange={(value) => handleUpdateTargetedNode(targetNode.id, 'extension', value)}
+                            >
+                              <SelectTrigger className="h-5 w-14 text-[8px] px-0.5 py-0.5">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {availableExtensions.map((ext) => (
+                                  <SelectItem key={ext} value={ext} className="text-xs">
+                                    {ext}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+
+                            {/* Remove Button */}
+                            <button
+                              onClick={() => handleRemoveTargetedNode(targetNode.id)}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-red-500 hover:text-red-700 flex-shrink-0"
+                            >
+                              <Trash2 className="size-2.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Add Target Node Button */}
+                  <div className="flex gap-0.5 pt-0.5 border-t mt-0.5">
+                    <Button
+                      onClick={handleAddTargetedNode}
+                      size="sm"
+                      className="h-5 px-1 flex-1"
+                      variant="default"
+                    >
+                      <Plus className="size-2 mr-0.5" />
+                      Add Target
+                    </Button>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             </div>
           </CollapsibleContent>
         </Collapsible>
