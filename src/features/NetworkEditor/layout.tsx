@@ -58,7 +58,19 @@ export interface NetworkEditorLayoutProps {
   };
 }
 
-type TabType = 'projects' | 'network-inference' | 'network' | 'therapeutics' | 'env' | 'cell-circuits' | 'cell-lines' | 'simulation' | 'analysis' | 'results' | 'autonetcan';
+export type TabType =
+  | 'projects'
+  | 'seq-data-analysis'
+  | 'network-inference'
+  | 'network'
+  | 'therapeutics'
+  | 'env'
+  | 'cell-circuits'
+  | 'cell-lines'
+  | 'simulation'
+  | 'analysis'
+  | 'results'
+  | 'autonetcan';
 
 export default function NetworkEditorLayout({
   children,
@@ -111,6 +123,7 @@ export default function NetworkEditorLayout({
 
   const tabs = [
     { id: 'projects' as TabType, label: 'Projects', icon: Folder, color: 'text-blue-600' },
+    { id: 'seq-data-analysis' as TabType, label: 'Seq Analysis', icon: BarChart3, color: 'text-sky-600' },
     { id: 'network' as TabType, label: 'Manual Network Construction', icon: Network, color: 'text-green-600' },
     { id: 'autonetcan' as TabType, label: 'AutoNetCan', icon: Cpu, color: 'text-teal-600' },
     { id: 'network-inference' as TabType, label: 'Network Analysis', icon: Waypoints, color: 'text-purple-600' },
@@ -120,6 +133,7 @@ export default function NetworkEditorLayout({
     { id: 'cell-lines' as TabType, label: 'Cell Lines', icon: LineSquiggle, color: 'text-pink-600' },
     { id: 'simulation' as TabType, label: 'Simulation', icon: Cpu, color: 'text-cyan-600' },
     { id: 'analysis' as TabType, label: 'Analysis', icon: LineChart, color: 'text-orange-600' },
+    { id: 'results' as TabType, label: 'Results', icon: Download, color: 'text-emerald-600' },
   ];
 
   return (
@@ -712,20 +726,6 @@ function AutoNetCanSidebar() {
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium">About AutoNetCan</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm text-muted-foreground">
-          <p>
-            AutoNetCan is an automated web server to construct biomolecular networks for translational cancer systems biology.
-          </p>
-          <p>
-            It integrates omics datasets, pathway databases, and interactome resources to build Boolean network models.
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium">Quick Actions</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -745,34 +745,6 @@ function AutoNetCanSidebar() {
             <Download className="w-4 h-4" />
             Download User Manual
           </Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium">Pipeline Steps</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-xs text-muted-foreground">
-          <div className="flex items-start gap-2">
-            <Badge variant="outline" className="text-xs">1</Badge>
-            <span>Acquisition of Nodes</span>
-          </div>
-          <div className="flex items-start gap-2">
-            <Badge variant="outline" className="text-xs">2</Badge>
-            <span>Node Enrichment</span>
-          </div>
-          <div className="flex items-start gap-2">
-            <Badge variant="outline" className="text-xs">3</Badge>
-            <span>Connecting Maps & Interactome</span>
-          </div>
-          <div className="flex items-start gap-2">
-            <Badge variant="outline" className="text-xs">4</Badge>
-            <span>Logical Modeling</span>
-          </div>
-          <div className="flex items-start gap-2">
-            <Badge variant="outline" className="text-xs">5</Badge>
-            <span>In-Silico Cancer Models</span>
-          </div>
         </CardContent>
       </Card>
     </div>

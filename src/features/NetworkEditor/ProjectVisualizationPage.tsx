@@ -40,7 +40,7 @@ type ProjectRecord = {
 
 // network records provided by useProjectNetworks
 
-type TabType = 'projects' | 'network' | 'therapeutics' | 'analysis' | 'results' | 'network-inference' | 'env' | 'cell-circuits' | 'cell-lines' | 'simulation' | 'autonetcan';
+type TabType = 'projects' | 'seq-data-analysis' | 'network' | 'therapeutics' | 'analysis' | 'results' | 'network-inference' | 'env' | 'cell-circuits' | 'cell-lines' | 'simulation' | 'autonetcan';
 
 const MAX_RECENT_NETWORKS = 10;
 
@@ -896,9 +896,6 @@ function ProjectVisualizationPage() {
     setIsImportOpen(true);
   }, []);
 
-  
-
-  
 
   const onPickRulesFile = async (file?: File | null) => {
     try {
@@ -1786,6 +1783,21 @@ function ProjectVisualizationPage() {
           </div>
         );
       }
+
+      case 'seq-data-analysis':
+        return (
+          <div className="flex h-full flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b bg-background/95 backdrop-blur-sm">
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-semibold">Sequencing Data Analysis</h2>
+              </div>
+            </div>
+            
+            {/* Main Content */}
+            
+          </div>
+        );
 
       case 'projects':
         return (

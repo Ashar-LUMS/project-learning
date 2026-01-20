@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '@/components/ui/toast';
 import NetworkEditorLayout from './layout';
-import type { NetworkEditorLayoutProps } from './layout';
+import type { NetworkEditorLayoutProps, TabType } from './layout';
 import ProjectTabComponent from './tabs/ProjectTab';
+
 import NetworkGraph, { type NetworkGraphHandle } from './NetworkGraph';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -34,7 +35,7 @@ function NetworkEditorPage() {
     console.log('[NetworkEditorPage] Render #' + (window as any).__networkEditorPageRenderCount);
   }
   const { showToast } = useToast();
-  const [activeTab, setActiveTab] = useState<'projects' | 'network' | 'therapeutics' | 'analysis' | 'results' | 'network-inference' | 'env' | 'cell-circuits' | 'cell-lines' | 'simulation' | 'autonetcan'>('projects');
+  const [activeTab, setActiveTab] = useState<TabType>('projects');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   // networks managed via hook now
   const [rulesText, setRulesText] = useState('');
@@ -426,6 +427,21 @@ function NetworkEditorPage() {
 
   const renderMainContent = () => {
     switch (activeTab) {
+      case 'seq-data-analysis':
+        return (
+          <div className="flex h-full flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b bg-background/95 backdrop-blur-sm">
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-semibold">Sequencing Data Analysis</h2>
+              </div>
+            </div>
+            
+            {/* Main Content */}
+            
+          </div>
+        );
+
       case 'projects':
         return (
           <div className="h-full">
@@ -977,7 +993,7 @@ function NetworkEditorPage() {
     <>
       <NetworkEditorLayout
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={(tab: TabType) => setActiveTab(tab)}
         inferenceActions={inferenceActionsObj}
       >
         {renderMainContent()}
