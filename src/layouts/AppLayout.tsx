@@ -294,7 +294,7 @@ const AppLayout = () => {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50 text-gray-800 font-sans antialiased">
+    <div className="flex flex-col h-screen overflow-hidden bg-gray-50 text-gray-800 font-sans antialiased">
       {/* Global Banner from Admin Settings */}
       {adminSettings?.banner?.enabled && adminSettings?.banner?.text ? (
         <div role="status" className="w-full border-b">
@@ -493,13 +493,6 @@ const AppLayout = () => {
       <Outlet context={{ activeRole }} />
 
       {/* Auth Debug removed */}
-
-      {/* Footer */}
-      <footer className="bg-white border-t border-gray-100 py-6 mt-auto">
-        <div className="container mx-auto px-4 text-center">
-          <p className="text-gray-500 text-sm">&copy; 2025 TISON - BIRL&trade; All rights reserved.</p>
-        </div>
-      </footer>
     </div>
   );
 };

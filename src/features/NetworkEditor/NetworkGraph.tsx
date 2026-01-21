@@ -1316,17 +1316,9 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
         <div className="px-3 py-1 flex items-center justify-between">
           <div className="flex items-center gap-4">
             {hasModifications && (
-              <Card className="bg-white">
-                <CardContent className="p-2">
-                  <div className="flex items-center gap-4 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-orange-600 border-orange-300">
-                        Unsaved Changes
-                      </Badge>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <Badge variant="outline" className="text-orange-600 border-orange-300">
+                Unsaved Changes
+              </Badge>
             )}
           </div>
 
@@ -1393,20 +1385,9 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
               variant={tool === 'select' ? 'default' : 'ghost'}
               onClick={() => setTool('select')}
               className={`h-10 w-10 rounded-lg transition-all ${tool === 'select' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-100'}`}
-              title="Select tool"
+              title="Select"
           >
             <CursorIcon />
-          </Button>
-
-          <Button
-            size="icon"
-            variant={tool === 'add-node' ? 'default' : 'ghost'}
-            onClick={() => setTool('add-node')}
-            disabled={isRuleBased}
-            className={`h-10 w-10 rounded-lg transition-all ${tool === 'add-node' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-100'} disabled:opacity-40`}
-            title="Add node tool"
-          >
-            <PlusIcon />
           </Button>
 
           <Button
@@ -1448,7 +1429,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                 }
               }, 50);
             }}
-            title="Quick add node at center"
+            title="Add node"
           >
             <CircleIcon />
           </Button>
@@ -1469,7 +1450,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
               }
             }}
             disabled={isRuleBased}
-            title="Add edge tool"
+            title="Add edge"
           >
             <LinkIcon />
           </Button>
@@ -1482,7 +1463,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
             onClick={() => setTool('delete')}
             disabled={isRuleBased}
             className={`h-10 w-10 rounded-lg transition-all ${tool === 'delete' ? 'bg-red-600 text-white shadow-md' : 'hover:bg-red-50 hover:text-red-600'} disabled:opacity-40`}
-            title="Delete tool"
+            title="Delete"
           >
             <TrashIcon />
           </Button>
@@ -1926,11 +1907,6 @@ const CursorIcon = () => (
   </svg>
 );
 
-const PlusIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M12 5v14M5 12h14" />
-  </svg>
-);
 
 const CircleIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

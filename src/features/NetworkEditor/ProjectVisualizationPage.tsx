@@ -1097,10 +1097,10 @@ function ProjectVisualizationPage() {
             : "border-transparent bg-card hover:border-muted hover:bg-muted"
         )}
       >
-        <div className="flex items-center justify-between gap-3 min-w-0">
-          <span className="text-sm font-medium text-foreground truncate">{network.name}</span>
+        <div className="flex items-start justify-between gap-3">
+          <span className="text-sm font-medium text-foreground break-words flex-1 min-w-0">{network.name}</span>
           {isActive && (
-            <span className="text-[10px] uppercase tracking-wide text-primary">Active</span>
+            <span className="text-[10px] uppercase tracking-wide text-primary flex-shrink-0 whitespace-nowrap">Active</span>
           )}
         </div>
         {createdLabel && (
@@ -1113,7 +1113,7 @@ function ProjectVisualizationPage() {
   // removed local timestamp formatter in favor of shared utility
 
   const networkSidebarContent = (
-    <div className="p-4 space-y-4">
+    <div className="space-y-4">
       <div className="space-y-2">
         <button
           type="button"
@@ -1431,11 +1431,11 @@ function ProjectVisualizationPage() {
             </div>
             
             {/* Full-height Content */}
-            <div className="flex-1 min-h-0">
+            <div className="flex-1 min-h-0 flex flex-col">
               {networkSubTab === 'editor' && (
                 <>
                   {!selectedNetworkId ? (
-                    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                    <div className="flex-1 flex items-center justify-center text-xl font-bold text-foreground">
                       Link a network to this project to get started.
                     </div>
                   ) : (
