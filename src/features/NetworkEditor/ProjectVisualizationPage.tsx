@@ -1378,6 +1378,8 @@ function ProjectVisualizationPage() {
                   </TabsList>
                 </Tabs>
                 <Separator orientation="vertical" className="h-5" />
+              </div>
+              <div className="flex items-center gap-3">
                 <span className="text-sm font-medium truncate max-w-[200px]">
                   {selectedNetwork?.name ?? 'No Network'}
                 </span>
@@ -1391,42 +1393,24 @@ function ProjectVisualizationPage() {
                     </Badge>
                   </div>
                 )}
-              </div>
-              <div className="hidden md:flex items-center gap-2">
-                {/* Determine if selected network is rule-based to disable updates */}
-                {/* Support networks with rules or metadata.type === 'Rule based' */}
-                
-                {/* eslint-disable-next-line @typescript-eslint/no-unused-vars */}
-                {(() => {
-                  return null;
-                })()}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!selectedNetworkId || networkSubTab !== 'editor'}
-                  onClick={() => networkGraphRef.current?.fitToView()}
-                >
-                  Fit to View
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!selectedNetworkId || networkSubTab !== 'editor'}
-                  //disabled={true}
-                  onClick={() => networkGraphRef.current?.saveAsNew()}
-                >
-                  Save as new Weight-Based
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!selectedNetworkId || networkSubTab !== 'editor' || ((selectedNetwork?.data?.metadata?.type === 'Rule based') || (Array.isArray(selectedNetwork?.data?.rules) && selectedNetwork?.data?.rules.length > 0))}
-                  //disabled={true}
-                  title={((selectedNetwork?.data?.metadata?.type === 'Rule based') || (Array.isArray(selectedNetwork?.data?.rules) && selectedNetwork?.data?.rules.length > 0)) ? 'Cannot update Rule based network' : undefined}
-                  onClick={() => networkGraphRef.current?.updateCurrent()}
-                >
-                  Update Current
-                </Button>
+                {selectedNetworkId && networkSubTab === 'editor' && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => networkGraphRef.current?.fitToView()}
+                    >
+                      Fit to View
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => networkGraphRef.current?.updateCurrent()}
+                    >
+                      Save
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
             
@@ -1444,7 +1428,6 @@ function ProjectVisualizationPage() {
                       networkId={selectedNetworkId} 
                       projectId={projectId} 
                       refreshToken={networkGraphRefreshToken}
-                      hideHeaderActions
                       onSaved={(newNetwork) => {
                       setNetworks(prev => {
                         const existingIndex = prev.findIndex(n => n.id === newNetwork.id);

@@ -53,6 +53,7 @@ type Props = {
   refreshToken?: number;
   projectId?: string | null;
   onSaved?: (network: { id: string; name: string; created_at: string | null; data: any }) => void;
+  onModificationsChange?: (hasModifications: boolean) => void;
   overrideNetworkData?: NetworkData | null;
   readOnly?: boolean;
   hideControls?: boolean;
@@ -65,6 +66,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
   refreshToken = 0,
   projectId = null,
   onSaved,
+  onModificationsChange,
   overrideNetworkData = null,
   readOnly = false,
   hideControls = false,
@@ -714,15 +716,6 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
     }
   };
 
-  // Reset all local modifications
-  const resetModifications = () => {
-    setLocalNodes([]);
-    setLocalEdges([]);
-    setDeletedNodeIds(new Set());
-    setDeletedEdgeIds(new Set());
-    setManualRefresh(prev => prev + 1);
-  };
-
   // Cytoscape initialization (initialize once; retry when inputs change)
   useEffect(() => {
     if (!containerRef.current) {
@@ -1241,8 +1234,14 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
   // Check if there are any modifications
   const hasModifications = localNodes.length > 0 || localEdges.length > 0 || deletedNodeIds.size > 0 || deletedEdgeIds.size > 0;
 
+  // Notify parent when modifications change
+  useEffect(() => {
+    onModificationsChange?.(hasModifications);
+  }, [hasModifications, onModificationsChange]);
+
   // Expose live weighted configuration (nodes/edges from current Cytoscape view, tieBehavior always 'hold')
   useImperativeHandle(ref, () => ({
+    hasModifications,
     getLiveWeightedConfig: () => {
       if (!cyRef.current) return null;
       try {
@@ -1283,8 +1282,12 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
       if (readOnly) return;
       if (!networkId) return;
       void saveNetwork(true);
+    },
+    saveNetwork: (update: boolean) => {
+      if (readOnly) return;
+      void saveNetwork(update);
     }
-  }), [networkId, readOnly]);
+  }), [networkId, readOnly, hasModifications]);
 
   // Skip loading check when override data is provided
   if (isLoading && !overrideNetworkData) {
@@ -1311,69 +1314,14 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
 
   return (
     <div className="w-full h-full flex flex-col bg-white rounded-xl border shadow-sm overflow-hidden min-h-[800px]">
-      {/* Header - Fixed at top */}
-      <div className="flex-shrink-0 border-b bg-white z-30">
-        <div className="px-3 py-1 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            {hasModifications && (
-              <Badge variant="outline" className="text-orange-600 border-orange-300">
-                Unsaved Changes
-              </Badge>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            {hasModifications && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={resetModifications}
-              >
-                Reset Changes
-              </Button>
-            )}
-
-            {!hideHeaderActions && (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    if (cyRef.current) {
-                      cyRef.current.fit(undefined, 60);
-                    }
-                  }}
-                >
-                  Fit to View
-                </Button>
-                {!readOnly && (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => saveNetwork(false)}
-                    >
-                      Save As New
-                    </Button>
-
-                    {networkId && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => saveNetwork(true)}
-                        disabled={isRuleBased}
-                        title={isRuleBased ? 'Cannot update Rule based network' : undefined}
-                      >
-                        Update Current
-                      </Button>
-                    )}
-                  </>
-                )}
-              </>
-            )}
-          </div>
+      {/* Minimal header with unsaved changes badge */}
+      {!hideHeaderActions && hasModifications && (
+        <div className="flex-shrink-0 border-b bg-white z-30 px-3 py-1">
+          <Badge variant="outline" className="text-orange-600 border-orange-300">
+            Unsaved Changes
+          </Badge>
         </div>
-      </div>
+      )}
 
       {/* Main Content Area */}
       <div className="flex-1 flex relative min-h-0">
