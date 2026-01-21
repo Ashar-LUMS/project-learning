@@ -444,7 +444,8 @@ const HomePage: React.FC = () => {
   }, [users, editTeamSearch]);
 
   return (
-    <main className="flex-grow container mx-auto px-4 py-8">
+    <main className="flex-1 overflow-y-auto">
+      <div className="container mx-auto px-4 py-8">
       {/* Header Section */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-3">
@@ -1058,6 +1059,7 @@ const HomePage: React.FC = () => {
           animation: fadeIn 0.3s ease-out;
         }
       `}</style>
+      </div>
     </main>
   );
 };

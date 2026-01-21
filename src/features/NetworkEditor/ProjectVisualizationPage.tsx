@@ -1200,6 +1200,34 @@ function ProjectVisualizationPage() {
               Select a network in the Network tab first to configure interventions.
             </p>
           </div>
+
+          {/* Show available networks even when none is selected */}
+          {networks && networks.length > 0 && (
+            <div className="space-y-3">
+              <Separator />
+              <div>
+                <h3 className="text-sm font-semibold mb-2">Available Networks</h3>
+                <div className="space-y-1">
+                  {networks.map((net) => (
+                    <Button
+                      key={net.id}
+                      variant="ghost"
+                      className="w-full justify-start h-8 text-xs font-normal"
+                      onClick={() => {
+                        selectNetwork(net.id);
+                        setActiveTab('therapeutics');
+                      }}
+                    >
+                      <Badge variant="outline" className="mr-2 text-[10px]">
+                        {net.data?.nodes?.length || 0}
+                      </Badge>
+                      {net.name}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
@@ -1242,6 +1270,34 @@ function ProjectVisualizationPage() {
             Configure interventions for {selectedNetwork.name || 'this network'}
           </p>
         </div>
+
+        {/* Show available networks when one is selected */}
+        {networks && networks.length > 1 && (
+          <div className="space-y-2">
+            <h3 className="text-xs font-semibold text-muted-foreground">Networks in Project</h3>
+            <div className="space-y-1 max-h-32 overflow-y-auto">
+              {networks.map((net) => (
+                <Button
+                  key={net.id}
+                  variant={net.id === selectedNetworkId ? "secondary" : "ghost"}
+                  className="w-full justify-start h-7 text-xs font-normal"
+                  onClick={() => {
+                    selectNetwork(net.id);
+                  }}
+                >
+                  <Badge variant="outline" className="mr-2 text-[10px]">
+                    {net.data?.nodes?.length || 0}
+                  </Badge>
+                  <span className={cn("truncate", net.id === selectedNetworkId && "font-medium")}>
+                    {net.name}
+                  </span>
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <Separator />
 
         <TherapeuticsPanel
           networkId={selectedNetworkId}
@@ -1327,7 +1383,7 @@ function ProjectVisualizationPage() {
         </div>
       </div>
     );
-  }, [selectedNetworkId, selectedNetwork, refreshNetworks, liveInterventions, therapeuticsWeightedResult, therapeuticsProbabilisticResult, therapeuticsRuleBasedResult, isTherapeuticsWeightedRunning, isTherapeuticsProbabilisticRunning, isTherapeuticsRuleBasedRunning, handleTherapeuticsWeighted, handleTherapeuticsRuleBased]);
+  }, [selectedNetworkId, selectedNetwork, networks, selectNetwork, setActiveTab, refreshNetworks, liveInterventions, therapeuticsWeightedResult, therapeuticsProbabilisticResult, therapeuticsRuleBasedResult, isTherapeuticsWeightedRunning, isTherapeuticsProbabilisticRunning, isTherapeuticsRuleBasedRunning, handleTherapeuticsWeighted, handleTherapeuticsRuleBased]);
 
   const renderMainContent = () => {
     if (!projectId) {
@@ -1591,9 +1647,7 @@ function ProjectVisualizationPage() {
                       </div>
                     ))}
                   </div>
-                ) : (
-                  <div className="text-sm text-muted-foreground">Use the sidebar "Perform DA" button to run rule-based analysis on this network.</div>
-                )}
+                ) : null}
 
                 {isWeightedAnalyzing && (
                   <div className="text-sm text-muted-foreground">Running weighted deterministic analysis…</div>

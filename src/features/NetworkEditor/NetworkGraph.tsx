@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react";
+import React, { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle, useCallback } from "react";
 import cytoscape, { type Core } from "cytoscape";
 import { supabase } from '../../supabaseClient';
 import { useNetworkData } from '../../hooks/useNetworkData';
@@ -94,15 +94,65 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
     setManualRefresh((p) => p + 1);
   }, [networkId]);
 
+  // Helper to get cache key for this network
+  const getCacheKey = useCallback((key: string) => networkId ? `network_${networkId}_${key}` : null, [networkId]);
+
+  // Load cached modifications from localStorage
+  const loadCachedModifications = useCallback(() => {
+    if (!networkId) return { nodes: [], edges: [], deletedNodes: new Set<string>(), deletedEdges: new Set<string>() };
+    
+    try {
+      const nodesKey = getCacheKey('localNodes');
+      const edgesKey = getCacheKey('localEdges');
+      const deletedNodesKey = getCacheKey('deletedNodeIds');
+      const deletedEdgesKey = getCacheKey('deletedEdgeIds');
+      
+      const cachedNodes = nodesKey ? localStorage.getItem(nodesKey) : null;
+      const cachedEdges = edgesKey ? localStorage.getItem(edgesKey) : null;
+      const cachedDeletedNodes = deletedNodesKey ? localStorage.getItem(deletedNodesKey) : null;
+      const cachedDeletedEdges = deletedEdgesKey ? localStorage.getItem(deletedEdgesKey) : null;
+      
+      return {
+        nodes: cachedNodes ? JSON.parse(cachedNodes) : [],
+        edges: cachedEdges ? JSON.parse(cachedEdges) : [],
+        deletedNodes: cachedDeletedNodes ? new Set<string>(JSON.parse(cachedDeletedNodes)) : new Set<string>(),
+        deletedEdges: cachedDeletedEdges ? new Set<string>(JSON.parse(cachedDeletedEdges)) : new Set<string>(),
+      };
+    } catch (error) {
+      console.error('[NetworkGraph] Failed to load cached modifications:', error);
+      return { nodes: [], edges: [], deletedNodes: new Set<string>(), deletedEdges: new Set<string>() };
+    }
+  }, [networkId, getCacheKey]);
+
+  // Clear cached modifications from localStorage
+  const clearCachedModifications = useCallback(() => {
+    if (!networkId) return;
+    
+    try {
+      const nodesKey = getCacheKey('localNodes');
+      const edgesKey = getCacheKey('localEdges');
+      const deletedNodesKey = getCacheKey('deletedNodeIds');
+      const deletedEdgesKey = getCacheKey('deletedEdgeIds');
+      
+      if (nodesKey) localStorage.removeItem(nodesKey);
+      if (edgesKey) localStorage.removeItem(edgesKey);
+      if (deletedNodesKey) localStorage.removeItem(deletedNodesKey);
+      if (deletedEdgesKey) localStorage.removeItem(deletedEdgesKey);
+    } catch (error) {
+      console.error('[NetworkGraph] Failed to clear cached modifications:', error);
+    }
+  }, [networkId, getCacheKey]);
+
   // When the selected network changes, clear any local modifications and
   // reinitialize the Cytoscape instance to avoid showing the previous
   // network's elements (fixes stale canvas after switching networks).
   useEffect(() => {
-    // Clear in-memory edits/selection
-    setLocalNodes([]);
-    setLocalEdges([]);
-    setDeletedNodeIds(new Set());
-    setDeletedEdgeIds(new Set());
+    // Load cached modifications for the new network
+    const cached = loadCachedModifications();
+    setLocalNodes(cached.nodes);
+    setLocalEdges(cached.edges);
+    setDeletedNodeIds(cached.deletedNodes);
+    setDeletedEdgeIds(cached.deletedEdges);
     setSelectedNode(null);
     setSelectedEdge(null);
     setEdgeSourceId(null);
@@ -119,7 +169,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
 
     // bump manual refresh so hooks relying on it will refetch
     setManualRefresh(p => p + 1);
-  }, [networkId]);
+  }, [networkId, loadCachedModifications]);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const cyRef = useRef<Core | null>(null);
@@ -156,11 +206,30 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
   const defaultNodeWeight = 1;
   const defaultEdgeWeight = 1;
 
-  // State for tracking modifications
-  const [localNodes, setLocalNodes] = useState<Node[]>([]);
-  const [localEdges, setLocalEdges] = useState<Edge[]>([]);
-  const [deletedNodeIds, setDeletedNodeIds] = useState<Set<string>>(new Set());
-  const [deletedEdgeIds, setDeletedEdgeIds] = useState<Set<string>>(new Set());
+  // State for tracking modifications (initialized from cache)
+  const [localNodes, setLocalNodes] = useState<Node[]>(() => loadCachedModifications().nodes);
+  const [localEdges, setLocalEdges] = useState<Edge[]>(() => loadCachedModifications().edges);
+  const [deletedNodeIds, setDeletedNodeIds] = useState<Set<string>>(() => loadCachedModifications().deletedNodes);
+  const [deletedEdgeIds, setDeletedEdgeIds] = useState<Set<string>>(() => loadCachedModifications().deletedEdges);
+
+  // Save modifications to localStorage whenever they change
+  useEffect(() => {
+    if (!networkId) return;
+    
+    try {
+      const nodesKey = getCacheKey('localNodes');
+      const edgesKey = getCacheKey('localEdges');
+      const deletedNodesKey = getCacheKey('deletedNodeIds');
+      const deletedEdgesKey = getCacheKey('deletedEdgeIds');
+      
+      if (nodesKey) localStorage.setItem(nodesKey, JSON.stringify(localNodes));
+      if (edgesKey) localStorage.setItem(edgesKey, JSON.stringify(localEdges));
+      if (deletedNodesKey) localStorage.setItem(deletedNodesKey, JSON.stringify(Array.from(deletedNodeIds)));
+      if (deletedEdgesKey) localStorage.setItem(deletedEdgesKey, JSON.stringify(Array.from(deletedEdgeIds)));
+    } catch (error) {
+      console.error('[NetworkGraph] Failed to save modifications to cache:', error);
+    }
+  }, [localNodes, localEdges, deletedNodeIds, deletedEdgeIds, networkId]);
 
   // Use override data if provided, otherwise use fetched network data
   const effectiveNetworkData = overrideNetworkData || network;
@@ -630,6 +699,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
           setLocalEdges([]);
           setDeletedNodeIds(new Set());
           setDeletedEdgeIds(new Set());
+          clearCachedModifications();
           // Trigger refresh to reload updated data from database
           setManualRefresh(p => p + 1);
           try { onSaved?.(updatedNetwork); } catch (e) { }
@@ -669,6 +739,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
           setLocalEdges([]);
           setDeletedNodeIds(new Set());
           setDeletedEdgeIds(new Set());
+          clearCachedModifications();
           try {
             const newNetworkId = data.id as string;
             if (projectId) {

@@ -26,7 +26,8 @@ import {
   Users,
   User,
   PanelLeftClose,
-  PanelLeft
+  PanelLeft,
+  ChevronDown
 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -529,87 +530,184 @@ function NetworkSidebar() {
 
 // Enhanced Network Analysis Sidebar
 function NetworkAnalysisSidebar({ actions }: { actions?: NetworkEditorLayoutProps['inferenceActions'] }) {
+  const [expandedSections, setExpandedSections] = React.useState<Set<string>>(new Set(['deterministic', 'probabilistic']));
+
+  const toggleSection = (section: string) => {
+    const newExpanded = new Set(expandedSections);
+    if (newExpanded.has(section)) {
+      newExpanded.delete(section);
+    } else {
+      newExpanded.add(section);
+    }
+    setExpandedSections(newExpanded);
+  };
+
   return (
-    <div className="flex flex-col h-full gap-4">
+    <div className="flex flex-col h-full gap-2">
       {/* Header */}
-      <div className="flex-shrink-0 space-y-2">
-        <h2 className="text-2xl font-bold tracking-tight text-foreground">Network Inference</h2>
-        <div className="text-xs">
-          {actions?.hasResult ? (
-            <span className="text-green-600 font-medium">✓ Results available</span>
-          ) : (
-            <span className="text-muted-foreground">Run analysis to see results</span>
-          )}
-        </div>
-        <Separator />
+      <div className="flex-shrink-0">
+        <h2 className="text-lg font-bold tracking-tight text-foreground">Network Inference</h2>
       </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium">Actions</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="space-y-1">
-            <Button
-              className="w-full justify-start gap-3 h-11 px-4"
-              onClick={() => actions?.run?.()}
-              disabled={Boolean(actions?.isRunning) || !Boolean(actions?.isRuleBased)}
-              title={!actions?.isRuleBased ? 'Rule-based deterministic analysis only' : undefined}
-            >
-              <Play className="w-4 h-4" />
-              Perform Rule-based DA
-            </Button>
-            <Button
-              className="w-full justify-start gap-3 h-11 px-4"
-              onClick={() => {
-                console.log('[NetworkAnalysisSidebar] Weighted DA button clicked', {
-                  hasRunWeighted: !!actions?.runWeighted,
-                  isWeightedRunning: actions?.isWeightedRunning,
-                  isRuleBased: actions?.isRuleBased,
-                  actions
-                });
-                if (actions?.isRuleBased) return;
-                actions?.runWeighted?.();
-              }}
-              disabled={actions?.isWeightedRunning || actions?.isRuleBased}
-              variant="secondary"
-              title={actions?.isRuleBased ? 'Weighted analysis disabled for rule-based networks' : undefined}
-            >
-              <Play className="w-4 h-4" />
-              Perform Weighted DA
-            </Button>
-            <Button
-              className="w-full justify-start gap-3 h-11 px-4"
-              onClick={() => {
-                if (!actions) {
-                  console.error('[layout.tsx] actions is null/undefined!');
-                  return;
-                }
-                console.log('[layout.tsx] === BUTTON CLICK DEBUG ===');
-                console.log('[layout.tsx] actions object keys:', Object.keys(actions));
-                console.log('[layout.tsx] Has runProbabilistic?', typeof actions.runProbabilistic);
-                console.log('[layout.tsx] Has isProbabilisticRunning?', typeof actions.isProbabilisticRunning);
-                console.log('[layout.tsx] Calling actions.runProbabilistic...');
-                actions?.runProbabilistic?.();
-              }}
-              disabled={Boolean(actions?.isProbabilisticRunning)}
-              variant="secondary"
-            >
-              <Play className="w-4 h-4" />
-              Perform Probabilistic Analysis
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-3 h-11 px-4"
-              onClick={() => actions?.download?.()}
-              disabled={!actions?.hasResult}
-            >
-              <Download className="w-4 h-4" />
-              Download Results
-            </Button>
+      {/* Analysis Sections */}
+      <div className="flex-1 space-y-1 overflow-y-auto">
+        {/* Deterministic Analysis Section */}
+        <Card className="border-0 bg-card/50">
+          <div
+            className="px-3 py-2 cursor-pointer hover:bg-accent/30 transition-colors flex items-center justify-between rounded-md"
+            onClick={() => toggleSection('deterministic')}
+          >
+            <CardTitle className="text-xs font-semibold">Deterministic Analysis</CardTitle>
+            <ChevronDown
+              className={`w-3 h-3 transition-transform ${expandedSections.has('deterministic') ? 'rotate-180' : ''}`}
+            />
           </div>
-        </CardContent>
-      </Card>
+          {expandedSections.has('deterministic') && (
+            <CardContent className="p-0 pt-1">
+              <div className="space-y-1 px-3 pb-2">
+                {/* Rule-based */}
+                <div>
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Rule-based</p>
+                  <Button
+                    className="w-full justify-start gap-2 h-8 px-2 text-xs"
+                    onClick={() => actions?.run?.()}
+                    disabled={Boolean(actions?.isRunning) || !Boolean(actions?.isRuleBased)}
+                    title={!actions?.isRuleBased ? 'Rule-based deterministic analysis only' : undefined}
+                    size="sm"
+                  >
+                    <Play className="w-3 h-3" />
+                    Run Rule-based
+                  </Button>
+                </div>
+
+                {/* Weight-based */}
+                <div className="pt-1 border-t border-border/40">
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1 pt-1">Weight-based</p>
+                  <Button
+                    className="w-full justify-start gap-2 h-8 px-2 text-xs"
+                    onClick={() => {
+                      console.log('[NetworkAnalysisSidebar] Weighted DA button clicked', {
+                        hasRunWeighted: !!actions?.runWeighted,
+                        isWeightedRunning: actions?.isWeightedRunning,
+                        isRuleBased: actions?.isRuleBased,
+                        actions
+                      });
+                      if (actions?.isRuleBased) return;
+                      actions?.runWeighted?.();
+                    }}
+                    disabled={actions?.isWeightedRunning || actions?.isRuleBased}
+                    variant="secondary"
+                    title={actions?.isRuleBased ? 'Weighted analysis disabled for rule-based networks' : undefined}
+                    size="sm"
+                  >
+                    <Play className="w-3 h-3" />
+                    Run Weighted
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+
+        {/* Probabilistic Analysis Section */}
+        <Card className="border-0 bg-card/50">
+          <div
+            className="px-3 py-2 cursor-pointer hover:bg-accent/30 transition-colors flex items-center justify-between rounded-md"
+            onClick={() => toggleSection('probabilistic')}
+          >
+            <CardTitle className="text-xs font-semibold">Probabilistic Analysis</CardTitle>
+            <ChevronDown
+              className={`w-3 h-3 transition-transform ${expandedSections.has('probabilistic') ? 'rotate-180' : ''}`}
+            />
+          </div>
+          {expandedSections.has('probabilistic') && (
+            <CardContent className="p-0 pt-1">
+              <div className="space-y-1 px-3 pb-2">
+                {/* Rules-based Network Analysis */}
+                <div>
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Rules-based Network</p>
+                  <Button
+                    className="w-full justify-start gap-2 h-8 px-2 text-xs"
+                    onClick={() => {
+                      if (!actions) {
+                        console.error('[layout.tsx] actions is null/undefined!');
+                        return;
+                      }
+                      console.log('[layout.tsx] === BUTTON CLICK DEBUG ===');
+                      console.log('[layout.tsx] actions object keys:', Object.keys(actions));
+                      console.log('[layout.tsx] Has runProbabilistic?', typeof actions.runProbabilistic);
+                      console.log('[layout.tsx] Has isProbabilisticRunning?', typeof actions.isProbabilisticRunning);
+                      console.log('[layout.tsx] Calling actions.runProbabilistic...');
+                      actions?.runProbabilistic?.();
+                    }}
+                    disabled={Boolean(actions?.isProbabilisticRunning)}
+                    variant="secondary"
+                    size="sm"
+                  >
+                    <Play className="w-3 h-3" />
+                    Run Probabilistic
+                  </Button>
+                </div>
+
+                {/* Weight-based Network Analysis */}
+                <div className="pt-1 border-t border-border/40">
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1 pt-1">Weight-based Network</p>
+                  <Button
+                    className="w-full justify-start gap-2 h-8 px-2 text-xs"
+                    variant="secondary"
+                    disabled
+                    title="Coming soon"
+                    size="sm"
+                  >
+                    <Play className="w-3 h-3" />
+                    Run Probabilistic
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+
+        {/* ODE Section */}
+        <Card className="border-0 bg-card/50">
+          <div
+            className="px-3 py-2 cursor-pointer hover:bg-accent/30 transition-colors flex items-center justify-between rounded-md"
+            onClick={() => toggleSection('ode')}
+          >
+            <CardTitle className="text-xs font-semibold">ODE</CardTitle>
+            <ChevronDown
+              className={`w-3 h-3 transition-transform ${expandedSections.has('ode') ? 'rotate-180' : ''}`}
+            />
+          </div>
+          {expandedSections.has('ode') && (
+            <CardContent className="p-0 pt-1">
+              <div className="space-y-1 px-3 pb-2">
+                <Button
+                  className="w-full justify-start gap-2 h-8 px-2 text-xs"
+                  variant="secondary"
+                  disabled
+                  title="Coming soon"
+                  size="sm"
+                >
+                  <Play className="w-3 h-3" />
+                  Run ODE
+                </Button>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+      </div>
+
+      {/* Download Results Button */}
+      <Button
+        variant="outline"
+        className="w-full justify-start gap-2 h-8 px-2 text-xs"
+        onClick={() => actions?.download?.()}
+        disabled={!actions?.hasResult}
+      >
+        <Download className="w-3 h-3" />
+        Download Results
+      </Button>
     </div>
   );
 }
