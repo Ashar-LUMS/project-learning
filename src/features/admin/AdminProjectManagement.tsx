@@ -8,8 +8,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { Label } from "../../components/ui/label";
-import { Search, MoreVertical, Trash2, Edit3, Plus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Folder, Users, Network } from "lucide-react";
+import { Search, MoreVertical, Trash2, Edit3, Plus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Folder, Users, Network, User } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
 
 type Project = {
   id: string;
@@ -21,15 +22,29 @@ type Project = {
   networks?: any[] | null;
 };
 
+interface UserData {
+  id: string;
+  email: string;
+  raw_user_meta_data: {
+    name?: string;
+    roles?: string[];
+    isLocked?: boolean;
+    avatar_url?: string;
+  };
+  created_at?: string;
+}
+
 // Project Info Dialog Component
 const ProjectInfoDialog = ({
   project,
   open,
   onOpenChange,
+  userMap,
 }: {
   project: Project;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  userMap?: Record<string, UserData>;
 }) => {
   const formatDate = (dateString?: string | null) => {
     if (!dateString) return 'Never';
@@ -86,17 +101,44 @@ const ProjectInfoDialog = ({
               <p className="text-sm">{project.creator_email || project.created_by || 'Unknown'}</p>
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-2">
               <Label className="text-sm font-medium text-gray-500">Assignees</Label>
-              <div className="flex flex-wrap gap-1">
-                {(project.assignees || []).length > 0 ? (
-                  <Badge variant="secondary" className="px-2 py-1">
-                    {(project.assignees || []).length} users
-                  </Badge>
-                ) : (
-                  <span className="text-sm text-gray-500">No assignees</span>
-                )}
-              </div>
+              {Array.isArray(project.assignees) && project.assignees.length > 0 ? (
+                <div className="space-y-3">
+                  {project.assignees.map((uid) => {
+                    const user = userMap?.[uid];
+                    return (
+                      <div key={uid} className="flex items-start gap-3 p-2 border rounded-lg">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={user?.raw_user_meta_data?.avatar_url || ''} />
+                          <AvatarFallback>
+                            {(user?.raw_user_meta_data?.name || user?.email || 'U').slice(0,1).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-gray-900">
+                            {user?.raw_user_meta_data?.name || user?.email || uid}
+                          </div>
+                          <div className="text-xs text-gray-600 mt-1">
+                            {user?.email}
+                          </div>
+                          {user?.raw_user_meta_data?.roles && user.raw_user_meta_data.roles.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {user.raw_user_meta_data.roles.map((role) => (
+                                <Badge key={role} variant="secondary" className="px-2 py-0.5 text-xs">
+                                  {role}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <span className="text-sm text-gray-500">No assignees</span>
+              )}
             </div>
 
             <div className="space-y-1">
@@ -231,6 +273,14 @@ export default function AdminProjectManagement() {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [projectForInfo, setProjectForInfo] = useState<Project | null>(null);
 
+  // Assignee management dialog
+  const [isAssigneeDialogOpen, setIsAssigneeDialogOpen] = useState(false);
+  const [assigneeProject, setAssigneeProject] = useState<Project | null>(null);
+  const [users, setUsers] = useState<UserData[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
+  const [userMap, setUserMap] = useState<Record<string, UserData>>({});
+
   // Form states
   const [newProject, setNewProject] = useState({
     name: "",
@@ -303,6 +353,85 @@ export default function AdminProjectManagement() {
     return () => { mounted = false };
   }, []);
 
+  // Fetch users on mount to ensure details are available across views
+  useEffect(() => {
+    let mounted = true;
+    const fetchUsersInitial = async () => {
+      setUsersLoading(true);
+      try {
+        const { data, error } = await supabase.rpc("get_users_as_admin");
+        if (error) throw error;
+        const list = (data as UserData[]) || [];
+        if (mounted) {
+          setUsers(list);
+          const map: Record<string, UserData> = {};
+          for (const u of list) {
+            map[u.id] = u;
+            if (u.email) map[u.email] = u; // allow email-based lookup fallback
+          }
+          setUserMap(map);
+        }
+      } catch (err: any) {
+        setErrorMessage(err?.message || "Failed to load users");
+      } finally {
+        setUsersLoading(false);
+      }
+    };
+    fetchUsersInitial();
+    return () => { mounted = false };
+  }, []);
+
+  // Fetch users for assignments when dialog opens
+  useEffect(() => {
+    let mounted = true;
+    const fetchUsers = async () => {
+      if (!isAssigneeDialogOpen) return;
+      setUsersLoading(true);
+      try {
+        const { data, error } = await supabase.rpc("get_users_as_admin");
+        if (error) throw error;
+        const list = (data as UserData[]) || [];
+        if (mounted) {
+          setUsers(list);
+          const map: Record<string, UserData> = {};
+          for (const u of list) {
+            map[u.id] = u;
+            if (u.email) map[u.email] = u;
+          }
+          setUserMap(map);
+        }
+      } catch (err: any) {
+        setErrorMessage(err?.message || "Failed to load users");
+      } finally {
+        setUsersLoading(false);
+      }
+    };
+    fetchUsers();
+    return () => { mounted = false };
+  }, [isAssigneeDialogOpen]);
+
+  // Ensure user details are available when opening project info
+  useEffect(() => {
+    const ensureUsersForInfo = async () => {
+      if (!isProjectInfoDialogOpen) return;
+      if (Object.keys(userMap).length > 0) return;
+      try {
+        const { data, error } = await supabase.rpc("get_users_as_admin");
+        if (error) throw error;
+        const list = (data as UserData[]) || [];
+        const map: Record<string, UserData> = {};
+        for (const u of list) {
+          map[u.id] = u;
+          if (u.email) map[u.email] = u;
+        }
+        setUserMap(map);
+      } catch (err: any) {
+        setErrorMessage(err?.message || "Failed to load users for project info");
+      }
+    };
+    ensureUsersForInfo();
+  }, [isProjectInfoDialogOpen, userMap]);
+
   // Filter projects based on search and filters
   useEffect(() => {
     let result = projects;
@@ -334,6 +463,12 @@ export default function AdminProjectManagement() {
   const openProjectInfoDialog = (project: Project) => {
     setProjectForInfo(project);
     setIsProjectInfoDialogOpen(true);
+  };
+
+  const openAssigneeDialog = (project: Project) => {
+    setAssigneeProject(project);
+    setSelectedAssignees(Array.isArray(project.assignees) ? project.assignees : []);
+    setIsAssigneeDialogOpen(true);
   };
 
   const handleCreateProject = async () => {
@@ -402,6 +537,25 @@ export default function AdminProjectManagement() {
       }
     } catch (err: any) {
       setErrorMessage(err?.message || "Failed to update project");
+    }
+  };
+
+  const handleSaveAssignees = async () => {
+    if (!assigneeProject) return;
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update({ assignees: selectedAssignees })
+        .eq('id', assigneeProject.id);
+      if (error) throw error;
+
+      setSuccessMessage('Assignees updated successfully');
+      setProjects(prev => prev.map(p => p.id === assigneeProject.id ? { ...p, assignees: selectedAssignees } : p));
+      setFilteredProjects(prev => prev.map(p => p.id === assigneeProject.id ? { ...p, assignees: selectedAssignees } : p));
+      setIsAssigneeDialogOpen(false);
+      setAssigneeProject(null);
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Failed to update assignees');
     }
   };
 
@@ -588,9 +742,44 @@ export default function AdminProjectManagement() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className="px-2 py-1">
-                          {(project.assignees || []).length} users
-                        </Badge>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary" className="px-2 py-1">
+                              {(project.assignees || []).length} users
+                            </Badge>
+                            <Button variant="outline" size="sm" onClick={() => openAssigneeDialog(project)}>
+                              Manage Assignees
+                            </Button>
+                          </div>
+                          {Array.isArray(project.assignees) && project.assignees.length > 0 && (
+                            <div className="space-y-2">
+                              {project.assignees.slice(0,3).map((uid) => {
+                                const user = userMap[uid];
+                                return (
+                                  <div key={uid} className="flex items-start gap-2">
+                                    <Avatar className="h-6 w-6">
+                                      <AvatarImage src={user?.raw_user_meta_data?.avatar_url || ''} />
+                                      <AvatarFallback>
+                                        {(user?.raw_user_meta_data?.name || user?.email || 'U').slice(0,1).toUpperCase()}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                      <div className="text-xs font-medium text-gray-900">
+                                        {user?.raw_user_meta_data?.name || user?.email || uid}
+                                      </div>
+                                      <div className="text-[11px] text-gray-600">
+                                        {user?.email}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              {project.assignees.length > 3 && (
+                                <div className="text-xs text-gray-500">+{project.assignees.length - 3} more</div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-sm text-gray-500">
                         {project.created_at
@@ -614,6 +803,11 @@ export default function AdminProjectManagement() {
                               <DropdownMenuItem onClick={() => openEditDialog(project)}>
                                 <Edit3 className="w-4 h-4 mr-2" />
                                 Edit Project
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => openAssigneeDialog(project)}>
+                                <User className="w-4 h-4 mr-2" />
+                                Manage Assignees
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
@@ -738,6 +932,79 @@ export default function AdminProjectManagement() {
         </DialogContent>
       </Dialog>
 
+      {/* Manage Assignees Dialog */}
+      <Dialog open={isAssigneeDialogOpen} onOpenChange={setIsAssigneeDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Manage Assignees
+            </DialogTitle>
+            <DialogDescription>
+              Select team members for the project "{assigneeProject?.name}". Profile details show beneath names.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="max-h-[50vh] overflow-y-auto space-y-3">
+            {usersLoading ? (
+              <div className="text-sm text-gray-500">Loading users...</div>
+            ) : (
+              users.map((u) => {
+                const checked = selectedAssignees.includes(u.id);
+                return (
+                  <div key={u.id} className={`p-3 border rounded-lg ${checked ? 'bg-gray-50' : ''}`}>
+                    <div className="flex items-start gap-3">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={u.raw_user_meta_data?.avatar_url || ''} />
+                        <AvatarFallback>
+                          {(u.raw_user_meta_data?.name || u.email || 'U').slice(0,1).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm font-medium text-gray-900">
+                            {u.raw_user_meta_data?.name || u.email}
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              const isChecked = e.target.checked;
+                              setSelectedAssignees((prev) =>
+                                isChecked ? [...prev, u.id] : prev.filter(id => id !== u.id)
+                              );
+                            }}
+                          />
+                        </div>
+                        <div className="text-xs text-gray-600 mt-1">{u.email}</div>
+                        {u.raw_user_meta_data?.roles && u.raw_user_meta_data.roles.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {u.raw_user_meta_data.roles.map((role) => (
+                              <Badge key={role} variant="secondary" className="px-2 py-0.5 text-xs">
+                                {role}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAssigneeDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveAssignees} disabled={!assigneeProject}>
+              Save Assignees
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Delete Project Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent className="sm:max-w-md">
@@ -795,6 +1062,7 @@ export default function AdminProjectManagement() {
           project={projectForInfo}
           open={isProjectInfoDialogOpen}
           onOpenChange={setIsProjectInfoDialogOpen}
+          userMap={userMap}
         />
       )}
     </div>

@@ -503,7 +503,7 @@ const HomePage: React.FC = () => {
                 className={`px-4 py-2 text-sm font-medium transition-all border-l ${projectTab === 'other' ? 'bg-[#2f5597] text-white shadow-md' : 'text-[#4b5563] hover:text-gray-900'}`}
                 onClick={() => setProjectTab('other')}
               >
-                Shared With
+                Shared With Me
               </button>
             </div>
           </div>

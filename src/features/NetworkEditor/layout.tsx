@@ -128,12 +128,12 @@ export default function NetworkEditorLayout({
     { id: 'autonetcan' as TabType, label: 'AutoNetCan', icon: Cpu, color: 'text-teal-600' },
     { id: 'network-inference' as TabType, label: 'Network Analysis', icon: Waypoints, color: 'text-purple-600' },
     { id: 'therapeutics' as TabType, label: 'Therapeutics', icon: Pill, color: 'text-red-600' },
-    { id: 'env' as TabType, label: 'Environment', icon: Container, color: 'text-amber-600' },
-    { id: 'cell-circuits' as TabType, label: 'Circuits', icon: CircuitBoard, color: 'text-indigo-600' },
-    { id: 'cell-lines' as TabType, label: 'Cell Lines', icon: LineSquiggle, color: 'text-pink-600' },
-    { id: 'simulation' as TabType, label: 'Simulation', icon: Cpu, color: 'text-cyan-600' },
-    { id: 'analysis' as TabType, label: 'Analysis', icon: LineChart, color: 'text-orange-600' },
-    { id: 'results' as TabType, label: 'Results', icon: Download, color: 'text-emerald-600' },
+    { id: 'env' as TabType, label: 'Environment', icon: Container, color: 'text-amber-600', disabled: true },
+    { id: 'cell-circuits' as TabType, label: 'Circuits', icon: CircuitBoard, color: 'text-indigo-600', disabled: true },
+    { id: 'cell-lines' as TabType, label: 'Cell Lines', icon: LineSquiggle, color: 'text-pink-600', disabled: true },
+    { id: 'simulation' as TabType, label: 'Simulation', icon: Cpu, color: 'text-cyan-600', disabled: true },
+    { id: 'analysis' as TabType, label: 'Analysis', icon: LineChart, color: 'text-orange-600', disabled: true },
+    { id: 'results' as TabType, label: 'Results', icon: Download, color: 'text-emerald-600', disabled: true },
   ];
 
   return (
@@ -141,27 +141,36 @@ export default function NetworkEditorLayout({
       {/* Enhanced Header with improved navigation */}
       <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         {/* Enhanced Tab Navigation */}
-        <div className="px-6">
+        <div className="px-3">
           <Tabs value={activeTab} onValueChange={(value) => onTabChange(value as TabType)} className="w-full">
-            <TabsList className="w-full justify-start h-12 bg-transparent p-0 gap-0 border-b">
+            <TabsList className="w-full justify-start flex-wrap bg-transparent p-0 gap-0 border-b h-auto">
               {tabs.map((tab) => {
                 const IconComponent = tab.icon;
+                const isDisabled = (tab as any).disabled;
                 return (
                   <TabsTrigger
                     key={tab.id}
                     value={tab.id}
+                    disabled={isDisabled}
+                    onClick={(e) => {
+                      if (isDisabled) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }
+                    }}
                     className={cn(
-                      "px-6 py-3 h-12 relative group",
+                      "px-3 py-2 h-10 relative group text-xs",
                       "data-[state=active]:text-foreground data-[state=active]:font-semibold",
                       "data-[state=active]:border-b-2 data-[state=active]:border-b-primary",
                       "transition-all duration-200 hover:text-foreground/80",
                       "rounded-none border-b-2 border-b-transparent",
-                      "flex items-center gap-3"
+                      "flex items-center gap-2",
+                      isDisabled && "opacity-50 cursor-not-allowed hover:text-foreground/50 pointer-events-none"
                     )}
                   >
-                    <div className="flex items-center gap-3">
-                      <IconComponent className={cn("w-4 h-4 transition-colors", tab.color)} />
-                      <span className="text-sm font-medium tracking-wide">
+                    <div className="flex items-center gap-2">
+                      <IconComponent className={cn("w-3 h-3 transition-colors", tab.color)} />
+                      <span className="text-xs font-medium tracking-tight">
                         {tab.label}
                       </span>
                     </div>
