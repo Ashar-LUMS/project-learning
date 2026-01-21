@@ -17,7 +17,7 @@ import {
 import { KnockInDialog } from './KnockInDialog';
 import { KnockOutDialog } from './KnockOutDialog';
 import type { NetworkNode, TherapeuticIntervention } from '@/types/network';
-import { Plus, X, Save, Syringe, ChevronsUpDown, Trash2, Power } from 'lucide-react';
+import { Plus, X, Save, Syringe, ChevronsUpDown, Trash2, Power, ChevronUp } from 'lucide-react';
 import { supabase } from '@/supabaseClient';
 import { useToast } from '@/components/ui/toast';
 
@@ -87,6 +87,7 @@ export function TherapeuticsPanel({
   const [selectedTherapy, setSelectedTherapy] = useState<string | null>(null);
   const [newPropertyName, setNewPropertyName] = useState('');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [openTherapies, setOpenTherapies] = useState<Record<string, boolean>>({});
 
   const availableExtensions = [
     'mg', 'mg/kg', 'g', 'µg', 'ml', 'ml/min', 'L',
@@ -96,6 +97,30 @@ export function TherapeuticsPanel({
   ];
 
   const modulationModes = ['inhibit', 'activate', 'enhance', 'suppress', 'modulate'];
+
+  // Initialize and keep open state in sync with available therapy sections
+  useEffect(() => {
+    setOpenTherapies((prev) => {
+      const next: Record<string, boolean> = { ...prev };
+      // Ensure all therapy groups exist in the map
+      Object.keys(therapyProperties).forEach((key) => {
+        if (next[key] === undefined) next[key] = true;
+      });
+      // Track Targeted Therapy separately
+      if (next['Targeted Therapy'] === undefined) next['Targeted Therapy'] = true;
+      return next;
+    });
+  }, [therapyProperties]);
+
+  const collapseAllSections = () => {
+    setOpenTherapies((prev) => {
+      const next: Record<string, boolean> = {};
+      Object.keys(prev).forEach((k) => {
+        next[k] = false;
+      });
+      return next;
+    });
+  };
 
   const handleAddTargetedNode = () => {
     setTargetedTherapyNodes(prev => [
@@ -408,18 +433,32 @@ export function TherapeuticsPanel({
           }`}>
             Therapy Properties
           </h4>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="size-7 h-7 w-7 p-0 flex-shrink-0 ml-1" 
-            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            <ChevronsUpDown className={`size-3.5 transition-transform duration-300 ${
-              isSidebarCollapsed ? 'rotate-90' : ''
-            }`} />
-            <span className="sr-only">{isSidebarCollapsed ? 'Expand' : 'Collapse'}</span>
-          </Button>
+          <div className="flex items-center gap-1">
+            {!isSidebarCollapsed && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-7 h-7 w-7 p-0 flex-shrink-0"
+                onClick={collapseAllSections}
+                title="Collapse all sections"
+              >
+                <ChevronUp className="size-3.5" />
+                <span className="sr-only">Collapse all sections</span>
+              </Button>
+            )}
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="size-7 h-7 w-7 p-0 flex-shrink-0 ml-1" 
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              <ChevronsUpDown className={`size-3.5 transition-transform duration-300 ${
+                isSidebarCollapsed ? 'rotate-90' : ''
+              }`} />
+              <span className="sr-only">{isSidebarCollapsed ? 'Expand' : 'Collapse'}</span>
+            </Button>
+          </div>
         </div>
 
         {!isSidebarCollapsed && (
@@ -428,7 +467,14 @@ export function TherapeuticsPanel({
           <CollapsibleContent className="flex-1 overflow-hidden flex flex-col">
             <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1">
               {Object.entries(therapyProperties).map(([therapy, properties]) => (
-                <Collapsible key={therapy} defaultOpen className="border rounded-md text-xs">
+                <Collapsible
+                  key={therapy}
+                  open={openTherapies[therapy] ?? true}
+                  onOpenChange={(open) =>
+                    setOpenTherapies((prev) => ({ ...prev, [therapy]: open }))
+                  }
+                  className="border rounded-md text-xs"
+                >
                   <div className="flex items-center justify-between px-2 py-1.5">
                     <CollapsibleTrigger asChild>
                       <Button
@@ -523,7 +569,13 @@ export function TherapeuticsPanel({
               ))}
 
               {/* Targeted Therapy Section */}
-              <Collapsible defaultOpen className="border rounded-md text-xs">
+              <Collapsible
+                className="border rounded-md text-xs"
+                open={openTherapies['Targeted Therapy'] ?? true}
+                onOpenChange={(open) =>
+                  setOpenTherapies((prev) => ({ ...prev, ['Targeted Therapy']: open }))
+                }
+              >
                 <div className="flex items-center justify-between px-2 py-1.5">
                   <CollapsibleTrigger asChild>
                     <Button
