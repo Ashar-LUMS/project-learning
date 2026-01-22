@@ -94,7 +94,7 @@ const AttractorGraph: React.FC<Props> = ({ states, className }) => {
       cy.elements().remove();
       cy.add(elements as any);
     });
-    const layout = cy.layout({ name: period > 1 ? 'circle' : 'grid', fit: true, animate: true });
+    const layout = cy.layout({ name: period > 1 ? 'circle' : 'grid', fit: true, animate: false });
     layout.run();
     setTimeout(() => {
       cy.resize();

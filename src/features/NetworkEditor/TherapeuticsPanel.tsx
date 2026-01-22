@@ -62,6 +62,15 @@ export function TherapeuticsPanel({
     extension: string;
   };
 
+  type GroupTherapy = {
+    id: string;
+    name: string;
+    members: string[]; // node ids
+    modulationMode: string;
+    value: string;
+    extension: string;
+  };
+
   const [therapyProperties, setTherapyProperties] = useState<Record<string, PropertyItem[]>>({
     'Chemotherapy': [
       { name: 'Dosage', value: '100', extension: 'mg' },
@@ -88,6 +97,7 @@ export function TherapeuticsPanel({
   const [newPropertyName, setNewPropertyName] = useState('');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [openTherapies, setOpenTherapies] = useState<Record<string, boolean>>({});
+  const [groupTherapies, setGroupTherapies] = useState<GroupTherapy[]>([]);
 
   const availableExtensions = [
     'mg', 'mg/kg', 'g', 'µg', 'ml', 'ml/min', 'L',
@@ -147,6 +157,54 @@ export function TherapeuticsPanel({
     setTargetedTherapyNodes(prev =>
       prev.map(node => node.id === id ? { ...node, [field]: value } : node)
     );
+  };
+
+  // Group therapy handlers
+  const handleAddGroupTherapy = () => {
+    setGroupTherapies(prev => ([
+      ...prev,
+      {
+        id: `gt${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        name: 'Group Therapy',
+        members: [''],
+        modulationMode: 'modulate',
+        value: '',
+        extension: availableExtensions[0]
+      }
+    ]));
+  };
+
+  const handleRemoveGroupTherapy = (id: string) => {
+    setGroupTherapies(prev => prev.filter(g => g.id !== id));
+  };
+
+  const handleUpdateGroupTherapy = (
+    id: string,
+    field: 'name' | 'modulationMode' | 'value' | 'extension',
+    value: string
+  ) => {
+    setGroupTherapies(prev => prev.map(g => g.id === id ? { ...g, [field]: value } : g));
+  };
+
+  const handleUpdateGroupMember = (id: string, index: number, nodeId: string) => {
+    setGroupTherapies(prev => prev.map(g => {
+      if (g.id !== id) return g;
+      const members = [...g.members];
+      members[index] = nodeId;
+      return { ...g, members };
+    }));
+  };
+
+  const handleAddGroupMember = (id: string) => {
+    setGroupTherapies(prev => prev.map(g => g.id === id ? { ...g, members: [...g.members, ''] } : g));
+  };
+
+  const handleRemoveGroupMember = (id: string, index: number) => {
+    setGroupTherapies(prev => prev.map(g => {
+      if (g.id !== id) return g;
+      const members = g.members.filter((_, i) => i !== index);
+      return { ...g, members };
+    }));
   };
 
   useEffect(() => {
@@ -524,12 +582,12 @@ export function TherapeuticsPanel({
                                 value={prop.extension}
                                 onValueChange={(value) => handleUpdatePropertyExtension(therapy, idx, value)}
                               >
-                                <SelectTrigger className="h-5 w-14 text-[8px] px-0.5">
+                                <SelectTrigger className="h-5 w-16 text-[10px] px-1">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
                                   {availableExtensions.map((ext) => (
-                                    <SelectItem key={ext} value={ext} className="text-xs">
+                                    <SelectItem key={ext} value={ext} className="text-[11px]">
                                       {ext}
                                     </SelectItem>
                                   ))}
@@ -558,7 +616,7 @@ export function TherapeuticsPanel({
                           onClick={() => handleAddProperty(therapy)}
                           size="sm"
                           className="h-5 px-1"
-                          variant="default"
+                          variant="secondary"
                         >
                           <Plus className="size-2" />
                         </Button>
@@ -603,13 +661,13 @@ export function TherapeuticsPanel({
                           key={targetNode.id}
                           className="border rounded p-1 bg-background group"
                         >
-                          <div className="flex items-center gap-0.5">
+                          <div className="flex flex-col gap-1">
                             {/* Target Node Dropdown */}
                             <Select
                               value={targetNode.nodeId}
                               onValueChange={(value) => handleUpdateTargetedNode(targetNode.id, 'nodeId', value)}
                             >
-                              <SelectTrigger className="h-5 text-xs flex-1 px-1 py-0.5">
+                              <SelectTrigger className="h-5 text-xs w-full px-1 py-0.5">
                                 <SelectValue placeholder="Node" />
                               </SelectTrigger>
                               <SelectContent>
@@ -626,7 +684,7 @@ export function TherapeuticsPanel({
                               value={targetNode.modulationMode}
                               onValueChange={(value) => handleUpdateTargetedNode(targetNode.id, 'modulationMode', value)}
                             >
-                              <SelectTrigger className="h-5 text-xs w-20 px-1 py-0.5">
+                              <SelectTrigger className="h-5 text-xs w-full px-1 py-0.5">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -643,7 +701,7 @@ export function TherapeuticsPanel({
                               placeholder="Val"
                               value={targetNode.value}
                               onChange={(e) => handleUpdateTargetedNode(targetNode.id, 'value', e.target.value)}
-                              className="h-5 text-xs w-16 px-1 py-0.5"
+                              className="h-5 text-xs w-full px-1 py-0.5"
                             />
 
                             {/* Extension Dropdown */}
@@ -651,12 +709,12 @@ export function TherapeuticsPanel({
                               value={targetNode.extension}
                               onValueChange={(value) => handleUpdateTargetedNode(targetNode.id, 'extension', value)}
                             >
-                              <SelectTrigger className="h-5 w-14 text-[8px] px-0.5 py-0.5">
+                              <SelectTrigger className="h-5 text-[10px] w-full px-1 py-0.5">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
                                 {availableExtensions.map((ext) => (
-                                  <SelectItem key={ext} value={ext} className="text-xs">
+                                  <SelectItem key={ext} value={ext} className="text-[11px]">
                                     {ext}
                                   </SelectItem>
                                 ))}
@@ -664,28 +722,148 @@ export function TherapeuticsPanel({
                             </Select>
 
                             {/* Remove Button */}
-                            <button
-                              onClick={() => handleRemoveTargetedNode(targetNode.id)}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-red-500 hover:text-red-700 flex-shrink-0"
-                            >
-                              <Trash2 className="size-2.5" />
-                            </button>
+                            <div className="flex justify-end">
+                              <button
+                                onClick={() => handleRemoveTargetedNode(targetNode.id)}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-red-500 hover:text-red-700 flex-shrink-0"
+                              >
+                                <Trash2 className="size-2.5" />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}
                     </div>
                   )}
 
-                  {/* Add Target Node Button */}
+                  {/* Group Therapy Editor */}
+                  {groupTherapies.length > 0 && (
+                    <div className="space-y-1 pt-1 border-t">
+                      {groupTherapies.map((g) => (
+                        <div key={g.id} className="border rounded p-1 bg-background">
+                          <div className="flex items-center justify-between mb-0.5">
+                            <Input
+                              placeholder="Group name"
+                              value={g.name}
+                              onChange={(e) => handleUpdateGroupTherapy(g.id, 'name', e.target.value)}
+                              className="h-5 text-xs px-1 py-0.5 flex-1 mr-1"
+                            />
+                            <button
+                              onClick={() => handleRemoveGroupTherapy(g.id)}
+                              className="p-0.5 text-red-500 hover:text-red-700 flex-shrink-0"
+                            >
+                              <Trash2 className="size-2.5" />
+                            </button>
+                          </div>
+
+                          {/* Members */}
+                          <div className="space-y-1">
+                            {g.members.map((memberId, idx) => (
+                              <div key={idx} className="flex items-center gap-0.5">
+                                <Select
+                                  value={memberId}
+                                  onValueChange={(value) => handleUpdateGroupMember(g.id, idx, value)}
+                                >
+                                  <SelectTrigger className="h-5 text-xs w-full px-1 py-0.5">
+                                    <SelectValue placeholder="Select node" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {nodes.map((node) => (
+                                      <SelectItem key={node.id} value={node.id} className="text-xs">
+                                        {node.label || node.id}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 px-1"
+                                  onClick={() => handleRemoveGroupMember(g.id, idx)}
+                                  title="Remove member"
+                                >
+                                  <Trash2 className="size-2" />
+                                </Button>
+                              </div>
+                            ))}
+                            <div className="flex gap-0.5">
+                              <Button
+                                onClick={() => handleAddGroupMember(g.id)}
+                                size="sm"
+                                className="h-5 px-1 flex-1"
+                                variant="secondary"
+                              >
+                                <Plus className="size-2 mr-0.5" />
+                                Add Member
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Group modifiers */}
+                          <div className="mt-1 flex flex-col gap-1">
+                            <Select
+                              value={g.modulationMode}
+                              onValueChange={(value) => handleUpdateGroupTherapy(g.id, 'modulationMode', value)}
+                            >
+                              <SelectTrigger className="h-5 text-xs w-full px-1 py-0.5">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {modulationModes.map((mode) => (
+                                  <SelectItem key={mode} value={mode} className="text-xs">
+                                    {mode}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+
+                            <Input
+                              placeholder="Val"
+                              value={g.value}
+                              onChange={(e) => handleUpdateGroupTherapy(g.id, 'value', e.target.value)}
+                              className="h-5 text-xs w-full px-1 py-0.5"
+                            />
+
+                            <Select
+                              value={g.extension}
+                              onValueChange={(value) => handleUpdateGroupTherapy(g.id, 'extension', value)}
+                            >
+                              <SelectTrigger className="h-5 text-[10px] w-full px-1 py-0.5">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {availableExtensions.map((ext) => (
+                                  <SelectItem key={ext} value={ext} className="text-[11px]">
+                                    {ext}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Add Target / Add Group Buttons */}
                   <div className="flex gap-0.5 pt-0.5 border-t mt-0.5">
                     <Button
                       onClick={handleAddTargetedNode}
                       size="sm"
                       className="h-5 px-1 flex-1"
-                      variant="default"
+                      variant="secondary"
                     >
                       <Plus className="size-2 mr-0.5" />
                       Add Target
+                    </Button>
+                    <Button
+                      onClick={handleAddGroupTherapy}
+                      size="sm"
+                      className="h-5 px-1 flex-1"
+                      variant="secondary"
+                    >
+                      <Plus className="size-2 mr-0.5" />
+                      Add Group Therapy
                     </Button>
                   </div>
                 </CollapsibleContent>

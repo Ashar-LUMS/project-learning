@@ -821,6 +821,8 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
               'text-outline-width': 2,
               'text-outline-opacity': 0.8,
               'background-opacity': 0.95,
+              'transition-property': 'none',
+              'transition-duration': 0,
             },
           },
           {
@@ -833,6 +835,8 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
               'curve-style': 'bezier',
               'arrow-scale': 1.1,
               'line-opacity': 0.8,
+              'transition-property': 'none',
+              'transition-duration': 0,
             },
           },
           {
@@ -924,7 +928,8 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
         ],
         layout: {
           name: 'cose',
-          animate: true,
+          animate: false,
+          refresh: 0,
           fit: true,
           padding: 60,
         },
@@ -949,7 +954,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
               }
               try {
                 ehRef.current = (cy as any).edgehandles({
-                  preview: true,
+                  preview: false,
                   hoverDelay: 150,
                   handleNodes: 'node',
                   handlePosition: 'middle top',
@@ -990,7 +995,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
         // Re-attach edgehandles to new cytoscape instance
         try {
           ehRef.current = (cy as any).edgehandles({
-            preview: true,
+            preview: false,
             hoverDelay: 150,
             handleNodes: 'node',
             handlePosition: 'middle top',
@@ -1028,7 +1033,8 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
         try {
           const layout = cy.layout({
             name: 'cose',
-            animate: true,
+            animate: false,
+            refresh: 0,
             fit: true,
             padding: 60
           });
@@ -1038,7 +1044,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
           try {
             const fallbackLayout = cy.layout({
               name: 'grid',
-              animate: true,
+              animate: false,
               fit: true,
               padding: 60
             });
@@ -1231,10 +1237,10 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
       // Optionally re-run layout for significant changes
       setTimeout(() => {
         try {
-          const layout = cy.layout({ name: 'cose', animate: true, fit: true, padding: 60 });
+          const layout = cy.layout({ name: 'cose', animate: false, refresh: 0, fit: true, padding: 60 });
           layout.run();
         } catch (err) {
-          try { cy.layout({ name: 'grid', animate: true, fit: true, padding: 60 }).run(); } catch { }
+          try { cy.layout({ name: 'grid', animate: false, fit: true, padding: 60 }).run(); } catch { }
         }
       }, 50);
     } catch (e) {
