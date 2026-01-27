@@ -244,6 +244,8 @@ function renderTabContent(activeTab: TabType, networkSidebar?: React.ReactNode, 
       return <ResultsSidebar />;
     case 'autonetcan':
       return <AutoNetCanSidebar />;
+    case 'seq-data-analysis':
+      return <SeqAnalysisSidebar />;
     default:
       return <ProjectsSidebar />;
   }
@@ -757,6 +759,87 @@ function EnvironmentSidebar() {
             <Upload className="w-4 h-4" />
             Import Conditions
           </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Seq Data Analysis Sidebar
+function SeqAnalysisSidebar() {
+  return (
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-sky-500/10">
+            <BarChart3 className="w-5 h-5 text-sky-600" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold tracking-tight text-foreground">
+              Seq Analysis
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              RNA-seq data processing
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <Separator className="bg-border/50" />
+
+      {/* About Section */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium">About</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Upload paired-end FASTQ files along with reference genome and annotation 
+            to perform RNA-seq analysis. Results are automatically filtered to show 
+            only genes present in your selected network.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Requirements */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium">Required Files</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="space-y-1.5 text-xs">
+            <div className="flex items-start gap-2">
+              <span className="font-medium text-sky-600 shrink-0">R1:</span>
+              <span className="text-muted-foreground">Forward reads (.fastq.gz)</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="font-medium text-sky-600 shrink-0">R2:</span>
+              <span className="text-muted-foreground">Reverse reads (.fastq.gz)</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="font-medium text-sky-600 shrink-0">Ref:</span>
+              <span className="text-muted-foreground">Reference genome (.fa.gz)</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="font-medium text-sky-600 shrink-0">Ann:</span>
+              <span className="text-muted-foreground">Gene annotation (.gff3.gz)</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Notes */}
+      <Card className="border-amber-200/50 bg-amber-50/30">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium text-amber-700">Important Notes</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <ul className="text-xs text-amber-700 space-y-1 list-disc pl-4">
+            <li>FASTQ files can be large (1-50 GB)</li>
+            <li>Analysis typically takes 1-4 hours</li>
+            <li>You can leave the page during analysis</li>
+            <li>Select a network first for filtered results</li>
+          </ul>
         </CardContent>
       </Card>
     </div>

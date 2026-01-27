@@ -3,6 +3,7 @@ import { useToast } from '@/components/ui/toast';
 import NetworkEditorLayout from './layout';
 import type { NetworkEditorLayoutProps, TabType } from './layout';
 import ProjectTabComponent from './tabs/ProjectTab';
+import { SeqAnalysisTab } from './tabs/SeqAnalysisTab';
 
 import NetworkGraph, { type NetworkGraphHandle } from './NetworkGraph';
 import { Card, CardContent } from '@/components/ui/card';
@@ -429,17 +430,12 @@ function NetworkEditorPage() {
     switch (activeTab) {
       case 'seq-data-analysis':
         return (
-          <div className="flex h-full flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b bg-background/95 backdrop-blur-sm">
-              <div className="flex items-center gap-3">
-                <h2 className="text-lg font-semibold">Sequencing Data Analysis</h2>
-              </div>
-            </div>
-            
-            {/* Main Content */}
-            
-          </div>
+          <SeqAnalysisTab
+            networkNodes={selectedNetwork?.data?.nodes || []}
+            projectId={selectedProjectId}
+            networkId={selectedNetworkId}
+            networkName={selectedNetwork?.name}
+          />
         );
 
       case 'projects':

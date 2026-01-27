@@ -29,6 +29,7 @@ import ProbabilisticLandscape from './ProbabilisticLandscape';
 import { FateClassificationDialog, AttractorFateBadge } from './FateClassification';
 import { TherapeuticsPanel } from './TherapeuticsPanel';
 import { applyTherapiesToNetwork } from '@/lib/applyTherapies';
+import { SeqAnalysisTab } from './tabs/SeqAnalysisTab';
 
 type ProjectRecord = {
   id: string;
@@ -1823,17 +1824,12 @@ function ProjectVisualizationPage() {
 
       case 'seq-data-analysis':
         return (
-          <div className="flex h-full flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b bg-background/95 backdrop-blur-sm">
-              <div className="flex items-center gap-3">
-                <h2 className="text-lg font-semibold">Sequencing Data Analysis</h2>
-              </div>
-            </div>
-            
-            {/* Main Content */}
-            
-          </div>
+          <SeqAnalysisTab
+            networkNodes={selectedNetwork?.data?.nodes || []}
+            projectId={projectId}
+            networkId={selectedNetworkId}
+            networkName={selectedNetwork?.name}
+          />
         );
 
       case 'projects':
