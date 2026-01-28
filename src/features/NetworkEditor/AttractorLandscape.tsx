@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { DeterministicAttractor } from '@/lib/analysis/types';
+import Plotly from 'plotly.js-dist-min';
 
 interface AttractorLandscapeProps {
   attractors: DeterministicAttractor[];
@@ -7,175 +8,138 @@ interface AttractorLandscapeProps {
 }
 
 export default function AttractorLandscape({ attractors, className = '' }: AttractorLandscapeProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const plotRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || attractors.length === 0) return;
+    if (!plotRef.current || attractors.length === 0) return;
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    try {
+      // Create a 2D grid for the landscape
+      const gridSize = 20;
+      const x = Array.from({ length: gridSize }, (_, i) => i);
+      const y = Array.from({ length: gridSize }, (_, i) => i);
+      
+      // Initialize z values (energy landscape)
+      const z: number[][] = Array.from({ length: gridSize }, () => 
+        Array.from({ length: gridSize }, () => 0)
+      );
 
-    // Set canvas size
-    const dpr = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
-    ctx.scale(dpr, dpr);
+      // Create peaks/valleys for each attractor based on basin share
+      attractors.forEach((attr, idx) => {
+        // Position attractors in a circular pattern or grid
+        const angle = (idx / attractors.length) * 2 * Math.PI;
+        const radius = gridSize * 0.3;
+        const centerX = gridSize / 2 + Math.cos(angle) * radius;
+        const centerY = gridSize / 2 + Math.sin(angle) * radius;
+        
+        // Create a Gaussian peak for this attractor
+        for (let i = 0; i < gridSize; i++) {
+          for (let j = 0; j < gridSize; j++) {
+            const dx = i - centerX;
+            const dy = j - centerY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const sigma = 2.5; // Width of the peak
+            const height = attr.basinShare * 0.03; // Scale height
+            const gaussian = height * Math.exp(-(dist * dist) / (2 * sigma * sigma));
+            z[j][i] += gaussian;
+          }
+        }
+      });
 
-    const width = rect.width;
-    const height = rect.height;
-    const padding = 40;
+      // Smooth the landscape using simple averaging
+      const smoothZ = z.map((row, i) => 
+        row.map((val, j) => {
+          let sum = val;
+          let count = 1;
+          for (let di = -1; di <= 1; di++) {
+            for (let dj = -1; dj <= 1; dj++) {
+              if (di === 0 && dj === 0) continue;
+              const ni = i + di;
+              const nj = j + dj;
+              if (ni >= 0 && ni < gridSize && nj >= 0 && nj < gridSize) {
+                sum += z[ni][nj];
+                count++;
+              }
+            }
+          }
+          return sum / count;
+        })
+      );
 
-    // Clear canvas
-    ctx.clearRect(0, 0, width, height);
+      const data: Partial<Plotly.PlotData>[] = [{
+        type: 'surface',
+        x: x,
+        y: y,
+        z: smoothZ,
+        colorscale: [
+          [0, '#0d47a1'],
+          [0.3, '#1976d2'],
+          [0.5, '#42a5f5'],
+          [0.7, '#ffb74d'],
+          [1, '#d32f2f']
+        ],
+        showscale: true,
+        colorbar: {
+          thickness: 20,
+          len: 0.7
+        }
+      } as any];
 
-    // Draw background
-    ctx.fillStyle = '#fafafa';
-    ctx.fillRect(0, 0, width, height);
-
-    // Calculate layout
-    const plotWidth = width - 2 * padding;
-    const plotHeight = height - 2 * padding - 30; // Extra space for labels
-
-    // Sort attractors by basin share for better visualization
-    const sortedAttractors = [...attractors].sort((a, b) => b.basinShare - a.basinShare);
-
-    // Draw attractors as bars/peaks
-    const barWidth = plotWidth / sortedAttractors.length;
-    const maxHeight = plotHeight * 0.8;
-
-    sortedAttractors.forEach((attr, index) => {
-      const x = padding + index * barWidth;
-      const barHeight = attr.basinShare * maxHeight;
-      const y = padding + plotHeight - barHeight;
-
-      // Color based on attractor type
-      const colors = {
-        'fixed-point': '#3b82f6',  // blue
-        'limit-cycle': '#8b5cf6'   // violet
+      const layout: Partial<Plotly.Layout> = {
+        title: {
+          text: 'Attractor Landscape',
+          font: { size: 16, color: '#374151' }
+        },
+        autosize: true,
+        scene: {
+          camera: {
+            eye: { x: 1.5, y: 1.5, z: 1.3 },
+            center: { x: 0, y: 0, z: -0.2 }
+          },
+          xaxis: { title: { text: '' }, showgrid: true, gridcolor: '#e5e7eb' },
+          yaxis: { title: { text: '' }, showgrid: true, gridcolor: '#e5e7eb' },
+          zaxis: { title: { text: '' }, showgrid: true, gridcolor: '#e5e7eb' },
+          bgcolor: '#fafafa'
+        },
+        paper_bgcolor: '#ffffff',
+        plot_bgcolor: '#fafafa',
+        margin: { l: 0, r: 0, t: 40, b: 0 }
       };
-      const color = colors[attr.type as keyof typeof colors] || '#6b7280';
 
-      // Draw bar with gradient
-      const gradient = ctx.createLinearGradient(x, y, x, y + barHeight);
-      gradient.addColorStop(0, color);
-      gradient.addColorStop(1, color + '80');
-      
-      ctx.fillStyle = gradient;
-      ctx.fillRect(x + barWidth * 0.1, y, barWidth * 0.8, barHeight);
+      const config: Partial<Plotly.Config> = {
+        responsive: true,
+        displayModeBar: true,
+        displaylogo: false,
+        modeBarButtonsToRemove: ['toImage']
+      };
 
-      // Draw border
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
-      ctx.strokeRect(x + barWidth * 0.1, y, barWidth * 0.8, barHeight);
+      Plotly.newPlot(plotRef.current, data, layout, config);
+    } catch (err) {
+      console.error('Failed to render Plotly landscape:', err);
+    }
 
-      // Draw attractor label
-      ctx.fillStyle = '#374151';
-      ctx.font = '10px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(
-        `#${attr.id + 1}`,
-        x + barWidth / 2,
-        padding + plotHeight + 15
-      );
-
-      // Draw period info
-      ctx.fillStyle = '#6b7280';
-      ctx.font = '9px sans-serif';
-      ctx.fillText(
-        attr.type === 'fixed-point' ? 'P1' : `P${attr.period}`,
-        x + barWidth / 2,
-        padding + plotHeight + 27
-      );
-
-      // Draw basin percentage on bar if space allows
-      if (barHeight > 30) {
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 11px sans-serif';
-        ctx.textAlign = 'center';
-        const percentage = (attr.basinShare * 100).toFixed(1) + '%';
-        ctx.fillText(percentage, x + barWidth / 2, y + barHeight / 2 + 4);
+    return () => {
+      if (plotRef.current) {
+        try {
+          Plotly.purge(plotRef.current);
+        } catch (err) {
+          console.error('Failed to clean up Plotly:', err);
+        }
       }
-    });
-
-    // Draw axes
-    ctx.strokeStyle = '#d1d5db';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(padding, padding);
-    ctx.lineTo(padding, padding + plotHeight);
-    ctx.lineTo(padding + plotWidth, padding + plotHeight);
-    ctx.stroke();
-
-    // Y-axis label
-    ctx.fillStyle = '#374151';
-    ctx.font = '12px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.save();
-    ctx.translate(15, padding + plotHeight / 2);
-    ctx.rotate(-Math.PI / 2);
-    ctx.fillText('Basin Size (%)', 0, 0);
-    ctx.restore();
-
-    // X-axis label
-    ctx.fillText('Attractors', padding + plotWidth / 2, height - 8);
-
-    // Draw Y-axis ticks and labels
-    ctx.fillStyle = '#6b7280';
-    ctx.font = '10px sans-serif';
-    ctx.textAlign = 'right';
-    const yTicks = [0, 0.25, 0.5, 0.75, 1.0];
-    yTicks.forEach(tick => {
-      const y = padding + plotHeight - tick * maxHeight;
-      ctx.strokeStyle = '#e5e7eb';
-      ctx.beginPath();
-      ctx.moveTo(padding, y);
-      ctx.lineTo(padding + plotWidth, y);
-      ctx.stroke();
-      
-      ctx.fillStyle = '#6b7280';
-      ctx.fillText((tick * 100).toFixed(0), padding - 5, y + 3);
-    });
-
-    // Legend
-    const legendX = width - padding - 120;
-    const legendY = padding;
-    const legendItems = [
-      { label: 'Fixed Point', color: '#3b82f6' },
-      { label: 'Limit Cycle', color: '#8b5cf6' }
-    ];
-
-    legendItems.forEach((item, i) => {
-      const y = legendY + i * 20;
-      ctx.fillStyle = item.color;
-      ctx.fillRect(legendX, y, 12, 12);
-      ctx.strokeStyle = item.color;
-      ctx.strokeRect(legendX, y, 12, 12);
-      
-      ctx.fillStyle = '#374151';
-      ctx.font = '11px sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText(item.label, legendX + 18, y + 9);
-    });
-
+    };
   }, [attractors]);
 
   if (attractors.length === 0) {
     return (
-      <div className={`flex items-center justify-center h-64 text-sm text-muted-foreground ${className}`}>
+      <div className={`flex items-center justify-center h-96 text-sm text-muted-foreground ${className}`}>
         No attractors to visualize
       </div>
     );
   }
 
   return (
-    <div className={className}>
-      <canvas
-        ref={canvasRef}
-        style={{ width: '100%', height: '300px' }}
-        className="rounded-md"
-      />
+    <div className={`${className} w-full`} style={{ height: '500px' }}>
+      <div ref={plotRef} style={{ width: '100%', height: '100%' }} className="rounded-md" />
     </div>
   );
 }

@@ -1404,7 +1404,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
       <div className="flex-1 flex relative min-h-0">
         {/* Left Sidebar - Toolbar */}
         {!hideControls && (
-          <div className="w-14 bg-white/80 backdrop-blur-sm border-r border-slate-200 flex flex-col items-center py-3 gap-1.5 z-20 shadow-sm">
+          <div className="w-14 bg-white/80 backdrop-blur-sm border-r border-slate-200 flex flex-col items-center py-3 gap-1.5 z-20 shadow-sm overflow-y-auto">
             <Button
               size="icon"
               variant={tool === 'select' ? 'default' : 'ghost'}
