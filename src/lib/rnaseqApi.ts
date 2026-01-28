@@ -29,8 +29,10 @@ export interface RNASeqJobStatus {
 }
 
 export interface GeneExpression {
-  gene_id: string;
-  gene_symbol: string;
+  gene_id?: string;
+  gene_symbol?: string;
+  /** Alternative field name some pipelines use instead of gene_symbol */
+  gene_name?: string;
   counts: number;
   tpm?: number;
   fpkm?: number;

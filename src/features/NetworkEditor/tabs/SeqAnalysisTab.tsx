@@ -106,12 +106,20 @@ export function SeqAnalysisTab({
 
   // Filter results to only show genes present in the network
   const filteredResults = useMemo<GeneExpression[]>(() => {
-    if (!results?.genes || networkGeneIds.size === 0) return [];
+    if (!results?.genes || !Array.isArray(results.genes)) return [];
+    // If no network nodes provided, return all genes
+    if (networkGeneIds.size === 0) return results.genes;
     
-    return results.genes.filter(gene => 
-      networkGeneIds.has(gene.gene_symbol.toLowerCase()) ||
-      networkGeneIds.has(gene.gene_id.toLowerCase())
-    );
+    return results.genes.filter(gene => {
+      // Safely handle missing or undefined fields
+      // Support both gene_symbol and gene_name (alternative field name)
+      const symbol = gene.gene_symbol ?? gene.gene_name ?? '';
+      const id = gene.gene_id ?? '';
+      return (
+        (symbol && networkGeneIds.has(symbol.toLowerCase())) ||
+        (id && networkGeneIds.has(id.toLowerCase()))
+      );
+    });
   }, [results, networkGeneIds]);
 
   // Cleanup polling on unmount
@@ -296,9 +304,9 @@ export function SeqAnalysisTab({
 
     const headers = ['Gene ID', 'Gene Symbol', 'Counts', 'TPM', 'FPKM'];
     const rows = filteredResults.map(g => [
-      g.gene_id,
-      g.gene_symbol,
-      g.counts.toString(),
+      g.gene_id ?? '',
+      g.gene_symbol ?? g.gene_name ?? '',
+      (g.counts ?? 0).toString(),
       g.tpm?.toFixed(2) ?? 'N/A',
       g.fpkm?.toFixed(2) ?? 'N/A',
     ]);
@@ -709,10 +717,10 @@ export function SeqAnalysisTab({
                       </thead>
                       <tbody>
                         {filteredResults.map((gene, idx) => (
-                          <tr key={gene.gene_id} className={cn("border-t", idx % 2 === 0 && "bg-muted/20")}>
-                            <td className="p-2 font-medium">{gene.gene_symbol}</td>
-                            <td className="p-2 text-muted-foreground font-mono text-xs">{gene.gene_id}</td>
-                            <td className="p-2 text-right font-mono">{gene.counts.toLocaleString()}</td>
+                          <tr key={gene.gene_id ?? idx} className={cn("border-t", idx % 2 === 0 && "bg-muted/20")}>
+                            <td className="p-2 font-medium">{gene.gene_symbol ?? gene.gene_name ?? '-'}</td>
+                            <td className="p-2 text-muted-foreground font-mono text-xs">{gene.gene_id ?? '-'}</td>
+                            <td className="p-2 text-right font-mono">{(gene.counts ?? 0).toLocaleString()}</td>
                             <td className="p-2 text-right font-mono">{gene.tpm?.toFixed(2) ?? '-'}</td>
                             <td className="p-2 text-right font-mono">{gene.fpkm?.toFixed(2) ?? '-'}</td>
                           </tr>
