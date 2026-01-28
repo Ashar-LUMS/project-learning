@@ -1404,21 +1404,21 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
       <div className="flex-1 flex relative min-h-0">
         {/* Left Sidebar - Toolbar */}
         {!hideControls && (
-          <div className="w-14 bg-white/80 backdrop-blur-sm border-r border-slate-200 flex flex-col items-center py-3 gap-1.5 z-20 shadow-sm">
+          <div className="w-16 bg-gradient-to-b from-slate-50 to-white/95 backdrop-blur-sm border-r border-slate-200 flex flex-col items-center py-2 gap-0.5 z-20 shadow-sm overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 #f1f5f9' }}>
             <Button
-              size="icon"
+              size="sm"
               variant={tool === 'select' ? 'default' : 'ghost'}
               onClick={() => setTool('select')}
-              className={`h-10 w-10 rounded-lg transition-all ${tool === 'select' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-100'}`}
+              className={`h-9 w-9 rounded-md transition-all ${tool === 'select' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-200 text-slate-600'}`}
               title="Select"
           >
             <CursorIcon />
           </Button>
 
           <Button
-            size="icon"
+            size="sm"
             variant="ghost"
-            className="h-10 w-10 rounded-lg hover:bg-slate-100 disabled:opacity-40"
+            className="h-9 w-9 rounded-md hover:bg-slate-200 disabled:opacity-40 text-slate-600"
             onClick={() => {
               const newId = `n-${Date.now()}`;
               const newNode = {
@@ -1454,17 +1454,17 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                 }
               }, 50);
             }}
-            title="Add node"
+            title="Add Node"
           >
             <CircleIcon />
           </Button>
 
-          <div className="w-8 border-t border-slate-200 my-1" />
+          <div className="w-6 border-t border-slate-300 my-1" />
 
           <Button
-            size="icon"
+            size="sm"
             variant={tool === 'add-edge' ? 'default' : 'ghost'}
-            className={`h-10 w-10 rounded-lg transition-all ${tool === 'add-edge' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-100'} disabled:opacity-40`}
+            className={`h-9 w-9 rounded-md transition-all ${tool === 'add-edge' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-200 text-slate-600'} disabled:opacity-40`}
             onClick={() => {
               if (isRuleBased) return;
               setTool('add-edge');
@@ -1475,22 +1475,41 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
               }
             }}
             disabled={isRuleBased}
-            title="Add edge"
+            title="Add Edge"
           >
             <LinkIcon />
           </Button>
 
-          <div className="w-8 border-t border-slate-200 my-1" />
+          <div className="w-6 border-t border-slate-300 my-1" />
 
           <Button
-            size="icon"
+            size="sm"
             variant={tool === 'delete' ? 'destructive' : 'ghost'}
             onClick={() => setTool('delete')}
             disabled={isRuleBased}
-            className={`h-10 w-10 rounded-lg transition-all ${tool === 'delete' ? 'bg-red-600 text-white shadow-md' : 'hover:bg-red-50 hover:text-red-600'} disabled:opacity-40`}
+            className={`h-9 w-9 rounded-md transition-all ${tool === 'delete' ? 'bg-red-600 text-white shadow-md' : 'hover:bg-slate-200 text-slate-600'} disabled:opacity-40`}
             title="Delete"
           >
             <TrashIcon />
+          </Button>
+
+          <div className="w-6 border-t border-slate-300 my-1" />
+
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              // Export functionality will be added later
+              showToast({ 
+                title: 'Export Network', 
+                description: 'Export functionality coming soon',
+                variant: 'default'
+              });
+            }}
+            className="h-9 w-9 rounded-md hover:bg-slate-200 text-slate-600"
+            title="Export Network"
+          >
+            <DownloadIcon />
           </Button>
         </div>
         )}
@@ -1955,6 +1974,14 @@ const XIcon = () => (
 const TrashIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+  </svg>
+);
+
+const DownloadIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="7 10 12 15 17 10" />
+    <line x1="12" y1="15" x2="12" y2="3" />
   </svg>
 );
 

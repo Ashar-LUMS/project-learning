@@ -574,6 +574,7 @@ function NetworkAnalysisSidebar({ actions }: { actions?: NetworkEditorLayoutProp
                     className="w-full justify-start gap-2 h-8 px-2 text-xs"
                     onClick={() => actions?.run?.()}
                     disabled={Boolean(actions?.isRunning) || !Boolean(actions?.isRuleBased)}
+                    variant="secondary"
                     title={!actions?.isRuleBased ? 'Rule-based deterministic analysis only' : undefined}
                     size="sm"
                   >

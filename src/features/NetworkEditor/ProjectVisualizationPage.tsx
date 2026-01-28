@@ -1092,20 +1092,20 @@ function ProjectVisualizationPage() {
         type="button"
         onClick={() => handleSelectNetwork(network.id)}
         className={cn(
-          "w-full rounded-lg border p-3 text-left transition-colors", 
+          "w-full rounded-lg border p-2 text-left transition-colors", 
           isActive
             ? "border-primary bg-primary/10 text-primary"
             : "border-transparent bg-card hover:border-muted hover:bg-muted"
         )}
       >
-        <div className="flex items-start justify-between gap-3">
-          <span className="text-sm font-medium text-foreground break-words flex-1 min-w-0">{network.name}</span>
+        <div className="flex items-start justify-between gap-2">
+          <span className="text-xs font-medium text-foreground break-words flex-1 min-w-0">{network.name}</span>
           {isActive && (
-            <span className="text-[10px] uppercase tracking-wide text-primary flex-shrink-0 whitespace-nowrap">Active</span>
+            <span className="text-[9px] uppercase tracking-wide text-primary flex-shrink-0 whitespace-nowrap">Active</span>
           )}
         </div>
         {createdLabel && (
-          <div className="mt-1 text-xs text-muted-foreground">Created {createdLabel}</div>
+          <div className="mt-0.5 text-[10px] text-muted-foreground">Created {createdLabel}</div>
         )}
       </button>
     );
@@ -1114,12 +1114,12 @@ function ProjectVisualizationPage() {
   // removed local timestamp formatter in favor of shared utility
 
   const networkSidebarContent = (
-    <div className="space-y-4">
+    <div className="space-y-4 flex-1">
       <div className="space-y-2">
         <button
           type="button"
           onClick={handleOpenNewNetworkDialog}
-          className="w-full rounded-lg border border-dashed border-primary/50 bg-primary/5 p-3 text-left text-sm font-medium text-primary transition-colors hover:bg-primary/10 disabled:opacity-60"
+          className="w-full rounded-lg border border-dashed border-primary/50 bg-primary/5 p-2 text-left text-xs font-medium text-primary transition-colors hover:bg-primary/10 disabled:opacity-60"
           disabled={isLoading}
         >
           + New Network
@@ -1127,7 +1127,7 @@ function ProjectVisualizationPage() {
         <button
           type="button"
           onClick={handleImportNetwork}
-          className="w-full rounded-lg border border-muted bg-card p-3 text-left text-sm font-medium transition-colors hover:bg-muted disabled:opacity-60"
+          className="w-full rounded-lg border border-muted bg-card p-2 text-left text-xs font-medium transition-colors hover:bg-muted disabled:opacity-60"
           disabled={isLoading}
         >
           Import Network
@@ -1135,11 +1135,11 @@ function ProjectVisualizationPage() {
       </div>
 
       {isLoading ? (
-        <div className="rounded-lg border border-dashed border-muted-foreground/30 p-3 text-xs text-muted-foreground">
+        <div className="rounded-lg border border-dashed border-muted-foreground/30 p-2 text-[10px] text-muted-foreground">
           Loading networks...
         </div>
       ) : sidebarRecentNetworks.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-muted-foreground/30 p-3 text-xs text-muted-foreground">
+        <div className="rounded-lg border border-dashed border-muted-foreground/30 p-2 text-[10px] text-muted-foreground">
           No networks linked to this project yet.
         </div>
       ) : (
@@ -1147,17 +1147,25 @@ function ProjectVisualizationPage() {
           {/* Rule-Based Networks Section */}
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-muted-foreground">Rule-Based Networks</h3>
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">
+              <h3 className="text-xs font-semibold text-muted-foreground">Rule-Based Networks</h3>
+              <Badge variant="secondary" className="text-[9px] px-1.5 py-0.5">
                 {ruleBasedNetworks.length}
               </Badge>
             </div>
             {ruleBasedNetworks.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-muted-foreground/20 p-2 text-xs text-muted-foreground/70 italic">
+              <div className="rounded-lg border border-dashed border-muted-foreground/20 p-2 text-[10px] text-muted-foreground/70 italic">
                 No rule-based networks
               </div>
             ) : (
-              <div className="space-y-2">
+              <div 
+                className="space-y-2" 
+                style={ruleBasedNetworks.length > 3 ? {
+                  maxHeight: '240px',
+                  overflowY: 'scroll',
+                  scrollbarWidth: 'thin',
+                  scrollbarColor: '#cbd5e1 #f1f5f9'
+                } : undefined}
+              >
                 {ruleBasedNetworks.map(renderNetworkItem)}
               </div>
             )}
@@ -1168,17 +1176,25 @@ function ProjectVisualizationPage() {
           {/* Weight-Based Networks Section */}
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-muted-foreground">Weight-Based Networks</h3>
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">
+              <h3 className="text-xs font-semibold text-muted-foreground">Weight-Based Networks</h3>
+              <Badge variant="secondary" className="text-[9px] px-1.5 py-0.5">
                 {weightBasedNetworks.length}
               </Badge>
             </div>
             {weightBasedNetworks.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-muted-foreground/20 p-2 text-xs text-muted-foreground/70 italic">
+              <div className="rounded-lg border border-dashed border-muted-foreground/20 p-2 text-[10px] text-muted-foreground/70 italic">
                 No weight-based networks
               </div>
             ) : (
-              <div className="space-y-2">
+              <div 
+                className="space-y-2" 
+                style={weightBasedNetworks.length > 3 ? {
+                  maxHeight: '240px',
+                  overflowY: 'scroll',
+                  scrollbarWidth: 'thin',
+                  scrollbarColor: '#cbd5e1 #f1f5f9'
+                } : undefined}
+              >
                 {weightBasedNetworks.map(renderNetworkItem)}
               </div>
             )}
