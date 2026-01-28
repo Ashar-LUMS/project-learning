@@ -1404,21 +1404,21 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
       <div className="flex-1 flex relative min-h-0">
         {/* Left Sidebar - Toolbar */}
         {!hideControls && (
-          <div className="w-14 bg-white/80 backdrop-blur-sm border-r border-slate-200 flex flex-col items-center py-3 gap-1.5 z-20 shadow-sm overflow-y-auto">
+          <div className="w-16 bg-gradient-to-b from-slate-50 to-white/95 backdrop-blur-sm border-r border-slate-200 flex flex-col items-center py-2 gap-0.5 z-20 shadow-sm overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 #f1f5f9' }}>
             <Button
-              size="icon"
+              size="sm"
               variant={tool === 'select' ? 'default' : 'ghost'}
               onClick={() => setTool('select')}
-              className={`h-10 w-10 rounded-lg transition-all ${tool === 'select' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-100'}`}
-              title="Select"
+              className={`h-9 w-9 rounded-md transition-all ${tool === 'select' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-200 text-slate-600'}`}
+              title="Select Tool"
           >
             <CursorIcon />
           </Button>
 
           <Button
-            size="icon"
+            size="sm"
             variant="ghost"
-            className="h-10 w-10 rounded-lg hover:bg-slate-100 disabled:opacity-40"
+            className="h-9 w-9 rounded-md hover:bg-slate-200 disabled:opacity-40 text-slate-600"
             onClick={() => {
               const newId = `n-${Date.now()}`;
               const newNode = {
@@ -1454,17 +1454,17 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                 }
               }, 50);
             }}
-            title="Add node"
+            title="Add Node"
           >
             <CircleIcon />
           </Button>
 
-          <div className="w-8 border-t border-slate-200 my-1" />
+          <div className="w-6 border-t border-slate-300 my-1" />
 
           <Button
-            size="icon"
+            size="sm"
             variant={tool === 'add-edge' ? 'default' : 'ghost'}
-            className={`h-10 w-10 rounded-lg transition-all ${tool === 'add-edge' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-100'} disabled:opacity-40`}
+            className={`h-9 w-9 rounded-md transition-all ${tool === 'add-edge' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-200 text-slate-600'} disabled:opacity-40`}
             onClick={() => {
               if (isRuleBased) return;
               setTool('add-edge');
@@ -1475,19 +1475,19 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
               }
             }}
             disabled={isRuleBased}
-            title="Add edge"
+            title="Add Edge"
           >
             <LinkIcon />
           </Button>
 
-          <div className="w-8 border-t border-slate-200 my-1" />
+          <div className="w-6 border-t border-slate-300 my-1" />
 
           <Button
-            size="icon"
+            size="sm"
             variant={tool === 'delete' ? 'destructive' : 'ghost'}
             onClick={() => setTool('delete')}
             disabled={isRuleBased}
-            className={`h-10 w-10 rounded-lg transition-all ${tool === 'delete' ? 'bg-red-600 text-white shadow-md' : 'hover:bg-red-50 hover:text-red-600'} disabled:opacity-40`}
+            className={`h-9 w-9 rounded-md transition-all ${tool === 'delete' ? 'bg-red-600 text-white shadow-md' : 'hover:bg-slate-200 text-slate-600'} disabled:opacity-40`}
             title="Delete"
           >
             <TrashIcon />
