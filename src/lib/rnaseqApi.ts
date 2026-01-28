@@ -31,21 +31,104 @@ export interface RNASeqJobStatus {
 export interface GeneExpression {
   gene_id?: string;
   gene_symbol?: string;
-  /** Alternative field name some pipelines use instead of gene_symbol */
+  /** Alternative field names some pipelines use */
   gene_name?: string;
-  counts: number;
+  ensembl_id?: string;
+  id?: string;
+  name?: string;
+  symbol?: string;
+  /** Count fields - various naming conventions */
+  counts?: number;
+  count?: number;
+  read_count?: number;
+  reads?: number;
+  /** Expression values */
   tpm?: number;
+  TPM?: number;
   fpkm?: number;
+  FPKM?: number;
+}
+
+/** Raw API response - flexible to handle various microservice formats */
+export interface RawRNASeqResults {
+  job_id?: string;
+  jobId?: string;
+  sample_name?: string;
+  sampleName?: string;
+  sample?: string;
+  genes?: any[];
+  expression?: any[];
+  results?: any[];
+  gene_count?: number;
+  geneCount?: number;
+  total_genes?: number;
+  total_counts?: number;
+  totalCounts?: number;
+  total_reads?: number;
+  assigned_reads?: number;
+  mapping_rate?: number;
+  mappingRate?: number;
+  alignment_rate?: number;
+  completed_at?: string;
+  completedAt?: string;
+  timestamp?: string;
+}
+
+export interface NormalizedGene {
+  gene_id: string;
+  gene_symbol: string;
+  counts: number;
+  tpm: number | null;
+  fpkm: number | null;
 }
 
 export interface RNASeqResults {
   job_id: string;
   sample_name: string;
-  genes: GeneExpression[];
+  genes: NormalizedGene[];
   gene_count: number;
   total_counts: number;
-  mapping_rate?: number;
+  mapping_rate: number | null;
   completed_at: string;
+}
+
+/**
+ * Normalize a gene object from various API formats to our standard format
+ */
+function normalizeGene(raw: any): NormalizedGene {
+  return {
+    gene_id: raw.gene_id ?? raw.ensembl_id ?? raw.id ?? raw.geneId ?? '',
+    gene_symbol: raw.gene_symbol ?? raw.gene_name ?? raw.symbol ?? raw.name ?? raw.geneName ?? '',
+    counts: raw.counts ?? raw.count ?? raw.read_count ?? raw.reads ?? raw.readCount ?? 0,
+    tpm: raw.tpm ?? raw.TPM ?? null,
+    fpkm: raw.fpkm ?? raw.FPKM ?? null,
+  };
+}
+
+/**
+ * Normalize API response from various formats to our standard format
+ */
+export function normalizeRNASeqResults(raw: RawRNASeqResults): RNASeqResults {
+  // Extract genes array from various possible field names
+  const rawGenes = raw.genes ?? raw.expression ?? raw.results ?? [];
+  
+  // Normalize each gene
+  const genes = Array.isArray(rawGenes) 
+    ? rawGenes.map(normalizeGene) 
+    : [];
+  
+  // Calculate total counts from genes if not provided
+  const calculatedTotalCounts = genes.reduce((sum, g) => sum + (g.counts || 0), 0);
+  
+  return {
+    job_id: raw.job_id ?? raw.jobId ?? '',
+    sample_name: raw.sample_name ?? raw.sampleName ?? raw.sample ?? 'Unknown',
+    genes,
+    gene_count: raw.gene_count ?? raw.geneCount ?? raw.total_genes ?? genes.length,
+    total_counts: raw.total_counts ?? raw.totalCounts ?? raw.total_reads ?? raw.assigned_reads ?? calculatedTotalCounts,
+    mapping_rate: raw.mapping_rate ?? raw.mappingRate ?? raw.alignment_rate ?? null,
+    completed_at: raw.completed_at ?? raw.completedAt ?? raw.timestamp ?? new Date().toISOString(),
+  };
 }
 
 export class RNASeqApiError extends Error {
@@ -126,7 +209,13 @@ export async function getRNASeqResults(jobId: string): Promise<RNASeqResults> {
     );
   }
 
-  return response.json();
+  const rawData = await response.json();
+  
+  // Log raw response for debugging (can be removed in production)
+  console.log('[RNA-Seq API] Raw results:', JSON.stringify(rawData, null, 2).slice(0, 2000));
+  
+  // Normalize the response to handle various API formats
+  return normalizeRNASeqResults(rawData);
 }
 
 /**
