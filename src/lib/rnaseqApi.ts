@@ -8,7 +8,7 @@
  */
 
 // Default to localhost in development - should be configured via env variable in production
-const RNASEQ_API_URL = import.meta.env.VITE_RNASEQ_API_URL || "http://localhost:8000";
+const API_URL = import.meta.env.VITE_RNASEQ_API_URL || 'http://localhost:8000';
 
 export interface RNASeqJobSubmitResponse {
   job_id: string;
@@ -73,7 +73,7 @@ export class RNASeqApiError extends Error {
  *   - sample_name: Optional sample identifier
  */
 export async function submitRNASeqAnalysis(formData: FormData): Promise<RNASeqJobSubmitResponse> {
-  const response = await fetch(`${RNASEQ_API_URL}/analyze`, {
+  const response = await fetch(`${API_URL}/analyze`, {
     method: "POST",
     body: formData,
   });
@@ -95,7 +95,7 @@ export async function submitRNASeqAnalysis(formData: FormData): Promise<RNASeqJo
  * @param jobId - The job ID returned from submitRNASeqAnalysis
  */
 export async function checkRNASeqStatus(jobId: string): Promise<RNASeqJobStatus> {
-  const response = await fetch(`${RNASEQ_API_URL}/status/${jobId}`);
+  const response = await fetch(`${API_URL}/status/${jobId}`);
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -114,7 +114,7 @@ export async function checkRNASeqStatus(jobId: string): Promise<RNASeqJobStatus>
  * @param jobId - The job ID returned from submitRNASeqAnalysis
  */
 export async function getRNASeqResults(jobId: string): Promise<RNASeqResults> {
-  const response = await fetch(`${RNASEQ_API_URL}/results/${jobId}`);
+  const response = await fetch(`${API_URL}/results/${jobId}`);
 
   if (!response.ok) {
     const errorText = await response.text();
