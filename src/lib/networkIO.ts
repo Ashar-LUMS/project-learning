@@ -10,9 +10,8 @@ import type { NetworkNode, NetworkEdge, Rule, NetworkData } from '@/types/networ
 // ============================================================================
 
 export interface WeightedNetworkCSV {
-  nodes: Array<{ id: string; initialValue: number }>;
+  nodes: Array<{ id: string; basalValue: number }>;
   edges: Array<{ source: string; weight: number; target: string }>;
-  positions: Array<{ id: string; value: number; x: number; y: number; color: string; model: string }>;
 }
 
 export interface ParsedRuleBasedNetwork {
@@ -28,25 +27,24 @@ export interface ParsedRuleBasedNetwork {
 /**
  * Export a weight-based network to CSV format.
  * Format:
- * Section 1: node_id, initial_value
- * Section 2: source, weight, target (edges)
- * Section 3: node_id, value, x, y, color, model (positions)
- * Section 4: "Weight Based" label
+ * Section 1: node_id, basal_value (nodes with basal values)
+ * Section 2: source, weight, target (edges with intensity)
+ * Section 3: "Weight Based" label
  */
 export function exportWeightedNetworkToCSV(data: NetworkData): string {
   const lines: string[] = [];
   
-  // Section 1: Nodes with initial values
+  // Section 1: Nodes with basal values
   const nodes = data.nodes || [];
   for (const node of nodes) {
-    const initialValue = node.properties?.initialValue ?? node.weight ?? 0;
-    lines.push(`${node.id},${initialValue}`);
+    const basalValue = node.properties?.basalValue ?? node.properties?.initialValue ?? node.weight ?? 0;
+    lines.push(`${node.id},${basalValue}`);
   }
   
   // Empty separator
   lines.push(',,');
   
-  // Section 2: Edges (source, weight, target)
+  // Section 2: Edges (source, weight/intensity, target)
   const edges = data.edges || [];
   for (const edge of edges) {
     const weight = edge.weight ?? 1;
@@ -56,20 +54,7 @@ export function exportWeightedNetworkToCSV(data: NetworkData): string {
   // Empty separator
   lines.push(',,');
   
-  // Section 3: Node positions (id, value, x, y, color, model)
-  for (const node of nodes) {
-    const x = node.properties?.position?.x ?? node.properties?.x ?? 100;
-    const y = node.properties?.position?.y ?? node.properties?.y ?? 100;
-    const color = node.properties?.color ?? 'white';
-    const model = node.properties?.model ?? 'devs.SimpleMoleculeModel';
-    const value = node.properties?.initialValue ?? node.weight ?? 0;
-    lines.push(`${node.id},${value},${x},${y},${color},${model}`);
-  }
-  
-  // Empty separator
-  lines.push(',,');
-  
-  // Section 4: Network type label
+  // Section 3: Network type label
   lines.push('Weight Based');
   
   return lines.join('\n');
@@ -118,7 +103,10 @@ export function exportRuleBasedNetworkToTXT(data: NetworkData): string {
 
 /**
  * Parse a weight-based network from CSV format.
- * Expects the format from exportWeightedNetworkToCSV.
+ * Expects the format from exportWeightedNetworkToCSV:
+ * Section 1: node_id, basal_value
+ * Section 2: source, weight, target
+ * Section 3: "Weight Based" label
  */
 export function parseWeightedNetworkCSV(csvContent: string): NetworkData {
   const lines = csvContent.split(/\r?\n/).map(l => l.trim());
@@ -135,30 +123,26 @@ export function parseWeightedNetworkCSV(csvContent: string): NetworkData {
   const section1End = sectionBreaks[0] ?? lines.length;
   const section2Start = section1End + 1;
   const section2End = sectionBreaks[1] ?? lines.length;
-  const section3Start = section2End + 1;
-  const section3End = sectionBreaks[2] ?? lines.length;
   
-  // Section 1: Nodes (id, initialValue)
+  // Section 1: Nodes (id, basalValue)
   const nodeLines = lines.slice(0, section1End).filter(l => l && !l.match(/^,+$/));
   const nodes: NetworkNode[] = [];
-  const nodeMap = new Map<string, { initialValue: number }>();
   
   for (const line of nodeLines) {
     const parts = line.split(',').map(p => p.trim());
     if (parts.length >= 2 && parts[0]) {
       const id = parts[0];
-      const initialValue = parseFloat(parts[1]) || 0;
-      nodeMap.set(id, { initialValue });
+      const basalValue = parseFloat(parts[1]) || 0;
       nodes.push({
         id,
         label: id,
-        weight: initialValue,
-        properties: { initialValue }
+        weight: basalValue,
+        properties: { basalValue, initialValue: basalValue }
       });
     }
   }
   
-  // Section 2: Edges (source, weight, target)
+  // Section 2: Edges (source, weight/intensity, target)
   const edgeLines = lines.slice(section2Start, section2End).filter(l => l && !l.match(/^,+$/));
   const edges: NetworkEdge[] = [];
   
@@ -173,33 +157,9 @@ export function parseWeightedNetworkCSV(csvContent: string): NetworkData {
     }
   }
   
-  // Section 3: Positions (id, value, x, y, color, model)
-  const positionLines = lines.slice(section3Start, section3End).filter(l => l && !l.match(/^,+$/));
-  
-  for (const line of positionLines) {
-    const parts = line.split(',').map(p => p.trim());
-    if (parts.length >= 4 && parts[0]) {
-      const id = parts[0];
-      const node = nodes.find(n => n.id === id);
-      if (node) {
-        node.properties = {
-          ...node.properties,
-          x: parseFloat(parts[2]) || 100,
-          y: parseFloat(parts[3]) || 100,
-          position: {
-            x: parseFloat(parts[2]) || 100,
-            y: parseFloat(parts[3]) || 100
-          },
-          color: parts[4] || 'white',
-          model: parts[5] || 'devs.SimpleMoleculeModel'
-        };
-      }
-    }
-  }
-  
-  // Check for network type label
-  const lastNonEmpty = lines.filter(l => l && !l.match(/^,+$/)).pop();
-  const isWeightBased = lastNonEmpty?.toLowerCase().includes('weight');
+  // Check for network type label in remaining lines
+  const remainingLines = lines.slice(section2End + 1).filter(l => l && !l.match(/^,+$/));
+  const isWeightBased = remainingLines.some(l => l.toLowerCase().includes('weight'));
   
   return {
     nodes,
