@@ -6,6 +6,7 @@ import { useToast } from '@/components/ui/toast';
 import { cn } from "@/lib/utils";
 import { formatTimestamp } from '@/lib/format';
 import type { NetworkData, NetworkNode, NetworkEdge, Rule, CellFate, TherapeuticIntervention } from '@/types/network';
+import { importNetwork, exportAndDownloadNetwork } from '@/lib/networkIO';
 import NetworkGraph, { type NetworkGraphHandle } from "./NetworkGraph";
 import { supabase } from "../../supabaseClient";
 import NetworkEditorLayout from "./layout";
@@ -897,6 +898,32 @@ function ProjectVisualizationPage() {
     setIsImportOpen(true);
   }, []);
 
+  // Unified file picker: handles CSV (weighted) or TXT (rules)
+  const onPickNetworkFile = async (file?: File | null) => {
+    try {
+      setImportError(null);
+      if (!file) return;
+      setNetworkFileName(file.name);
+      const text = await file.text();
+      
+      // Use the unified importer
+      const parsed = importNetwork(text, file.name);
+      setImportedNetwork(parsed);
+      
+      // If it's rule-based, extract rules as strings
+      if (parsed.rules && parsed.rules.length > 0) {
+        const ruleStrings = parsed.rules.map(r => 
+          typeof r === 'string' ? r : r.name
+        ).filter(Boolean);
+        setImportedRules(ruleStrings);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to parse network file';
+      setImportedNetwork(null);
+      setImportError(errorMessage);
+    }
+  };
+
 
   const onPickRulesFile = async (file?: File | null) => {
     try {
@@ -1131,6 +1158,30 @@ function ProjectVisualizationPage() {
           disabled={isLoading}
         >
           Import Network
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (!selectedNetwork) {
+              showToast({ title: 'No Network Selected', description: 'Select a network to export', variant: 'destructive' });
+              return;
+            }
+            const data = selectedNetwork.data as NetworkData;
+            if (!data) {
+              showToast({ title: 'No Data', description: 'Selected network has no data', variant: 'destructive' });
+              return;
+            }
+            exportAndDownloadNetwork(data, selectedNetwork.name || 'network');
+            showToast({ 
+              title: 'Network Exported', 
+              description: `Exported ${selectedNetwork.name || 'network'}`,
+              variant: 'default'
+            });
+          }}
+          className="w-full rounded-lg border border-muted bg-card p-2 text-left text-xs font-medium transition-colors hover:bg-muted disabled:opacity-60"
+          disabled={isLoading || !selectedNetwork}
+        >
+          Export Network
         </button>
       </div>
 
@@ -2333,9 +2384,9 @@ function ProjectVisualizationPage() {
       <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Import Rules based Network</DialogTitle>
+            <DialogTitle>Import Network</DialogTitle>
             <DialogDescription>
-              Upload a rules file.
+              Upload a network file: CSV (weight-based) or TXT (rule-based)
             </DialogDescription>
           </DialogHeader>
 
@@ -2345,18 +2396,31 @@ function ProjectVisualizationPage() {
               <Input id="import-name" value={importNetworkName} onChange={(e) => setImportNetworkName(e.target.value)} />
             </div>
 
-            {/*<div className="space-y-2">
-              <Label>Network JSON</Label>
-              <Input type="file" accept="application/json,.json" onChange={(e) => onPickNetworkFile(e.target.files?.[0])} />
-              {networkFileName && <div className="text-xs text-muted-foreground">Selected: {networkFileName}</div>}
-            </div>*/}
-
             <div className="space-y-2">
-              <Label>Rules (TXT)</Label>
+              <Label>Network File (CSV or TXT)</Label>
+              <Input 
+                type="file" 
+                accept=".csv,.txt,text/csv,text/plain" 
+                onChange={(e) => onPickNetworkFile(e.target.files?.[0])} 
+              />
+              {networkFileName && (
+                <div className="text-xs text-muted-foreground">
+                  Selected: {networkFileName}
+                  {importedNetwork?.metadata?.type && (
+                    <Badge variant="outline" className="ml-2">
+                      {importedNetwork.metadata.type}
+                    </Badge>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2 border-t pt-4">
+              <Label className="text-muted-foreground">Or upload separate Rules file (optional)</Label>
               <Input type="file" accept="text/plain,.txt" onChange={(e) => onPickRulesFile(e.target.files?.[0])} />
               <div className="flex items-center gap-2 pt-1">
-                <Button type="button" variant="outline" onClick={onInferRules} disabled={isInferring || !importedNetwork}>
-                  {isInferring ? 'Inferring…' : 'Infer Rules'}
+                <Button type="button" variant="outline" size="sm" onClick={onInferRules} disabled={isInferring || !importedNetwork}>
+                  {isInferring ? 'Inferring…' : 'Infer Rules from AI'}
                 </Button>
                 {Array.isArray(importedRules) && (
                   <span className="text-xs text-muted-foreground">{importedRules.length} rules loaded</span>
@@ -2376,6 +2440,7 @@ function ProjectVisualizationPage() {
                 <div>Nodes: {Array.isArray(importedNetwork.nodes) ? importedNetwork.nodes.length : 0}</div>
                 <div>Edges: {Array.isArray(importedNetwork.edges) ? importedNetwork.edges.length : 0}</div>
                 <div>Rules: {Array.isArray(importedRules) ? importedRules.length : (Array.isArray(importedNetwork.rules) ? importedNetwork.rules!.length : 0)}</div>
+                <div>Type: {importedNetwork.metadata?.type || 'Unknown'}</div>
               </div>
             )}
           </div>

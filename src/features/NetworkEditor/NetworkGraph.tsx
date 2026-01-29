@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import type { NetworkData } from '@/types/network';
+import { exportAndDownloadNetwork } from '@/lib/networkIO';
 
 // Module-level flag to prevent duplicate edgehandles extension registration (survives HMR)
 let edgehandlesRegistered = false;
@@ -1499,10 +1500,46 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
             size="sm"
             variant="ghost"
             onClick={() => {
-              // Export functionality will be added later
+              // Get existing rules from the effective network data
+              const existingRules = (effectiveNetworkData as any)?.rules || 
+                                    (effectiveNetworkData as any)?.data?.rules || 
+                                    (effectiveNetworkData as any)?.network_data?.rules || [];
+              const rulesArray = Array.isArray(existingRules) ? existingRules : [];
+              
+              // Build current network data from local state
+              const networkData: NetworkData = {
+                nodes: localNodes.map(n => ({
+                  id: n.id,
+                  label: n.label,
+                  type: n.type,
+                  weight: n.weight,
+                  properties: {
+                    ...n.properties,
+                    position: cyRef.current?.getElementById(n.id)?.position() || n.properties?.position
+                  }
+                })),
+                edges: localEdges.map(e => ({
+                  source: e.source,
+                  target: e.target,
+                  weight: e.weight,
+                  interaction: e.interaction
+                })),
+                rules: isRuleBased ? rulesArray : undefined,
+                metadata: {
+                  type: isRuleBased ? 'Rule based' : 'weight based',
+                  exportedAt: new Date().toISOString()
+                }
+              };
+              
+              // Get network name from fetched network or use default
+              const networkName = (network as any)?.name || 
+                                  (effectiveNetworkData as any)?.name || 
+                                  'network';
+              exportAndDownloadNetwork(networkData, networkName);
+              
               showToast({ 
-                title: 'Export Network', 
-                description: 'Export functionality coming soon',
+                title: 'Network Exported', 
+                description: `Saved as ${isRuleBased ? 'rules TXT' : 'weighted CSV'} file`,
                 variant: 'default'
               });
             }}
