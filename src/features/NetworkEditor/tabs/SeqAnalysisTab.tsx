@@ -33,14 +33,21 @@ import {
   type NormalizedGene,
   RNASeqApiError,
 } from "@/lib/rnaseqApi";
+import type { ProjectNetworkRecord } from '@/hooks/useProjectNetworks';
 import type { NetworkNode } from "@/types/network";
 
 interface SeqAnalysisTabProps {
   /** Network nodes to filter results by (only genes present in network are shown) */
   networkNodes?: NetworkNode[];
+  /** Optional list of networks in the current project so user can pick one before analysis */
+  networks?: ProjectNetworkRecord[];
+  /** Callback to select a network in the project context */
+  onNetworkSelect?: (id: string) => void;
+  /** Current selected network id from project context */
+  selectedNetworkId?: string | null;
   /** Optional project ID for context */
   projectId?: string | null;
-  /** Optional network ID for context */
+  /** Optional network ID for context (legacy) */
   networkId?: string | null;
   /** Optional network name for display */
   networkName?: string | null;
@@ -63,6 +70,9 @@ const POLL_INTERVAL = 30000; // 30 seconds
 
 export function SeqAnalysisTab({
   networkNodes = [],
+  networks = [],
+  onNetworkSelect,
+  selectedNetworkId: propSelectedNetworkId,
   projectId: _projectId,
   networkId: _networkId,
   networkName,
@@ -71,6 +81,32 @@ export function SeqAnalysisTab({
   void _projectId;
   void _networkId;
   const { showToast } = useToast();
+
+  // Local selected network for the analysis tab. Prefers prop value when present.
+  const [localSelectedNetworkId, setLocalSelectedNetworkId] = useState<string | null>(
+    propSelectedNetworkId ?? _networkId ?? null
+  );
+
+  useEffect(() => {
+    // Sync when parent selection changes
+    setLocalSelectedNetworkId(propSelectedNetworkId ?? _networkId ?? null);
+  }, [propSelectedNetworkId, _networkId]);
+
+  // Resolve effective nodes to use for filtering: chosen network's nodes (if available) else provided `networkNodes` prop
+  const effectiveNetworkNodes = useMemo<NetworkNode[]>(() => {
+    if (localSelectedNetworkId && Array.isArray(networks) && networks.length > 0) {
+      const found = networks.find(n => n.id === localSelectedNetworkId);
+      if (found && found.data && Array.isArray(found.data.nodes)) return found.data.nodes;
+    }
+    return networkNodes || [];
+  }, [localSelectedNetworkId, networks, networkNodes]);
+
+  const localNetworkName = useMemo(() => {
+    if (localSelectedNetworkId && Array.isArray(networks)) {
+      return networks.find(n => n.id === localSelectedNetworkId)?.name ?? null;
+    }
+    return networkName ?? null;
+  }, [localSelectedNetworkId, networks, networkName]);
 
   // Form state
   const [sampleName, setSampleName] = useState("");
@@ -93,16 +129,16 @@ export function SeqAnalysisTab({
   // Extract gene identifiers from network nodes for filtering results
   const networkGeneIds = useMemo(() => {
     const ids = new Set<string>();
-    networkNodes.forEach(node => {
+    effectiveNetworkNodes.forEach(node => {
       // Add node id (usually the gene symbol or identifier)
-      ids.add(node.id.toLowerCase());
+      if (typeof node.id === 'string') ids.add(node.id.toLowerCase());
       // Add label if different from id
-      if (node.label && node.label.toLowerCase() !== node.id.toLowerCase()) {
+      if (node.label && typeof node.label === 'string' && node.label.toLowerCase() !== String(node.id).toLowerCase()) {
         ids.add(node.label.toLowerCase());
       }
     });
     return ids;
-  }, [networkNodes]);
+  }, [effectiveNetworkNodes]);
 
   // Filter results to only show genes present in the network
   const filteredResults = useMemo<NormalizedGene[]>(() => {
@@ -346,9 +382,9 @@ export function SeqAnalysisTab({
           </div>
           <div>
             <h2 className="text-lg font-semibold">RNA-seq Analysis</h2>
-            {networkName && (
+            {localNetworkName && (
               <p className="text-xs text-muted-foreground">
-                Filtering results for: {networkName}
+                Filtering results for: {localNetworkName}
               </p>
             )}
           </div>
@@ -363,6 +399,40 @@ export function SeqAnalysisTab({
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-4 space-y-4">
+        {/* Network chooser — show when multiple networks available or none preselected */}
+        {Array.isArray(networks) && networks.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Select Network Context</CardTitle>
+              <CardDescription>
+                Choose which network to use for filtering sequence results before running analysis.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-3">
+                <select
+                  value={localSelectedNetworkId ?? ''}
+                  onChange={(e) => {
+                    const val = e.target.value || null;
+                    setLocalSelectedNetworkId(val);
+                    if (val && onNetworkSelect) onNetworkSelect(val);
+                  }}
+                  className="border p-2 rounded"
+                >
+                  <option value="">-- Select a network --</option>
+                  {networks.map(n => (
+                    <option key={n.id} value={n.id}>{n.name || n.id}</option>
+                  ))}
+                </select>
+                {localSelectedNetworkId ? (
+                  <div className="text-sm text-muted-foreground">Using: {localNetworkName}</div>
+                ) : (
+                  <div className="text-sm text-amber-600">No network selected — analysis will show all genes</div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
         {/* Form Section */}
         {(analysisState === 'idle' || analysisState === 'validating') && (
           <Card>

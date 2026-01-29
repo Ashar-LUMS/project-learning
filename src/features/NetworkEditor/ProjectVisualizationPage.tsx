@@ -1842,6 +1842,9 @@ function ProjectVisualizationPage() {
         return (
           <SeqAnalysisTab
             networkNodes={selectedNetwork?.data?.nodes || []}
+            networks={networks}
+            onNetworkSelect={selectNetwork}
+            selectedNetworkId={selectedNetworkId}
             projectId={projectId}
             networkId={selectedNetworkId}
             networkName={selectedNetwork?.name}

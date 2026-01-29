@@ -432,6 +432,9 @@ function NetworkEditorPage() {
         return (
           <SeqAnalysisTab
             networkNodes={selectedNetwork?.data?.nodes || []}
+            networks={networks}
+            onNetworkSelect={selectNetwork}
+            selectedNetworkId={selectedNetworkId}
             projectId={selectedProjectId}
             networkId={selectedNetworkId}
             networkName={selectedNetwork?.name}
