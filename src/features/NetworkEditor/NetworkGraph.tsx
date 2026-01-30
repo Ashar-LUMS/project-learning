@@ -928,9 +928,8 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
           }
         ],
         layout: {
-          name: 'cose',
+          name: 'circle',
           animate: false,
-          refresh: 0,
           fit: true,
           padding: 60,
         },
@@ -1033,9 +1032,8 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
         cy.resize();
         try {
           const layout = cy.layout({
-            name: 'cose',
+            name: 'circle',
             animate: false,
-            refresh: 0,
             fit: true,
             padding: 60
           });
@@ -1238,7 +1236,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
       // Optionally re-run layout for significant changes
       setTimeout(() => {
         try {
-          const layout = cy.layout({ name: 'cose', animate: false, refresh: 0, fit: true, padding: 60 });
+          const layout = cy.layout({ name: 'circle', animate: false, fit: true, padding: 60 });
           layout.run();
         } catch (err) {
           try { cy.layout({ name: 'grid', animate: false, fit: true, padding: 60 }).run(); } catch { }

@@ -788,20 +788,6 @@ function SeqAnalysisSidebar() {
 
       <Separator className="bg-border/50" />
 
-      {/* About Section */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">About</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            Upload paired-end FASTQ files along with reference genome and annotation 
-            to perform RNA-seq analysis. Results are automatically filtered to show 
-            only genes present in your selected network.
-          </p>
-        </CardContent>
-      </Card>
-
       {/* Requirements */}
       <Card>
         <CardHeader className="pb-2">
@@ -829,20 +815,7 @@ function SeqAnalysisSidebar() {
         </CardContent>
       </Card>
 
-      {/* Notes */}
-      <Card className="border-amber-200/50 bg-amber-50/30">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-amber-700">Important Notes</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <ul className="text-xs text-amber-700 space-y-1 list-disc pl-4">
-            <li>FASTQ files can be large (1-50 GB)</li>
-            <li>Analysis typically takes 1-4 hours</li>
-            <li>You can leave the page during analysis</li>
-            <li>Select a network first for filtered results</li>
-          </ul>
-        </CardContent>
-      </Card>
+      
     </div>
   );
 }
