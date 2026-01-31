@@ -1,8 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import type { DeterministicAttractor } from '@/lib/analysis/types';
 import Plotly from 'plotly.js-dist-min';
-import { Button } from '@/components/ui/button';
-import { Maximize2, Minimize2 } from 'lucide-react';
 
 interface AttractorLandscapeProps {
   attractors: DeterministicAttractor[];
@@ -12,11 +10,6 @@ interface AttractorLandscapeProps {
 export default function AttractorLandscape({ attractors, className = '' }: AttractorLandscapeProps) {
   const plotRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [isFullScreen, setIsFullScreen] = useState(false);
-
-  const toggleFullScreen = () => {
-    setIsFullScreen((prev) => !prev);
-  };
 
   useEffect(() => {
     if (!plotRef.current || attractors.length === 0) return;
@@ -193,7 +186,7 @@ export default function AttractorLandscape({ attractors, className = '' }: Attra
         }
       }
     };
-  }, [attractors, isFullScreen]);
+  }, [attractors]);
 
   if (attractors.length === 0) {
     return (
@@ -206,24 +199,9 @@ export default function AttractorLandscape({ attractors, className = '' }: Attra
   return (
     <div 
       ref={containerRef}
-      className={`${className} w-full relative ${
-        isFullScreen 
-          ? 'fixed inset-0 z-50 bg-background p-4' 
-          : ''
-      }`}
-      style={{ height: isFullScreen ? '100vh' : '500px' }}
+      className={`${className} w-full h-full relative`}
+      style={{ minHeight: '450px' }}
     >
-      {/* Full-screen toggle button */}
-      <Button
-        variant="outline"
-        size="sm"
-        className="absolute top-2 right-2 z-10 h-8 w-8 p-0"
-        onClick={toggleFullScreen}
-        title={isFullScreen ? 'Exit full screen' : 'Full screen'}
-      >
-        {isFullScreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-      </Button>
-
       {/* Legend */}
       <div className="absolute bottom-2 left-2 z-10 bg-background/90 border rounded-md p-2 text-xs space-y-1 max-w-[200px]">
         <div className="font-medium text-foreground">Legend</div>

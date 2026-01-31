@@ -1,6 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Maximize2, Minimize2 } from 'lucide-react';
+import React, { useEffect, useRef } from 'react';
 
 declare const Plotly: any;
 
@@ -27,11 +25,6 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const plotRef = useRef<HTMLDivElement>(null);
-  const [isFullScreen, setIsFullScreen] = useState(false);
-
-  const toggleFullScreen = () => {
-    setIsFullScreen((prev) => !prev);
-  };
 
   useEffect(() => {
     if (!plotRef.current || !window.Plotly) return;
@@ -128,7 +121,6 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
 
     const layout = {
       autosize: true,
-      height: isFullScreen ? window.innerHeight - 100 : 450,
       margin: { l: 10, r: 10, t: 70, b: 10 },
       title: {
         text: (type === 'probability' ? 'Probability Landscape' : 'Potential Energy Landscape') + '<br>' + subtitle,
@@ -202,7 +194,7 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
         plotRef.current.innerHTML = '';
       }
     }
-  }, [nodeOrder, probabilities, potentialEnergies, type, isFullScreen]);
+  }, [nodeOrder, probabilities, potentialEnergies, type]);
 
   // Legend content based on type
   const legendContent = type === 'probability' ? (
@@ -236,24 +228,9 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
   return (
     <div 
       ref={containerRef}
-      className={`${className} w-full relative ${
-        isFullScreen 
-          ? 'fixed inset-0 z-50 bg-background p-4' 
-          : ''
-      }`}
-      style={{ height: isFullScreen ? '100vh' : '450px' }}
+      className={`${className} w-full h-full relative`}
+      style={{ minHeight: '400px' }}
     >
-      {/* Full-screen toggle button */}
-      <Button
-        variant="outline"
-        size="sm"
-        className="absolute top-2 right-2 z-10 h-8 w-8 p-0"
-        onClick={toggleFullScreen}
-        title={isFullScreen ? 'Exit full screen' : 'Full screen'}
-      >
-        {isFullScreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-      </Button>
-
       {/* Legend */}
       <div className="absolute bottom-2 left-2 z-10 bg-background/90 border rounded-md p-2 text-xs space-y-1 max-w-[220px]">
         {legendContent}

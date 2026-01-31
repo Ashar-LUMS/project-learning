@@ -24,6 +24,8 @@ import type { AnalysisEdge, AnalysisNode, ProbabilisticAnalysisOptions, Weighted
 import { useProjectNetworks, type ProjectNetworkRecord } from '@/hooks/useProjectNetworks';
 
 import AttractorGraph from './AttractorGraph';
+import AttractorLandscape from './AttractorLandscape';
+import ProbabilisticLandscape from './ProbabilisticLandscape';
 import { TherapeuticsPanel } from './TherapeuticsPanel';
 
 // network type unified via hook's ProjectNetworkRecord
@@ -100,6 +102,11 @@ function NetworkEditorPage() {
     initialProbability: '0.5',
   });
   const [probabilisticFormError, setProbabilisticFormError] = useState<string | null>(null);
+  // Landscape dialog states
+  const [attractorLandscapeOpen, setAttractorLandscapeOpen] = useState(false);
+  const [attractorLandscapeData, setAttractorLandscapeData] = useState<any[] | null>(null);
+  const [probabilityLandscapeOpen, setProbabilityLandscapeOpen] = useState(false);
+  const [energyLandscapeOpen, setEnergyLandscapeOpen] = useState(false);
   const probabilisticEntries = useMemo(() => {
     if (!probabilisticResult) return [] as Array<[string, number]>;
     return Object.entries(probabilisticResult.probabilities).sort(([, a], [, b]) => b - a);
@@ -695,6 +702,19 @@ function NetworkEditorPage() {
                           {analysisResult.warnings.map((w: any, i: number) => <p key={i}>• {w}</p>)}
                         </div>
                       )}
+                      {/* Attractor Landscape Button */}
+                      {analysisResult.attractors.length > 0 && (
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => {
+                            setAttractorLandscapeData(analysisResult.attractors);
+                            setAttractorLandscapeOpen(true);
+                          }}
+                        >
+                          View Attractor Landscape
+                        </Button>
+                      )}
                       <div className="space-y-3">
                         {analysisResult.attractors.map((attr: any) => (
                           <div key={attr.id} className="border rounded-md p-3 bg-background/50">
@@ -746,6 +766,19 @@ function NetworkEditorPage() {
                         <div className="text-xs text-amber-600 space-y-1">
                           {weightedResult.warnings.map((w: string, i: number) => <p key={i}>• {w}</p>)}
                         </div>
+                      )}
+                      {/* Attractor Landscape Button */}
+                      {weightedResult.attractors.length > 0 && (
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => {
+                            setAttractorLandscapeData(weightedResult.attractors);
+                            setAttractorLandscapeOpen(true);
+                          }}
+                        >
+                          View Attractor Landscape
+                        </Button>
                       )}
                       <div className="space-y-3">
                         {weightedResult.attractors.map((attr: any) => (
@@ -799,6 +832,23 @@ function NetworkEditorPage() {
                           {probabilisticResult.warnings.map((w: string, i: number) => <p key={i}>• {w}</p>)}
                         </div>
                       )}
+                      {/* Landscape Buttons */}
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => setProbabilityLandscapeOpen(true)}
+                        >
+                          View Probability Landscape
+                        </Button>
+                        {Object.keys(probabilisticResult.potentialEnergies).length > 0 && (
+                          <Button
+                            variant="outline"
+                            onClick={() => setEnergyLandscapeOpen(true)}
+                          >
+                            View Potential Energy Landscape
+                          </Button>
+                        )}
+                      </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                         <div className="space-y-2">
                           <div className="font-semibold text-sm">Steady-state probabilities</div>
@@ -1083,6 +1133,69 @@ function NetworkEditorPage() {
               {isProbabilisticAnalyzing ? 'Running…' : 'Run Probabilistic Analysis'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Attractor Landscape Full-Screen Dialog */}
+      <Dialog open={attractorLandscapeOpen} onOpenChange={setAttractorLandscapeOpen}>
+        <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] max-h-[90vh] p-0 overflow-hidden">
+          <DialogHeader className="p-4 pb-0">
+            <DialogTitle>Attractor Landscape</DialogTitle>
+            <DialogDescription>
+              3D visualization of the attractor landscape. Valleys represent stable attractors (deeper = larger basin), peaks represent transient states.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 h-[calc(90vh-100px)] p-4">
+            {attractorLandscapeData && attractorLandscapeData.length > 0 && (
+              <AttractorLandscape attractors={attractorLandscapeData} className="h-full" />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Probability Landscape Full-Screen Dialog */}
+      <Dialog open={probabilityLandscapeOpen} onOpenChange={setProbabilityLandscapeOpen}>
+        <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] max-h-[90vh] p-0 overflow-hidden">
+          <DialogHeader className="p-4 pb-0">
+            <DialogTitle>Probability Landscape</DialogTitle>
+            <DialogDescription>
+              3D visualization of steady-state probabilities. Peaks represent high-probability states that the system is most likely to occupy.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 h-[calc(90vh-100px)] p-4">
+            {probabilisticResult && (
+              <ProbabilisticLandscape
+                nodeOrder={probabilisticResult.nodeOrder}
+                probabilities={probabilisticResult.probabilities}
+                potentialEnergies={probabilisticResult.potentialEnergies}
+                type="probability"
+                className="h-full"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Potential Energy Landscape Full-Screen Dialog */}
+      <Dialog open={energyLandscapeOpen} onOpenChange={setEnergyLandscapeOpen}>
+        <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] max-h-[90vh] p-0 overflow-hidden">
+          <DialogHeader className="p-4 pb-0">
+            <DialogTitle>Potential Energy Landscape</DialogTitle>
+            <DialogDescription>
+              3D visualization of potential energy (−ln P). Valleys represent stable states (low energy) where the system tends to settle; peaks represent unstable states (high energy).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 h-[calc(90vh-100px)] p-4">
+            {probabilisticResult && (
+              <ProbabilisticLandscape
+                nodeOrder={probabilisticResult.nodeOrder}
+                probabilities={probabilisticResult.probabilities}
+                potentialEnergies={probabilisticResult.potentialEnergies}
+                type="energy"
+                className="h-full"
+              />
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </>
