@@ -1658,8 +1658,7 @@ function ProjectVisualizationPage() {
 
                     {/* Attractor Landscape Visualization */}
                     {ruleBasedResult.attractors.length > 0 && (
-                      <div className="border rounded-md p-4 bg-background/50">
-                        <h4 className="font-medium text-sm mb-3">Attractor Landscape</h4>
+                      <div className="border rounded-md p-4 bg-background/50 min-h-[520px]">
                         <AttractorLandscape attractors={ruleBasedResult.attractors} />
                       </div>
                     )}
@@ -1804,7 +1803,7 @@ function ProjectVisualizationPage() {
                     </div>
 
                     {/* Probability Landscape - 3D Visualization */}
-                    <div className="border rounded-md p-4 bg-background/50">
+                    <div className="border rounded-md p-4 bg-background/50 min-h-[470px]">
                       <ProbabilisticLandscape
                         nodeOrder={probabilisticResult.nodeOrder}
                         probabilities={probabilisticResult.probabilities}
@@ -1816,7 +1815,7 @@ function ProjectVisualizationPage() {
 
                     {/* Potential Energy Landscape - 3D Visualization */}
                     {Object.keys(probabilisticResult.potentialEnergies).length > 0 && (
-                      <div className="border rounded-md p-4 bg-background/50">
+                      <div className="border rounded-md p-4 bg-background/50 min-h-[470px]">
                         <ProbabilisticLandscape
                           nodeOrder={probabilisticResult.nodeOrder}
                           probabilities={probabilisticResult.probabilities}
@@ -2077,16 +2076,13 @@ function ProjectVisualizationPage() {
                   ) : (
                     <div className="space-y-4">
                       {/* Probabilistic Landscape */}
-                      <div className="border rounded-lg p-4 bg-card overflow-hidden">
-                        <h3 className="text-sm font-semibold mb-3">Probabilistic Landscape</h3>
-                        <div className="h-[350px]">
-                          <ProbabilisticLandscape 
-                            nodeOrder={therapeuticsProbabilisticResult?.nodeOrder || []}
-                            probabilities={therapeuticsProbabilisticResult?.probabilities || {}}
-                            potentialEnergies={therapeuticsProbabilisticResult?.potentialEnergies || {}}
-                            type="probability"
-                          />
-                        </div>
+                      <div className="border rounded-lg p-4 bg-card overflow-hidden min-h-[470px]">
+                        <ProbabilisticLandscape 
+                          nodeOrder={therapeuticsProbabilisticResult?.nodeOrder || []}
+                          probabilities={therapeuticsProbabilisticResult?.probabilities || {}}
+                          potentialEnergies={therapeuticsProbabilisticResult?.potentialEnergies || {}}
+                          type="probability"
+                        />
                       </div>
 
                       {/* Node Probabilities */}

@@ -1,4 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Maximize2, Minimize2 } from 'lucide-react';
 
 declare const Plotly: any;
 
@@ -24,12 +26,18 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
   className = '',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const plotRef = useRef<HTMLDivElement>(null);
+  const [isFullScreen, setIsFullScreen] = useState(false);
+
+  const toggleFullScreen = () => {
+    setIsFullScreen((prev) => !prev);
+  };
 
   useEffect(() => {
-    if (!containerRef.current || !window.Plotly) return;
+    if (!plotRef.current || !window.Plotly) return;
 
     // Create a grid for the landscape
-    const gridSize = Math.ceil(Math.sqrt(nodeOrder.length));
+    const gridSize = Math.max(4, Math.ceil(Math.sqrt(nodeOrder.length)));
     const data = type === 'probability' ? probabilities : potentialEnergies;
 
     // Create 2D grid of values
@@ -57,9 +65,24 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
       zValues.push(row);
     }
 
+    // Color scales with semantic meaning
+    // For probability: high = peaks (viridis - yellow/green on top)
+    // For energy: low = stable valleys (RdYlBu reversed - blue valleys, red peaks)
     const colorscale = type === 'probability'
-      ? 'Viridis'
-      : 'RdYlBu_r';
+      ? [
+          [0, '#440154'],    // Low probability = dark purple
+          [0.25, '#31688e'],
+          [0.5, '#35b779'],
+          [0.75, '#90d743'],
+          [1, '#fde725']     // High probability = bright yellow
+        ]
+      : [
+          [0, '#2166ac'],    // Low energy = stable blue valleys  
+          [0.25, '#67a9cf'],
+          [0.5, '#f7f7f7'],
+          [0.75, '#ef8a62'],
+          [1, '#b2182b']     // High energy = unstable red peaks
+        ];
 
     const trace = {
       type: 'surface',
@@ -69,9 +92,14 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
       colorscale: colorscale,
       showscale: true,
       colorbar: {
-        title: type === 'probability' ? 'Probability' : 'Energy',
-        thickness: 20,
-        len: 0.7,
+        title: {
+          text: type === 'probability' ? 'Probability' : 'Potential Energy',
+          side: 'right',
+          font: { size: 11 },
+        },
+        thickness: 15,
+        len: 0.6,
+        y: 0.5,
       },
       contours: {
         z: {
@@ -88,32 +116,47 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
         roughness: 0.5,
         fresnel: 0.2,
       },
+      hovertemplate: type === 'probability'
+        ? 'Probability: %{z:.4f}<extra></extra>'
+        : 'Energy: %{z:.4f}<extra></extra>',
     };
+
+    // Build subtitle based on type
+    const subtitle = type === 'probability'
+      ? '<span style="font-size:11px;color:#6b7280">Peaks = High probability states • Valleys = Low probability states</span>'
+      : '<span style="font-size:11px;color:#6b7280">Valleys = Stable states (low energy) • Peaks = Unstable states (high energy)</span>';
 
     const layout = {
       autosize: true,
-      height: containerRef.current?.clientHeight || 350,
-      margin: { l: 0, r: 0, t: 30, b: 0 },
-      title: type === 'probability' ? 'Probability Landscape' : 'Potential Energy Landscape',
+      height: isFullScreen ? window.innerHeight - 100 : 450,
+      margin: { l: 10, r: 10, t: 70, b: 10 },
+      title: {
+        text: (type === 'probability' ? 'Probability Landscape' : 'Potential Energy Landscape') + '<br>' + subtitle,
+        font: { size: 15, color: '#1f2937' },
+        y: 0.95,
+      },
       scene: {
         camera: {
           eye: { x: 1.5, y: 1.5, z: 1.3 },
           center: { x: 0, y: 0, z: 0 },
         },
         xaxis: {
-          title: 'Node Grid X',
+          title: { text: 'State Space (dim 1)', font: { size: 11 } },
           showgrid: true,
           gridcolor: '#e0e0e0',
           showticklabels: false,
         },
         yaxis: {
-          title: 'Node Grid Y',
+          title: { text: 'State Space (dim 2)', font: { size: 11 } },
           showgrid: true,
           gridcolor: '#e0e0e0',
           showticklabels: false,
         },
         zaxis: {
-          title: type === 'probability' ? 'Probability' : 'Potential Energy',
+          title: { 
+            text: type === 'probability' ? 'Probability ↑' : 'Energy ↑', 
+            font: { size: 11 } 
+          },
           showgrid: true,
           gridcolor: '#e0e0e0',
         },
@@ -132,22 +175,93 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
 
     try {
       if (window.Plotly.purge) {
-        try { window.Plotly.purge(containerRef.current); } catch (e) { /* ignore purge errors */ }
+        try { window.Plotly.purge(plotRef.current); } catch (e) { /* ignore purge errors */ }
       }
 
-      window.Plotly.newPlot(containerRef.current, [trace as any], layout as any, config as any);
+      window.Plotly.newPlot(plotRef.current, [trace as any], layout as any, config as any);
+
+      // Handle resize when fullscreen changes
+      const resizeObserver = new ResizeObserver(() => {
+        if (plotRef.current && window.Plotly?.Plots?.resize) {
+          window.Plotly.Plots.resize(plotRef.current);
+        }
+      });
+      if (containerRef.current) {
+        resizeObserver.observe(containerRef.current);
+      }
+
+      return () => {
+        resizeObserver.disconnect();
+      };
     } catch (err) {
       // Fail gracefully: log and clear any partial DOM so errors don't bubble
       // up to an ErrorBoundary leaving overlays/portals in the DOM.
       // eslint-disable-next-line no-console
       console.error('Plotly render failed:', err);
-      if (containerRef.current) {
-        containerRef.current.innerHTML = '';
+      if (plotRef.current) {
+        plotRef.current.innerHTML = '';
       }
     }
-  }, [nodeOrder, probabilities, potentialEnergies, type]);
+  }, [nodeOrder, probabilities, potentialEnergies, type, isFullScreen]);
 
-  return <div ref={containerRef} className={`${className} w-full h-full`} />;
+  // Legend content based on type
+  const legendContent = type === 'probability' ? (
+    <>
+      <div className="font-medium text-foreground">Legend</div>
+      <div className="flex items-center gap-2">
+        <span className="w-3 h-3 rounded-sm" style={{ background: '#fde725' }}></span>
+        <span className="text-muted-foreground">Peaks = High probability</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="w-3 h-3 rounded-sm" style={{ background: '#440154' }}></span>
+        <span className="text-muted-foreground">Valleys = Low probability</span>
+      </div>
+      <div className="text-[10px] text-muted-foreground mt-1">States the system is most likely to occupy appear as peaks</div>
+    </>
+  ) : (
+    <>
+      <div className="font-medium text-foreground">Legend</div>
+      <div className="flex items-center gap-2">
+        <span className="w-3 h-3 rounded-sm" style={{ background: '#2166ac' }}></span>
+        <span className="text-muted-foreground">Valleys = Stable (low energy)</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="w-3 h-3 rounded-sm" style={{ background: '#b2182b' }}></span>
+        <span className="text-muted-foreground">Peaks = Unstable (high energy)</span>
+      </div>
+      <div className="text-[10px] text-muted-foreground mt-1">System naturally flows toward low-energy valleys</div>
+    </>
+  );
+
+  return (
+    <div 
+      ref={containerRef}
+      className={`${className} w-full relative ${
+        isFullScreen 
+          ? 'fixed inset-0 z-50 bg-background p-4' 
+          : ''
+      }`}
+      style={{ height: isFullScreen ? '100vh' : '450px' }}
+    >
+      {/* Full-screen toggle button */}
+      <Button
+        variant="outline"
+        size="sm"
+        className="absolute top-2 right-2 z-10 h-8 w-8 p-0"
+        onClick={toggleFullScreen}
+        title={isFullScreen ? 'Exit full screen' : 'Full screen'}
+      >
+        {isFullScreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+      </Button>
+
+      {/* Legend */}
+      <div className="absolute bottom-2 left-2 z-10 bg-background/90 border rounded-md p-2 text-xs space-y-1 max-w-[220px]">
+        {legendContent}
+      </div>
+
+      <div ref={plotRef} className="w-full h-full rounded-md" />
+    </div>
+  );
 };
 
 export default ProbabilisticLandscape;
