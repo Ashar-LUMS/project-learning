@@ -88,7 +88,7 @@ const useProjects = (isAdmin: boolean | null, currentUserId: string | null) => {
     try {
       let query = supabase
         .from("projects")
-        .select("id, name, assignees, created_at, created_by, creator_email")
+        .select("id, name, assignees, created_at, created_by, creator_email, networks")
         .order("created_at", { ascending: false });
 
       if (!isAdmin && currentUserId) {
