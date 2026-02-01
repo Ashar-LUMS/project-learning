@@ -9,13 +9,14 @@ import NetworkGraph, { type NetworkGraphHandle } from './NetworkGraph';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 // Using native textarea (no shadcn textarea present)
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { AlertCircle } from 'lucide-react';
 // analysis node type is internal to the hook now
 import { useWeightedAnalysis } from '@/hooks/useWeightedAnalysis';
 import { useProbabilisticAnalysis } from '@/hooks/useProbabilisticAnalysis';
@@ -402,6 +403,35 @@ function NetworkEditorPage() {
     setRulesText(example);
   };
 
+  // Keyboard shortcuts for common actions
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only trigger if not typing in an input/textarea
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+
+      // Ctrl/Cmd + Enter = Run Weighted Analysis (most common)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (!isWeightedAnalyzing && !selectedIsRuleBased) {
+          handleRunWeighted();
+        }
+      }
+      // Ctrl/Cmd + Shift + Enter = Run Probabilistic Analysis
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'Enter') {
+        e.preventDefault();
+        if (!isProbabilisticAnalyzing) {
+          handleOpenProbabilisticDialog();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isWeightedAnalyzing, isProbabilisticAnalyzing, selectedIsRuleBased]);
+
   // No global window handlers; actions are provided via inferenceActions prop below
 
   // removed local fetch effect in favor of shared hook
@@ -642,8 +672,21 @@ function NetworkEditorPage() {
                   {selectedNetwork && (
                     <div className="text-xs text-muted-foreground">Using {inferredNodes.length} node(s) from {selectedNetwork.name}</div>
                   )}
-                  {isAnalyzing && (
-                    <div className="text-sm text-muted-foreground">Analyzing…</div>
+                  {/* Progress indicators for running analyses */}
+                  {(isAnalyzing || isWeightedAnalyzing || isProbabilisticAnalyzing) && (
+                    <div className="flex items-center gap-3 p-3 bg-primary/5 border border-primary/20 rounded-md">
+                      <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-primary">
+                          {isAnalyzing && 'Running rule-based analysis…'}
+                          {isWeightedAnalyzing && 'Running weighted analysis…'}
+                          {isProbabilisticAnalyzing && 'Running probabilistic analysis…'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Exploring state space and detecting attractors. This may take a moment for larger networks.
+                        </p>
+                      </div>
+                    </div>
                   )}
                   {!isAnalyzing && analysisResult && !analysisError && (
                     <Alert>
@@ -665,29 +708,103 @@ function NetworkEditorPage() {
                     value={rulesText}
                     onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setRulesText(e.target.value)}
                   />
-                  <div className="flex flex-wrap gap-2">
-                    <Button size="sm" onClick={handleRunAnalysis} disabled={isAnalyzing}>{isAnalyzing ? 'Analyzing…' : 'Run Analysis'}</Button>
-                    <Button size="sm" variant="secondary" onClick={handleRunDeterministic} disabled={isAnalyzing}>
-                      {isAnalyzing ? 'Analyzing…' : 'Deterministic Analysis'}
-                    </Button>
-                    <Button size="sm" variant="secondary" onClick={handleRunWeighted} disabled={isWeightedAnalyzing || selectedIsRuleBased} title={selectedIsRuleBased ? 'Weighted analysis disabled for rule-based networks' : undefined}>
-                      {isWeightedAnalyzing ? 'Analyzing…' : 'Perform Weighted DA'}
-                    </Button>
-                    <Button size="sm" variant="secondary" onClick={handleOpenProbabilisticDialog} disabled={isProbabilisticAnalyzing}>
-                      {isProbabilisticAnalyzing ? 'Analyzing…' : 'Probabilistic Analysis'}
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={handleExample}>Load Example</Button>
-                    <Button size="sm" variant="ghost" onClick={handleClear} disabled={!analysisResult && !analysisError}>Clear</Button>
-                    <Button size="sm" variant="outline" onClick={handleDownloadResults} disabled={!analysisResult}>Download Results</Button>
+                  {/* Analysis Actions - Organized by Function */}
+                  <div className="space-y-3">
+                    {/* Primary Analysis Actions */}
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Run Analysis</p>
+                      <div className="flex flex-wrap gap-2">
+                        <Button 
+                          size="sm" 
+                          onClick={handleRunAnalysis} 
+                          disabled={isAnalyzing}
+                          title="Run rule-based Boolean network analysis from the text above"
+                        >
+                          {isAnalyzing ? 'Analyzing…' : 'Rule-Based Analysis'}
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="secondary" 
+                          onClick={handleRunWeighted} 
+                          disabled={isWeightedAnalyzing || selectedIsRuleBased} 
+                          title={selectedIsRuleBased ? 'Weighted analysis is disabled for rule-based networks' : 'Run weighted analysis using graph edge weights and node biases (Ctrl+Enter)'}
+                        >
+                          {isWeightedAnalyzing ? 'Analyzing…' : 'Weighted Analysis'}
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="secondary" 
+                          onClick={handleOpenProbabilisticDialog} 
+                          disabled={isProbabilisticAnalyzing}
+                          title="Run stochastic analysis with noise and degradation parameters (Ctrl+Shift+Enter)"
+                        >
+                          {isProbabilisticAnalyzing ? 'Analyzing…' : 'Probabilistic Analysis'}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Utilities */}
+                    <div className="flex flex-wrap gap-2 pt-1 border-t">
+                      <Button size="sm" variant="outline" onClick={handleExample} title="Load a sample Boolean network">
+                        Load Example
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        onClick={handleDownloadResults} 
+                        disabled={!analysisResult}
+                        title="Download analysis results as JSON"
+                      >
+                        Download Results
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        onClick={handleClear} 
+                        disabled={!analysisResult && !analysisError}
+                        title="Clear current results"
+                      >
+                        Clear
+                      </Button>
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    Weighted analysis uses the graph weights/biases; the rules text is ignored for weighted runs.
+                  <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-md">
+                    <strong>Tip:</strong> Rule-based uses the text rules above. Weighted/Probabilistic use the graph's edge weights and node biases instead.
                   </div>
+                  {/* Error Messages with Actionable Guidance */}
                   {analysisError && (
-                    <div className="text-sm text-red-600">{analysisError}</div>
+                    <Alert variant="destructive" className="border-red-200 bg-red-50">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>Analysis Error</AlertTitle>
+                      <AlertDescription className="space-y-2">
+                        <p>{analysisError}</p>
+                        <div className="text-xs text-red-600/80 pt-1 border-t border-red-200">
+                          <strong>Suggestions:</strong>
+                          <ul className="list-disc list-inside mt-1 space-y-0.5">
+                            <li>Check that each rule follows the format: <code>NodeName = Expression</code></li>
+                            <li>Verify all referenced nodes exist (e.g., A = B requires node B to be defined)</li>
+                            <li>Use AND, OR, NOT operators in uppercase</li>
+                          </ul>
+                        </div>
+                      </AlertDescription>
+                    </Alert>
                   )}
                   {probabilisticError && (
-                    <div className="text-sm text-red-600">{probabilisticError}</div>
+                    <Alert variant="destructive" className="border-red-200 bg-red-50">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>Probabilistic Analysis Error</AlertTitle>
+                      <AlertDescription className="space-y-2">
+                        <p>{probabilisticError}</p>
+                        <div className="text-xs text-red-600/80 pt-1 border-t border-red-200">
+                          <strong>Suggestions:</strong>
+                          <ul className="list-disc list-inside mt-1 space-y-0.5">
+                            <li>Ensure µ (noise) is between 0 and 1</li>
+                            <li>Check that c (degradation) is a positive value</li>
+                            <li>Verify the network has valid weighted edges</li>
+                          </ul>
+                        </div>
+                      </AlertDescription>
+                    </Alert>
                   )}
                   {analysisResult && (
                     <div className="flex-1 overflow-auto border rounded-md p-4 space-y-4 bg-muted/30">

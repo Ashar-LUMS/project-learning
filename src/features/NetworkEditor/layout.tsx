@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { formatDate } from '@/lib/format';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -27,7 +28,9 @@ import {
   User,
   PanelLeftClose,
   PanelLeft,
-  ChevronDown
+  ChevronDown,
+  Save,
+  FileText
 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -121,13 +124,18 @@ export default function NetworkEditorLayout({
   // Sidebar collapse state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  const tabs = [
+  // Separate enabled and disabled tabs
+  const enabledTabs = [
     { id: 'projects' as TabType, label: 'Projects', icon: Folder, color: 'text-blue-600' },
     { id: 'seq-data-analysis' as TabType, label: 'Seq Analysis', icon: BarChart3, color: 'text-sky-600' },
     { id: 'network' as TabType, label: 'Manual Network Construction', icon: Network, color: 'text-green-600' },
     { id: 'autonetcan' as TabType, label: 'AutoNetCan', icon: Cpu, color: 'text-teal-600' },
     { id: 'network-inference' as TabType, label: 'Network Analysis', icon: Waypoints, color: 'text-purple-600' },
     { id: 'therapeutics' as TabType, label: 'Therapeutics', icon: Pill, color: 'text-red-600' },
+  ];
+
+  // Future tabs (kept for reference but not displayed in main nav)
+  const _futureTabs = [
     { id: 'env' as TabType, label: 'Environment', icon: Container, color: 'text-amber-600', disabled: true },
     { id: 'cell-circuits' as TabType, label: 'Circuits', icon: CircuitBoard, color: 'text-indigo-600', disabled: true },
     { id: 'cell-lines' as TabType, label: 'Cell Lines', icon: LineSquiggle, color: 'text-pink-600', disabled: true },
@@ -136,36 +144,31 @@ export default function NetworkEditorLayout({
     { id: 'results' as TabType, label: 'Results', icon: Download, color: 'text-emerald-600', disabled: true },
   ];
 
+  // Combined for sidebar rendering (maintains backward compatibility)
+  const _tabs = [...enabledTabs, ..._futureTabs];
+  void _tabs; // Preserve for future use
+
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* Enhanced Header with improved navigation */}
       <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        {/* Enhanced Tab Navigation */}
+        {/* Enhanced Tab Navigation - Only showing enabled tabs */}
         <div className="px-3">
           <Tabs value={activeTab} onValueChange={(value) => onTabChange(value as TabType)} className="w-full">
-            <TabsList className="w-full justify-start flex-wrap bg-transparent p-0 gap-0 border-b h-auto">
-              {tabs.map((tab) => {
+            <TabsList className="w-full justify-start bg-transparent p-0 gap-0 border-b h-auto">
+              {enabledTabs.map((tab) => {
                 const IconComponent = tab.icon;
-                const isDisabled = (tab as any).disabled;
                 return (
                   <TabsTrigger
                     key={tab.id}
                     value={tab.id}
-                    disabled={isDisabled}
-                    onClick={(e) => {
-                      if (isDisabled) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }
-                    }}
                     className={cn(
                       "px-3 py-2 h-10 relative group text-xs",
                       "data-[state=active]:text-foreground data-[state=active]:font-semibold",
                       "data-[state=active]:border-b-2 data-[state=active]:border-b-primary",
                       "transition-all duration-200 hover:text-foreground/80",
                       "rounded-none border-b-2 border-b-transparent",
-                      "flex items-center gap-2",
-                      isDisabled && "opacity-50 cursor-not-allowed hover:text-foreground/50 pointer-events-none"
+                      "flex items-center gap-2"
                     )}
                   >
                     <div className="flex items-center gap-2">
@@ -326,11 +329,7 @@ function ProjectsSidebar() {
     return () => controller.abort();
   }, [fetchProjects]);
 
-  const formatDate = (value?: string | null) => {
-    if (!value) return 'Unknown';
-    try { return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value)); }
-    catch { return value as string; }
-  };
+  // Using shared formatDate from @/lib/format
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -466,7 +465,7 @@ function NetworkSidebar() {
         <CardContent className="p-0">
           <div className="space-y-1">
             <Button variant="ghost" className="w-full justify-start gap-3 h-11 px-4">
-              <SaveIcon className="w-4 h-4" />
+              <Save className="w-4 h-4" />
               Save Network
             </Button>
             <Button variant="ghost" className="w-full justify-start gap-3 h-11 px-4">
@@ -973,7 +972,7 @@ function ResultsSidebar() {
             Export Data
           </Button>
           <Button variant="outline" className="w-full gap-2">
-            <FileTextIcon className="w-4 h-4" />
+            <FileText className="w-4 h-4" />
             Generate Report
           </Button>
         </CardContent>
@@ -981,16 +980,3 @@ function ResultsSidebar() {
     </div>
   );
 }
-
-// Icon Components
-const SaveIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-  </svg>
-);
-
-const FileTextIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-  </svg>
-);

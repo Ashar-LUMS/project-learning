@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { formatDate } from '@/lib/format';
 import { Card, CardContent } from "../../components/ui/card";
 import { useRole } from "../../getRole";
 import { useOutletContext, useNavigate } from "react-router-dom";
@@ -8,7 +9,7 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Badge } from "../../components/ui/badge";
 import { Skeleton } from "../../components/ui/skeleton";
-import { Search, Plus, Folder, Edit, Trash2, Users, AlertCircle, FileText, Calendar, UserCheck, Loader2, Filter, X, Eye } from "lucide-react";
+import { Search, Plus, Folder, Edit, Trash2, Users, AlertCircle, FileText, Calendar, UserCheck, Loader2, Filter, X, Eye, Network } from "lucide-react";
 
 type Project = {
   id: string;
@@ -163,7 +164,7 @@ const HomePage: React.FC = () => {
     disallowEmptyAssignees: false,
   });
 
-  const [generalAttrs, setGeneralAttrs] = useState<{ language: string; timezone: string }>({ language: 'en', timezone: 'UTC' });
+  // Note: formatDate from @/lib/format reads locale directly from document attributes
 
   const { users, isLoading: isUsersLoading, error: usersError } = useUsers(true);
 
@@ -195,10 +196,7 @@ const HomePage: React.FC = () => {
       onlyAdminsEditAssignees,
       disallowEmptyAssignees,
     });
-    // General
-    const language = root.getAttribute('lang') || 'en';
-    const timezone = root.getAttribute('data-timezone') || 'UTC';
-    setGeneralAttrs({ language, timezone });
+    // General locale attributes are read directly by formatDate in @/lib/format
   }, []);
 
   const { projects, isLoading: isProjectsLoading, error: projectsError, refetch: refetchProjects } = useProjects(isAdmin, currentUserId);
@@ -408,26 +406,7 @@ const HomePage: React.FC = () => {
     return list;
   }, [projectTab, allProjects, myProjects, otherProjects, searchTerm, sortBy]);
 
-  const formatDate = useCallback((iso: string | null | undefined) => {
-    if (!iso) return '';
-    try {
-      const tzMap: Record<string, string> = {
-        UTC: 'UTC',
-        EST: 'America/New_York',
-        PST: 'America/Los_Angeles',
-        CET: 'Europe/Paris',
-        PKT: 'Asia/Karachi',
-      };
-      const tz = tzMap[generalAttrs.timezone] || generalAttrs.timezone;
-      return new Date(iso).toLocaleDateString(generalAttrs.language || undefined, { timeZone: tz || undefined });
-    } catch {
-      try {
-        return new Date(iso).toLocaleDateString(generalAttrs.language || undefined);
-      } catch {
-        return new Date(iso).toLocaleDateString();
-      }
-    }
-  }, [generalAttrs.language, generalAttrs.timezone]);
+  // Using shared formatDate from @/lib/format (reads locale from document attributes)
 
   const hasCreateSearch = useMemo(() => createTeamSearch.trim().length > 0, [createTeamSearch]);
 
@@ -628,6 +607,16 @@ const HomePage: React.FC = () => {
                       })()}
                     </div>
                   )}
+                  {/* Network Count Badge */}
+                  <div className="mb-4 flex items-center gap-2">
+                    <Badge
+                      variant="secondary"
+                      className="bg-emerald-50 text-emerald-700 border-emerald-200 rounded-lg"
+                    >
+                      <Network size={12} className="mr-1" />
+                      {project.networks?.length ?? 0} network{(project.networks?.length ?? 0) !== 1 ? 's' : ''}
+                    </Badge>
+                  </div>
                   {/* Assignees */}
                   <div className="mb-6">
                     <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent my-4" />

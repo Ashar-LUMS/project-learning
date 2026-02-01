@@ -10,18 +10,7 @@ declare global {
   }
 }
 
-// Vite environment variables
-interface ImportMetaEnv {
-  readonly VITE_SUPABASE_URL: string;
-  readonly VITE_SUPABASE_ANON_KEY: string;
-  readonly VITE_OPENROUTER_API_KEY?: string;
-  readonly DEV: boolean;
-  readonly PROD: boolean;
-  readonly MODE: string;
-}
-
-interface ImportMeta {
-  readonly env: ImportMetaEnv;
-}
+// Note: ImportMetaEnv is defined in src/vite-env.d.ts (Vite convention)
+// Only define application-specific window extensions here
 
 export {};

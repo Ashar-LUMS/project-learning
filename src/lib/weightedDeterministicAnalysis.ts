@@ -1,3 +1,13 @@
+/**
+ * @deprecated This module is deprecated. Use `@/lib/analysis/weightedDeterministicAnalysis`
+ * and `@/lib/analysis/matrixUtils` instead. This file is kept for backward compatibility
+ * with existing tests but should not be used for new code.
+ *
+ * New code should use:
+ *   import { performWeightedAnalysis } from '@/lib/analysis';
+ *   import { edgesToMatrix } from '@/lib/analysis/matrixUtils';
+ */
+
 /*
   Weighted deterministic analysis (synchronous updates).
 
@@ -17,31 +27,12 @@
   The output format uses standard analysis types for attractor visualization.
 */
 
-// Define analysis types locally
-type DeterministicAttractor = {
-  id?: number;
-  type: 'fixed' | 'cycle' | 'fixed-point' | 'limit-cycle';
-  states: number[][] | Array<{ binary: string; values: Record<string, 0 | 1> }>;
-  size?: number;
-  period?: number;
-  basinSize?: number;
-  basinShare?: number;
-};
-
-type DeterministicAnalysisResult = {
-  attractors: DeterministicAttractor[];
-  nodeOrder: string[];
-  nodeLabels?: Record<string, string>;
-  warnings: string[];
-  exploredStateCount?: number;
-  totalStateSpace?: number;
-  totalStatesExplored?: number;
-  runtime?: number;
-  truncated?: boolean;
-  unresolvedStates?: number;
-};
-
+import { ANALYSIS_CONFIG } from '@/config/constants';
 import { decodeState, encodeState, formatState } from './stateEncoding';
+
+// Re-export types from the canonical location for backward compatibility
+import type { DeterministicAttractor, DeterministicAnalysisResult } from '@/lib/analysis/types';
+export type { DeterministicAttractor, DeterministicAnalysisResult };
 
 export interface WeightedNode {
   id: string;
@@ -51,8 +42,8 @@ export interface WeightedNode {
 export type TieBehavior = 'zero-as-zero' | 'zero-as-one' | 'hold';
 
 export interface WeightedAnalysisOptions {
-  stateCap?: number;   // maximum number of states to explore (defaults to ANALYSIS_CONFIG.DEFAULT_STATE_CAP if available; historically 2^18 here)
-  stepCap?: number;    // maximum steps per trajectory (defaults to ANALYSIS_CONFIG.DEFAULT_STEP_CAP if available; historically 2^18 here)
+  stateCap?: number;   // maximum number of states to explore (defaults to ANALYSIS_CONFIG.DEFAULT_STATE_CAP)
+  stepCap?: number;    // maximum steps per trajectory (defaults to ANALYSIS_CONFIG.DEFAULT_STEP_CAP)
   tieBehavior?: TieBehavior; // how to resolve net input == 0
 }
 
@@ -70,9 +61,10 @@ export interface WeightedEdge {
   weight: number;
 }
 
-const DEFAULT_STATE_CAP = 262144; // 2^18
-const DEFAULT_STEP_CAP = 262144;
-const MAX_SUPPORTED_NODES = 18;
+// Use centralized config instead of local hardcoded values
+const DEFAULT_STATE_CAP = ANALYSIS_CONFIG.DEFAULT_STATE_CAP;
+const DEFAULT_STEP_CAP = ANALYSIS_CONFIG.DEFAULT_STEP_CAP;
+const MAX_SUPPORTED_NODES = ANALYSIS_CONFIG.MAX_NODES_DETERMINISTIC;
 
 // shared helpers imported from stateEncoding.ts
 

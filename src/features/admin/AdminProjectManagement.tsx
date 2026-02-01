@@ -1,4 +1,5 @@
 import { useEffect, useState} from "react";
+import { formatTimestamp } from '@/lib/format';
 import { supabase } from "../../supabaseClient";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
@@ -46,10 +47,8 @@ const ProjectInfoDialog = ({
   onOpenChange: (open: boolean) => void;
   userMap?: Record<string, UserData>;
 }) => {
-  const formatDate = (dateString?: string | null) => {
-    if (!dateString) return 'Never';
-    return new Date(dateString).toLocaleString();
-  };
+  // Using shared formatTimestamp from @/lib/format
+  const formatDate = (v?: string | null) => formatTimestamp(v) || 'Never';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

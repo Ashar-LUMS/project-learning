@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { formatDateLong, formatRelativeTime } from '@/lib/format';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -179,43 +180,8 @@ export const UserProfile = () => {
       .slice(0, 2);
   };
 
-  const formatDate = (dateString: string) => {
-    const root = document.documentElement;
-    const lang = root.getAttribute('lang') || 'en';
-    const tzAttr = root.getAttribute('data-timezone') || 'UTC';
-    const tzMap: Record<string, string> = {
-      UTC: 'UTC',
-      EST: 'America/New_York',
-      PST: 'America/Los_Angeles',
-      CET: 'Europe/Paris',
-      PKT: 'Asia/Karachi',
-    };
-    const timeZone = tzMap[tzAttr] || tzAttr;
-    try {
-      return new Date(dateString).toLocaleDateString(lang || undefined, {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        timeZone,
-      } as Intl.DateTimeFormatOptions);
-    } catch {
-      return new Date(dateString).toLocaleDateString();
-    }
-  };
-
-  const formatRelativeTime = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInMs = now.getTime() - date.getTime();
-    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-    
-    if (diffInDays === 0) return 'Today';
-    if (diffInDays === 1) return 'Yesterday';
-    if (diffInDays < 7) return `${diffInDays} days ago`;
-    if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} weeks ago`;
-    if (diffInDays < 365) return `${Math.floor(diffInDays / 30)} months ago`;
-    return `${Math.floor(diffInDays / 365)} years ago`;
-  };
+  // Using shared formatDateLong and formatRelativeTime from @/lib/format
+  const formatDate = formatDateLong;
 
   if (isLoading) {
     return (

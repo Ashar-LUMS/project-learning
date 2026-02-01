@@ -1,5 +1,5 @@
 ## Purpose
-Guidance for AI coding agents contributing to this Vite + React + TypeScript workspace. Priorities: the Network Editor, Supabase-backed persistence, and deterministic analyses (rule-based and weighted).
+Guidance for AI coding agents contributing to this Vite + React + TypeScript workspace. Priorities: the Network Editor, Supabase-backed persistence, and deterministic analyses (rule-based, weighted, and probabilistic).
 
 ## Architecture Overview
 - UI stack: React 19 + Vite 7 + Tailwind 4 with shadcn-inspired primitives under `src/components/ui/*`.
@@ -7,6 +7,13 @@ Guidance for AI coding agents contributing to this Vite + React + TypeScript wor
 - Network tooling: `src/features/NetworkEditor/*` contains the shared layout (`layout.tsx`), the standalone editor (`NetworkEditorPage.tsx`), and the project-centric view (`ProjectVisualizationPage.tsx`). Both pages wire into the same sidebar contract and reuse `AttractorGraph.tsx` for attractor visualization.
 - Visualization: `src/features/NetworkEditor/NetworkGraph.tsx` wraps Cytoscape. The instance is created once and reconciled in place so edits diff against the live graph. Edges always render with ids of the form `edge:${source}:${target}` to keep updates deterministic.
 - Admin & ancillary features: feature folders under `src/features/*` (auth, admin, services, profile, etc.) mostly consume Supabase directly or via small hooks.
+
+## UI/UX Patterns
+- **Tab Navigation:** Only `enabledTabs` are rendered; `_futureTabs` kept for future use.
+- **Analysis Buttons:** Grouped with visual hierarchy; primary actions vs utilities.
+- **Error Messages:** Use `Alert` with `variant="destructive"` and actionable suggestions.
+- **Date Formatting:** Use `src/lib/format.ts` utilities.
+- **Icons:** Use lucide-react; avoid custom SVGs.
 
 ## Data Model & Supabase
 - Supabase client (`src/supabaseClient.ts`) expects `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` and runs with `sessionStorage` in dev (no URL session detection).
@@ -32,26 +39,18 @@ Guidance for AI coding agents contributing to this Vite + React + TypeScript wor
 - Project view (`ProjectVisualizationPage.tsx`): reuses the layout, supports network creation/import, optional rule inference via `lib/openRouter`, and routes weighted runs through the same normalization helper as the editor page.
 
 ## Analysis Engines
-- Rule-based analysis lives in `src/lib/deterministicAnalysis.ts` (shunting-yard parser, synchronous updates, 18 node cap, state/step caps default to the application setting `ANALYSIS_CONFIG.DEFAULT_STATE_CAP` — currently 2^18).
-- Weighted analysis moved to `src/lib/analysis/*`:
-  - `weightedDeterministicAnalysis.ts` exports `performWeightedAnalysis` built on adjacency matrices, configurable tie behavior (`zero-as-zero`, `zero-as-one`, `hold`), optional biases, and threshold multiplier.
-  - `matrixUtils.ts` offers `edgesToMatrix`, `matrixToEdges`, `getInDegree`, and `computeThreshold` helpers; `index.ts` re-exports the types + utilities.
-- Probabilistic analysis lives in `src/lib/analysis/probabilisticAnalysis.ts`, modelling Markovian dynamics with noise (`µ`), self-degradation (`c`), and potential energies via steady-state probabilities.
-- Legacy helper `src/lib/weightedDeterministicAnalysis.ts` still exists for compatibility but new features should target the `src/lib/analysis` modules.
-- Testing: deterministic suites live under `src/lib/__tests__` and `src/lib/analysis/__tests__`.
+- **Rule-based:** `src/lib/deterministicAnalysis.ts` (shunting-yard parser, 18 node cap)
+- **Weighted:** `src/lib/analysis/weightedDeterministicAnalysis.ts` (matrix-based, configurable tie behavior)
+- **Probabilistic:** `src/lib/analysis/probabilisticAnalysis.ts` (Markovian dynamics)
+- **Utilities:** `src/lib/analysis/matrixUtils.ts` for edge↔matrix conversion
+- **Tests:** `src/lib/__tests__` and `src/lib/analysis/__tests__`
+- See [src/lib/analysis/README.md](../src/lib/analysis/README.md) for API details.
 
 ## Conventions
 - Path alias `@` resolves to `src` (see `vite.config.ts`). Prefer `@/hooks/...`, `@/lib/...`, etc.
 - UI logic stays inside `src/features/*`; shared analysis/utilities stay under `src/lib/*`.
 - Persisted network payloads must keep the `{ nodes, edges, rules?, metadata? }` structure so import/export flows remain compatible.
 - Keep Cytoscape edge ids deterministic (`edge:${source}:${target}`) when adding/removing edges anywhere in the codebase.
-
-## Dev Workflows
-- `npm run dev` → Vite dev server with HMR.
-- `npm run build` → runs `tsc -b` then `vite build`.
-- `npm run preview` → preview built app.
-- `npm run lint` → ESLint via the flat config (`eslint.config.js`).
-- Before running locally create `.env.local` with Supabase URL + anon key.
 
 ## Extension Points & Examples
 - New inference modes should return `DeterministicAnalysisResult`, plug into `NetworkEditorPage` (or project view), and surface controls via `inferenceActions`.
@@ -67,13 +66,14 @@ Guidance for AI coding agents contributing to this Vite + React + TypeScript wor
 - Saving graphs dedupes edges; if you rely on multi-edge semantics you must encode them differently (e.g., via metadata).
 
 ## Key Files
-- `src/features/NetworkEditor/layout.tsx` – navigation + sidebar contract.
-- `src/features/NetworkEditor/NetworkEditorPage.tsx` – main editor hub and inference wiring.
+- `src/features/NetworkEditor/layout.tsx` – navigation + sidebar contract; uses `enabledTabs` for active tabs.
+- `src/features/NetworkEditor/NetworkEditorPage.tsx` – main editor hub, inference wiring, keyboard shortcuts.
 - `src/features/NetworkEditor/ProjectVisualizationPage.tsx` – project-scoped editor/import workflow.
 - `src/features/NetworkEditor/NetworkGraph.tsx` – Cytoscape orchestration, save flows, rule integration.
-- `src/features/NetworkEditor/AttractorGraph.tsx` – attractor visualization shared by both analysis engines.
+- `src/features/NetworkEditor/AttractorGraph.tsx` – interactive attractor visualization with tooltips and zoom.
 - `src/hooks/useProjectNetworks.ts`, `src/hooks/useNetworkData.ts`, `src/hooks/useDeterministicAnalysis.ts`, `src/hooks/useWeightedAnalysis.ts`, `src/hooks/useProbabilisticAnalysis.ts` – primary data/analysis hooks.
 - `src/lib/deterministicAnalysis.ts`, `src/lib/analysis/index.ts`, `src/lib/analysis/probabilisticAnalysis.ts` – rule-based, weighted, and probabilistic analysis entry points.
+- `src/lib/format.ts` – shared date/time formatting utilities (formatDate, formatDateLong, formatRelativeTime, formatTimestamp).
 
 If anything here seems off or incomplete (e.g., Supabase schemas, expected JSON shapes), ask the human for confirmation or sample payloads and align the implementation accordingly.
 

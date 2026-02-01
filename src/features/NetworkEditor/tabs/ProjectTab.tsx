@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { formatDate } from '@/lib/format';
 import { useRole } from '../../../getRole';
 import { supabase } from '../../../supabaseClient';
 import { Button } from '@/components/ui/button';
@@ -77,12 +78,7 @@ export default function ProjectTab({ onProjectSelect }: ProjectTabProps) {
 
   const onRefresh = () => setRefreshIndex(i => i + 1);
 
-  const formatDate = (value?: string | null) => {
-    if (!value) return 'Unknown';
-    try {
-      return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value));
-    } catch { return value; }
-  };
+  // Using shared formatDate from @/lib/format
 
   return (
     <div className="p-6 space-y-6">

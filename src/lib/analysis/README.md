@@ -7,26 +7,14 @@ This folder contains deterministic network analysis engines for computing dynami
 - **`types.ts`** – Shared TypeScript interfaces for both analysis engines.
 - **`matrixUtils.ts`** – Utilities for converting between edge lists and weighted adjacency matrices.
 - **`weightedDeterministicAnalysis.ts`** – Weight-based deterministic analysis engine.
+- **`probabilisticAnalysis.ts`** – Markovian dynamics with noise and self-degradation.
 - **`__tests__/`** – Vitest unit tests for utilities and analysis functions.
 - **`index.ts`** – Barrel export for easy imports.
 
-## Weighted Deterministic Analysis
-
-### Overview
-
-The weighted analysis computes the synchronous dynamics of a network where each node's next state depends on:
-
-1. **Incoming weights** from active (value=1) predecessors.
-2. **Bias** (optional constant offset).
-3. **Threshold** comparison (computed as in-degree × `thresholdMultiplier`).
-4. **Tie-breaking behavior** when the weighted sum equals the threshold.
-
-### Usage
-
-#### Basic Example
+## Quick Start
 
 ```typescript
-import { performWeightedAnalysis } from '@/lib/analysis';
+import { performWeightedAnalysis, performProbabilisticAnalysis } from '@/lib/analysis';
 import type { AnalysisNode, AnalysisEdge } from '@/lib/analysis';
 
 const nodes: AnalysisNode[] = [
@@ -41,14 +29,16 @@ const edges: AnalysisEdge[] = [
   { source: 'C', target: 'A', weight: 0.5 },
 ];
 
-const result = performWeightedAnalysis(nodes, edges, {
+// Weighted analysis
+const weighted = performWeightedAnalysis(nodes, edges, {
   thresholdMultiplier: 0.5,
   tieBehavior: 'zero-as-zero',
 });
 
-console.log(`Found ${result.attractors.length} attractors`);
-result.attractors.forEach((att, i) => {
-  console.log(`Attractor ${i}:`, att.type, `Period: ${att.period}`);
+// Probabilistic analysis
+const probabilistic = performProbabilisticAnalysis(nodes, edges, {
+  noise: 0.25,
+  selfDegradation: 0.1,
 });
 ```
 
@@ -236,9 +226,3 @@ Tests cover:
 | Precision | Continuous weights | Boolean logic |
 | Tie-breaking | Configurable | N/A |
 
-## Future Enhancements
-
-- Approximate/approximate analysis for larger networks (Monte Carlo sampling).
-- Incremental analysis (compute delta from previous run).
-- Visualization helpers for attractor basins.
-- Export to other formats (GraphML, Cytoscape.js).
