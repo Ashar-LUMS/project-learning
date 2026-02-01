@@ -145,34 +145,46 @@ export default function NetworkEditorLayout({
   ];
 
   // Combined for sidebar rendering (maintains backward compatibility)
-  const _tabs = [...enabledTabs, ..._futureTabs];
-  void _tabs; // Preserve for future use
+  const allTabs = [...enabledTabs, ..._futureTabs];
 
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* Enhanced Header with improved navigation */}
       <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        {/* Enhanced Tab Navigation - Only showing enabled tabs */}
-        <div className="px-3">
+        {/* Enhanced Tab Navigation - Showing all tabs, with future tabs disabled */}
+        <div className="px-3 flex items-center">
+          {/* Sidebar Toggle Button - at the start of the header for easy access */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="h-8 w-8 mr-2 flex-shrink-0 hover:bg-accent transition-colors"
+            title={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
+          >
+            {sidebarCollapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          </Button>
           <Tabs value={activeTab} onValueChange={(value) => onTabChange(value as TabType)} className="w-full">
             <TabsList className="w-full justify-start bg-transparent p-0 gap-0 border-b h-auto">
-              {enabledTabs.map((tab) => {
+              {allTabs.map((tab) => {
                 const IconComponent = tab.icon;
+                const isDisabled = 'disabled' in tab && tab.disabled === true;
                 return (
                   <TabsTrigger
                     key={tab.id}
                     value={tab.id}
+                    disabled={isDisabled}
                     className={cn(
                       "px-3 py-2 h-10 relative group text-xs",
                       "data-[state=active]:text-foreground data-[state=active]:font-semibold",
                       "data-[state=active]:border-b-2 data-[state=active]:border-b-primary",
                       "transition-all duration-200 hover:text-foreground/80",
                       "rounded-none border-b-2 border-b-transparent",
-                      "flex items-center gap-2"
+                      "flex items-center gap-2",
+                      isDisabled ? "opacity-40 cursor-not-allowed hover:text-muted-foreground" : ""
                     )}
                   >
                     <div className="flex items-center gap-2">
-                      <IconComponent className={cn("w-3 h-3 transition-colors", tab.color)} />
+                      <IconComponent className={cn("w-3 h-3 transition-colors", isDisabled ? "text-muted-foreground" : tab.color)} />
                       <span className="text-xs font-medium tracking-tight">
                         {tab.label}
                       </span>
@@ -207,16 +219,6 @@ export default function NetworkEditorLayout({
           <div className="relative">
             {children}
           </div>
-          {/* Sidebar Toggle Button - rendered after children so it's on top */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="fixed bottom-4 left-4 z-[100] h-6 w-6 bg-background/95 backdrop-blur-sm border-2 shadow-lg hover:bg-background hover:scale-110 transition-transform"
-            title={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
-          >
-            {sidebarCollapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-          </Button>
         </div>
       </div>
     </div>

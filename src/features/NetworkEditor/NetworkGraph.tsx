@@ -482,20 +482,21 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
       }
     });
     
-    // Professional, biology-inspired color palette with good contrast
+    // Biological network color palette - colorblind-friendly, high contrast
+    // Based on systems biology conventions: transcription factors, receptors, kinases, etc.
     const colorPalette = [
-      '#3b82f6', // Blue - primary nodes
-      '#10b981', // Emerald - secondary 
-      '#8b5cf6', // Violet - tertiary
-      '#f59e0b', // Amber - quaternary
-      '#ec4899', // Pink
-      '#06b6d4', // Cyan
-      '#84cc16', // Lime
-      '#f97316', // Orange
-      '#6366f1', // Indigo
-      '#14b8a6', // Teal
-      '#a855f7', // Purple
-      '#eab308', // Yellow
+      '#2563eb', // Royal Blue - genes/transcription factors (primary)
+      '#059669', // Emerald - proteins/enzymes
+      '#7c3aed', // Violet - kinases/phosphatases
+      '#dc2626', // Red - oncogenes/drivers
+      '#0891b2', // Cyan - receptors
+      '#ca8a04', // Amber - metabolites
+      '#db2777', // Pink - miRNAs
+      '#0d9488', // Teal - membrane proteins
+      '#4f46e5', // Indigo - signaling molecules
+      '#16a34a', // Green - tumor suppressors
+      '#9333ea', // Purple - epigenetic regulators
+      '#ea580c', // Orange - stress response
     ];
     
     const map = new Map<string, string>();
@@ -803,85 +804,94 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
         container: containerRef.current,
         elements: elements as any,
         style: [
+          // Base node style - clean, professional biological network appearance
           {
             selector: 'node',
             style: {
-              'background-color': (ele: any) => typeColors.get(ele.data('type')) || '#3b82f6',
+              'background-color': (ele: any) => typeColors.get(ele.data('type')) || '#2563eb',
               'label': 'data(label)',
               'color': '#1e293b',
-              'font-size': 13,
+              'font-size': 12,
               'font-weight': 600,
+              'font-family': 'Inter, system-ui, sans-serif',
               'text-valign': 'bottom',
               'text-halign': 'center',
-              'text-margin-y': 8,
-              'width': 44,
-              'height': 44,
+              'text-margin-y': 6,
+              'width': 48,
+              'height': 48,
+              'shape': 'ellipse',
               'border-width': 3,
               'border-color': '#ffffff',
+              'border-opacity': 1,
               'text-outline-color': '#ffffff',
-              'text-outline-width': 2,
-              'text-outline-opacity': 0.8,
-              'background-opacity': 0.95,
-              'transition-property': 'none',
-              'transition-duration': 0,
-            },
+              'text-outline-width': 2.5,
+              'text-outline-opacity': 1,
+              'background-opacity': 1,
+              'overlay-opacity': 0,
+              'z-index': 10,
+            } as any,
           },
+          // Activating edges - solid green arrows (biological convention)
           {
             selector: 'edge',
             style: {
-              'width': 2.5,
+              'width': 2,
               'line-color': '#64748b',
               'target-arrow-color': '#64748b',
               'target-arrow-shape': 'triangle',
               'curve-style': 'bezier',
-              'arrow-scale': 1.1,
-              'line-opacity': 0.8,
-              'transition-property': 'none',
-              'transition-duration': 0,
-            },
+              'arrow-scale': 1.2,
+              'line-opacity': 0.85,
+              'overlay-opacity': 0,
+            } as any,
           },
+          // Inhibiting edges - red with T-bar (biological convention for inhibition)
           {
             selector: 'edge[edgeType = "inhibitor"]',
             style: {
               'line-color': '#dc2626',
               'target-arrow-color': '#dc2626',
               'target-arrow-shape': 'tee',
-              'width': 3,
+              'width': 2.5,
               'curve-style': 'bezier',
-              'arrow-scale': 1.2,
+              'arrow-scale': 1.4,
               'line-style': 'solid',
               'line-opacity': 0.9,
-            },
+            } as any,
           },
+          // Amplifying/activating edges - green arrows (positive regulation)
           {
             selector: 'edge[edgeType = "amplifier"]',
             style: {
-              'line-color': '#16a34a',
-              'target-arrow-color': '#16a34a',
+              'line-color': '#059669',
+              'target-arrow-color': '#059669',
               'target-arrow-shape': 'triangle',
-              'width': 3,
+              'width': 2.5,
               'curve-style': 'bezier',
-              'arrow-scale': 1.2,
+              'arrow-scale': 1.4,
               'line-opacity': 0.9,
-            },
+            } as any,
           },
+          // Edge drawing mode - source node highlight
           {
             selector: '.edge-source',
             style: {
               'border-color': '#f59e0b',
               'border-width': 4,
               'background-opacity': 1,
-            },
+            } as any,
           },
+          // Delete candidate styling
           {
             selector: '.delete-candidate',
             style: {
               'border-color': '#dc2626',
               'border-width': 4,
-              'background-color': '#fecaca',
+              'background-color': '#fee2e2',
               'background-opacity': 1,
-            },
+            } as any,
           },
+          // Selected element - blue glow effect
           {
             selector: ':selected',
             style: {
@@ -891,49 +901,84 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
               'target-arrow-color': '#2563eb',
               'background-opacity': 1,
               'line-opacity': 1,
-            },
+              'overlay-color': '#2563eb',
+              'overlay-opacity': 0.15,
+              'overlay-padding': 8,
+            } as any,
           },
+          // Faded elements (for focus mode)
           {
             selector: '.faded',
             style: {
-              'opacity': 0.15
-            }
+              'opacity': 0.2
+            } as any
           },
+          // Connected nodes highlight
           {
             selector: '.connected',
             style: {
-              'border-color': '#3b82f6',
+              'border-color': '#2563eb',
               'border-width': 4,
               'background-opacity': 1,
-            }
+            } as any
           },
+          // Knock-in highlight (green - active/ON)
           {
             selector: '.knock-in-highlight',
             style: {
-              'background-color': '#10b981',
+              'background-color': '#059669',
               'border-color': '#047857',
               'border-width': 4,
               'background-opacity': 1,
-            }
+            } as any
           },
+          // Knock-out highlight (gray with red border - inactive/OFF)
           {
             selector: '.knock-out-highlight',
             style: {
               'background-color': '#94a3b8',
               'border-color': '#dc2626',
               'border-width': 4,
-              'background-opacity': 0.6,
-              'text-opacity': 0.6,
-            }
+              'background-opacity': 0.7,
+              'text-opacity': 0.7,
+            } as any
+          },
+          // Hover state for nodes (subtle highlight)
+          {
+            selector: 'node:active',
+            style: {
+              'overlay-color': '#2563eb',
+              'overlay-opacity': 0.1,
+              'overlay-padding': 6,
+            } as any
+          },
+          // Hover state for edges
+          {
+            selector: 'edge:active',
+            style: {
+              'overlay-color': '#2563eb',
+              'overlay-opacity': 0.15,
+              'overlay-padding': 4,
+            } as any
           }
         ],
         layout: {
-          name: 'circle',
+          name: 'cose',
           animate: false,
           fit: true,
-          padding: 60,
-        },
-        wheelSensitivity: 1, // Default value to avoid Cytoscape warning
+          padding: 50,
+          nodeRepulsion: () => 8000,
+          idealEdgeLength: () => 100,
+          edgeElasticity: () => 100,
+          nestingFactor: 1.2,
+          gravity: 0.25,
+          numIter: 1000,
+          nodeDimensionsIncludeLabels: true,
+        } as any,
+        minZoom: 0.2,
+        maxZoom: 4,
+        wheelSensitivity: 0.3,
+        boxSelectionEnabled: true,
       });
 
       const cy = cyRef.current;
@@ -1233,13 +1278,21 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
           try { cy.add(el); } catch (e) { }
         }
       });
-      // Optionally re-run layout for significant changes
+      // Optionally re-run layout for significant changes (use cose for better biological network layout)
       setTimeout(() => {
         try {
-          const layout = cy.layout({ name: 'circle', animate: false, fit: true, padding: 60 });
+          const layout = cy.layout({ 
+            name: 'cose', 
+            animate: false, 
+            fit: true, 
+            padding: 50,
+            nodeRepulsion: () => 8000,
+            idealEdgeLength: () => 100,
+            nodeDimensionsIncludeLabels: true,
+          } as any);
           layout.run();
         } catch (err) {
-          try { cy.layout({ name: 'grid', animate: false, fit: true, padding: 60 }).run(); } catch { }
+          try { cy.layout({ name: 'circle', animate: false, fit: true, padding: 50 }).run(); } catch { }
         }
       }, 50);
     } catch (e) {
@@ -1494,6 +1547,61 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
 
           <div className="w-6 border-t border-slate-300 my-1" />
 
+          {/* Layout Controls */}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              if (!cyRef.current) return;
+              try {
+                cyRef.current.layout({
+                  name: 'cose',
+                  animate: true,
+                  animationDuration: 500,
+                  fit: true,
+                  padding: 50,
+                  nodeRepulsion: () => 8000,
+                  idealEdgeLength: () => 100,
+                  nodeDimensionsIncludeLabels: true,
+                } as any).run();
+              } catch (e) {
+                cyRef.current.layout({ name: 'circle', animate: true, fit: true, padding: 50 }).run();
+              }
+            }}
+            className="h-9 w-9 rounded-md hover:bg-slate-200 text-slate-600"
+            title="Force-Directed Layout (recommended for biological networks)"
+          >
+            <LayoutIcon />
+          </Button>
+
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              if (!cyRef.current) return;
+              cyRef.current.layout({ name: 'circle', animate: true, animationDuration: 300, fit: true, padding: 50 }).run();
+            }}
+            className="h-9 w-9 rounded-md hover:bg-slate-200 text-slate-600"
+            title="Circular Layout"
+          >
+            <CircleIcon />
+          </Button>
+
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              if (!cyRef.current) return;
+              cyRef.current.fit(undefined, 50);
+            }}
+            className="h-9 w-9 rounded-md hover:bg-slate-200 text-slate-600"
+            title="Fit to View"
+          >
+            <MaximizeIcon />
+          </Button>
+
+          <div className="w-6 border-t border-slate-300 my-1" />
+
           <Button
             size="sm"
             variant="ghost"
@@ -1551,13 +1659,17 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
 
         {/* Main Canvas Area */}
         <div className="flex-1 relative min-w-0 min-h-0">
-          {/* Cytoscape container */}
+          {/* Cytoscape container - Professional biological network canvas */}
           <div
             ref={containerRef}
-            className="w-full h-full bg-gradient-to-br from-slate-50 via-slate-100/50 to-slate-100"
+            className="w-full h-full"
             style={{ 
-              backgroundImage: 'radial-gradient(circle at 1px 1px, #e2e8f0 1px, transparent 0)',
-              backgroundSize: '24px 24px'
+              background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%)',
+              backgroundImage: `
+                radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.3) 1px, transparent 0),
+                linear-gradient(135deg, rgba(255,255,255,0.8) 0%, rgba(241,245,249,0.6) 100%)
+              `,
+              backgroundSize: '20px 20px, 100% 100%',
             }}
             aria-label="Project network visualization"
             key="cytoscape-container"
@@ -2017,6 +2129,23 @@ const DownloadIcon = () => (
     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
     <polyline points="7 10 12 15 17 10" />
     <line x1="12" y1="15" x2="12" y2="3" />
+  </svg>
+);
+
+const LayoutIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="12" cy="12" r="2" />
+    <circle cx="6" cy="6" r="2" />
+    <circle cx="18" cy="6" r="2" />
+    <circle cx="6" cy="18" r="2" />
+    <circle cx="18" cy="18" r="2" />
+    <path d="M12 10V8M12 16v-2M10 12H8M16 12h-2M7.5 7.5l2.5 2.5M14 14l2.5 2.5M7.5 16.5l2.5-2.5M14 10l2.5-2.5" />
+  </svg>
+);
+
+const MaximizeIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
   </svg>
 );
 

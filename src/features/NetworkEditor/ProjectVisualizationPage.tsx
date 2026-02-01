@@ -31,6 +31,7 @@ import { FateClassificationDialog, AttractorFateBadge } from './FateClassificati
 import { TherapeuticsPanel } from './TherapeuticsPanel';
 import { applyTherapiesToNetwork } from '@/lib/applyTherapies';
 import { SeqAnalysisTab } from './tabs/SeqAnalysisTab';
+import { Network, FileText } from 'lucide-react';
 
 type ProjectRecord = {
   id: string;
@@ -84,6 +85,7 @@ function ProjectVisualizationPage() {
   // New Network dialog state
   const [isNewNetworkDialogOpen, setIsNewNetworkDialogOpen] = useState(false);
   const [newNetworkName, setNewNetworkName] = useState<string>("");
+  const [newNetworkType, setNewNetworkType] = useState<'rules' | 'weights'>('weights');
   const [isCreatingNetwork, setIsCreatingNetwork] = useState(false);
 
   // Import Network dialog state
@@ -827,6 +829,7 @@ function ProjectVisualizationPage() {
 
   const handleOpenNewNetworkDialog = useCallback(() => {
     setNewNetworkName("");
+    setNewNetworkType('weights');
     setIsNewNetworkDialogOpen(true);
   }, []);
 
@@ -840,10 +843,20 @@ function ProjectVisualizationPage() {
       const networkName = newNetworkName.trim() || `Untitled Network ${new Date().toLocaleString()}`;
       setIsCreatingNetwork(true);
 
-      // 1) Create a new empty network record
+      // Build initial network_data with type metadata
+      const initialNetworkData = {
+        nodes: [],
+        edges: [],
+        rules: newNetworkType === 'rules' ? [] : undefined,
+        metadata: {
+          type: newNetworkType === 'rules' ? 'Rule based' : 'Weight based',
+        },
+      };
+
+      // 1) Create a new empty network record with type metadata
       const { data: createdNetwork, error: createErr } = await supabase
         .from('networks')
-        .insert([{ name: networkName, network_data: null }])
+        .insert([{ name: networkName, network_data: initialNetworkData }])
         .select('id, name, network_data, created_at')
         .single();
 
@@ -881,9 +894,17 @@ function ProjectVisualizationPage() {
       setRecentNetworkIds((prev) => [createdNetwork.id, ...prev.filter((id) => id !== createdNetwork.id)].slice(0, MAX_RECENT_NETWORKS));
       
       setIsNewNetworkDialogOpen(false);
+      
+      // If rule-based, switch to rules sub-tab
+      if (newNetworkType === 'rules') {
+        setNetworkSubTab('rules');
+      } else {
+        setNetworkSubTab('editor');
+      }
+      
       showToast({
         title: 'Network Created',
-        description: `Network "${networkName}" created successfully.`,
+        description: `${newNetworkType === 'rules' ? 'Rule-based' : 'Weight-based'} network "${networkName}" created successfully.`,
       });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to create and link a new network.';
@@ -896,7 +917,7 @@ function ProjectVisualizationPage() {
     } finally {
       setIsCreatingNetwork(false);
     }
-  }, [projectId, newNetworkName, refreshNetworks, selectNetwork, setRecentNetworkIds, showToast]);
+  }, [projectId, newNetworkName, newNetworkType, refreshNetworks, selectNetwork, setRecentNetworkIds, showToast]);
 
   const handleImportNetwork = useCallback(() => {
     // Open the Import dialog
@@ -1263,6 +1284,54 @@ function ProjectVisualizationPage() {
           </div>
         </>
       )}
+
+      {/* View Mode Selector */}
+      {selectedNetworkId && (
+        <>
+          <Separator className="my-4" />
+          <div className="space-y-2">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">View Mode</h3>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setNetworkSubTab('editor')}
+                className={cn(
+                  "flex items-center gap-2 rounded-lg border p-2.5 text-left transition-all",
+                  networkSubTab === 'editor'
+                    ? "border-primary bg-primary/10 text-primary ring-1 ring-primary/20"
+                    : "border-muted bg-card hover:border-muted-foreground/50 hover:bg-muted/50"
+                )}
+              >
+                <Network className="h-4 w-4 flex-shrink-0" />
+                <span className="text-xs font-medium">Topology</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => selectedIsRuleBased && setNetworkSubTab('rules')}
+                disabled={!selectedIsRuleBased}
+                className={cn(
+                  "flex items-center gap-2 rounded-lg border p-2.5 text-left transition-all",
+                  networkSubTab === 'rules'
+                    ? "border-primary bg-primary/10 text-primary ring-1 ring-primary/20"
+                    : "border-muted bg-card",
+                  !selectedIsRuleBased
+                    ? "opacity-40 cursor-not-allowed"
+                    : "hover:border-muted-foreground/50 hover:bg-muted/50"
+                )}
+                title={!selectedIsRuleBased ? "Only available for rule-based networks" : undefined}
+              >
+                <FileText className="h-4 w-4 flex-shrink-0" />
+                <span className="text-xs font-medium">Rules</span>
+              </button>
+            </div>
+            {!selectedIsRuleBased && (
+              <p className="text-[10px] text-muted-foreground italic">
+                Rules editing is only available for rule-based networks
+              </p>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 
@@ -1503,31 +1572,32 @@ function ProjectVisualizationPage() {
       case 'network': {
         return (
           <div className="flex h-full flex-col">
-            {/* Compact Header */}
-            <div className="flex items-center justify-between px-4 py-2 border-b bg-background/95 backdrop-blur-sm">
+            {/* Compact Header - Clean without view toggle (moved to sidebar) */}
+            <div className="flex items-center justify-between px-4 py-2.5 border-b bg-background/95 backdrop-blur-sm">
               <div className="flex items-center gap-3">
-                <Tabs value={networkSubTab} onValueChange={(v) => setNetworkSubTab(v as 'editor' | 'rules')}>
-                  <TabsList className="h-8">
-                    <TabsTrigger value="editor" className="text-xs px-3 h-7">Graph</TabsTrigger>
-                    <TabsTrigger value="rules" className="text-xs px-3 h-7">Rules</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-                <Separator orientation="vertical" className="h-5" />
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-medium truncate max-w-[200px]">
-                  {selectedNetwork?.name ?? 'No Network'}
+                <span className="text-sm font-semibold truncate max-w-[250px]">
+                  {selectedNetwork?.name ?? 'No Network Selected'}
                 </span>
                 {selectedNetwork?.data && (
-                  <div className="hidden sm:flex items-center gap-1.5">
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
-                      {selectedNetwork.data.nodes?.length ?? 0} nodes
+                  <>
+                    <Badge 
+                      variant={selectedIsRuleBased ? "default" : "secondary"} 
+                      className="text-[10px] px-2 py-0.5"
+                    >
+                      {selectedIsRuleBased ? 'Rule-based' : 'Weight-based'}
                     </Badge>
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
-                      {selectedNetwork.data.edges?.length ?? 0} edges
-                    </Badge>
-                  </div>
+                    <div className="hidden sm:flex items-center gap-1.5">
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5">
+                        {selectedNetwork.data.nodes?.length ?? 0} nodes
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5">
+                        {selectedNetwork.data.edges?.length ?? 0} edges
+                      </Badge>
+                    </div>
+                  </>
                 )}
+              </div>
+              <div className="flex items-center gap-2">
                 {selectedNetworkId && networkSubTab === 'editor' && (
                   <>
                     <Button
@@ -2393,13 +2463,72 @@ function ProjectVisualizationPage() {
           <DialogHeader>
             <DialogTitle>Create New Network</DialogTitle>
             <DialogDescription>
-              Enter a name for your new network. Leave blank for auto-generated name.
+              Choose a network type and optionally provide a name.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-5">
+            {/* Network Type Selection */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Network Type</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setNewNetworkType('weights')}
+                  className={cn(
+                    "p-4 rounded-lg border-2 text-left transition-all",
+                    newNetworkType === 'weights'
+                      ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                      : "border-muted hover:border-muted-foreground/50 hover:bg-muted/50"
+                  )}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className={cn(
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center",
+                      newNetworkType === 'weights' ? "border-primary" : "border-muted-foreground/50"
+                    )}>
+                      {newNetworkType === 'weights' && (
+                        <div className="w-2 h-2 rounded-full bg-primary" />
+                      )}
+                    </div>
+                    <span className="font-semibold text-sm">Weight-based</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground pl-6">
+                    Define edge weights for weighted deterministic analysis
+                  </p>
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={() => setNewNetworkType('rules')}
+                  className={cn(
+                    "p-4 rounded-lg border-2 text-left transition-all",
+                    newNetworkType === 'rules'
+                      ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                      : "border-muted hover:border-muted-foreground/50 hover:bg-muted/50"
+                  )}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className={cn(
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center",
+                      newNetworkType === 'rules' ? "border-primary" : "border-muted-foreground/50"
+                    )}>
+                      {newNetworkType === 'rules' && (
+                        <div className="w-2 h-2 rounded-full bg-primary" />
+                      )}
+                    </div>
+                    <span className="font-semibold text-sm">Rule-based</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground pl-6">
+                    Define Boolean rules (AND, OR, NOT) for rule-based analysis
+                  </p>
+                </button>
+              </div>
+            </div>
+
+            {/* Network Name */}
             <div className="space-y-2">
-              <Label htmlFor="new-network-name">Network Name</Label>
+              <Label htmlFor="new-network-name">Network Name <span className="text-muted-foreground font-normal">(optional)</span></Label>
               <Input
                 id="new-network-name"
                 placeholder="My Network"
@@ -2410,7 +2539,6 @@ function ProjectVisualizationPage() {
                     handleCreateNewNetwork();
                   }
                 }}
-                autoFocus
               />
             </div>
           </div>
@@ -2420,7 +2548,7 @@ function ProjectVisualizationPage() {
               Cancel
             </Button>
             <Button onClick={handleCreateNewNetwork} disabled={isCreatingNetwork}>
-              {isCreatingNetwork ? 'Creating...' : 'Create Network'}
+              {isCreatingNetwork ? 'Creating...' : `Create ${newNetworkType === 'rules' ? 'Rule-based' : 'Weight-based'} Network`}
             </Button>
           </DialogFooter>
         </DialogContent>
