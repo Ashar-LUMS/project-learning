@@ -156,9 +156,7 @@ export function performWeightedAnalysis(
     const stateBinary = stateNum.toString(2).padStart(nodeOrder.length, '0');
 
     if (stateToAttractorId.has(stateBinary)) {
-      // Already part of an attractor
-      const attractorId = stateToAttractorId.get(stateBinary)!;
-      basinSizes.set(attractorId, (basinSizes.get(attractorId) ?? 0) + 1);
+      // Already part of an attractor - already counted in basin, skip
       continue;
     }
 

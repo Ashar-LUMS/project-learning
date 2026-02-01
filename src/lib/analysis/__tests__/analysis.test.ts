@@ -181,4 +181,29 @@ describe('performWeightedAnalysis', () => {
     expect(resultOne.attractors.length).toBeGreaterThan(0);
     expect(resultHold.attractors.length).toBeGreaterThan(0);
   });
+
+  it('basin shares sum to 1.0 (100%) for non-truncated analysis', () => {
+    const nodes: AnalysisNode[] = [
+      { id: 'A' },
+      { id: 'B' },
+      { id: 'C' },
+    ];
+    const edges: AnalysisEdge[] = [
+      { source: 'A', target: 'B', weight: 1 },
+      { source: 'B', target: 'C', weight: 1 },
+      { source: 'C', target: 'A', weight: -1 },
+    ];
+
+    const result = performWeightedAnalysis(nodes, edges, { thresholdMultiplier: 0.5 });
+
+    // Sum of all basin shares should equal 1.0 (within floating point tolerance)
+    const totalBasinShare = result.attractors.reduce((sum, att) => sum + att.basinShare, 0);
+    expect(totalBasinShare).toBeCloseTo(1.0, 5);
+    
+    // No individual basin share should exceed 1.0
+    result.attractors.forEach(att => {
+      expect(att.basinShare).toBeLessThanOrEqual(1.0);
+      expect(att.basinShare).toBeGreaterThanOrEqual(0);
+    });
+  });
 });
