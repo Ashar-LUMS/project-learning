@@ -14,7 +14,6 @@ import { useWeightedAnalysis } from '@/hooks/useWeightedAnalysis';
 import { useProbabilisticAnalysis } from '@/hooks/useProbabilisticAnalysis';
 import { useDeterministicAnalysis } from '@/hooks/useDeterministicAnalysis';
 import type { AnalysisEdge, AnalysisNode, ProbabilisticAnalysisOptions, WeightedAnalysisOptions, DeterministicAttractor, StateSnapshot } from '@/lib/analysis/types';
-import AttractorGraph from './AttractorGraph';
 import AttractorLandscape from './AttractorLandscape';
 import RulesPage from './RulesPage';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -112,6 +111,7 @@ function ProjectVisualizationPage() {
   const [attractorLandscapeData, setAttractorLandscapeData] = useState<DeterministicAttractor[] | null>(null);
   const [probabilityLandscapeOpen, setProbabilityLandscapeOpen] = useState(false);
   const [energyLandscapeOpen, setEnergyLandscapeOpen] = useState(false);
+  const [showProbabilityTables, setShowProbabilityTables] = useState(false);
   const [landscapeProbabilisticData, setLandscapeProbabilisticData] = useState<{
     nodeOrder: string[];
     probabilities: Record<string, number>;
@@ -120,6 +120,17 @@ function ProjectVisualizationPage() {
 
   // Minimal inference wiring so sidebar actions work here too
   const [rulesText, setRulesText] = useState('');
+
+  // Map of node ID to label for display purposes
+  const nodeIdToLabel = useMemo(() => {
+    const map: Record<string, string> = {};
+    const networkData = (selectedNetwork as any)?.data || selectedNetwork;
+    const nodes = networkData?.nodes || [];
+    for (const node of nodes) {
+      map[node.id] = node.label || node.id;
+    }
+    return map;
+  }, [selectedNetwork]);
 
   const selectedIsRuleBased = useMemo(() => {
     try {
@@ -1774,30 +1785,25 @@ function ProjectVisualizationPage() {
                             </Button>
                           </div>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <div className="overflow-auto">
-                            <table className="w-full text-xs border-collapse">
-                              <thead>
-                                <tr>
+                        <div className="overflow-auto">
+                          <table className="w-full text-xs border-collapse">
+                            <thead>
+                              <tr>
+                                {ruleBasedResult.nodeOrder.map((n: string) => (
+                                  <th key={n} className="p-1 font-medium">{ruleBasedResult.nodeLabels[n]}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {attr.states.map((s: any, si: number) => (
+                                <tr key={si} className="odd:bg-muted/40">
                                   {ruleBasedResult.nodeOrder.map((n: string) => (
-                                    <th key={n} className="p-1 font-medium">{ruleBasedResult.nodeLabels[n]}</th>
+                                    <td key={n} className="p-1 text-center">{s.values[n]}</td>
                                   ))}
                                 </tr>
-                              </thead>
-                              <tbody>
-                                {attr.states.map((s: any, si: number) => (
-                                  <tr key={si} className="odd:bg-muted/40">
-                                    {ruleBasedResult.nodeOrder.map((n: string) => (
-                                      <td key={n} className="p-1 text-center">{s.values[n]}</td>
-                                    ))}
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                          <div className="min-h-[180px]">
-                            <AttractorGraph states={attr.states as any} />
-                          </div>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
                     ))}
@@ -1820,6 +1826,19 @@ function ProjectVisualizationPage() {
                       <div className="text-xs text-amber-600 space-y-1">
                         {weightedResult.warnings.map((w: string, i: number) => <p key={i}>• {w}</p>)}
                       </div>
+                    )}
+                    {/* Attractor Landscape Button for Weighted */}
+                    {weightedResult.attractors.length > 0 && (
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => {
+                          setAttractorLandscapeData(weightedResult.attractors);
+                          setAttractorLandscapeOpen(true);
+                        }}
+                      >
+                        View Attractor Landscape
+                      </Button>
                     )}
                     {weightedResult.attractors.map((attr: DeterministicAttractor) => (
                       <div key={attr.id} className="border rounded-md p-3 bg-background/50">
@@ -1844,30 +1863,25 @@ function ProjectVisualizationPage() {
                             </Button>
                           </div>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <div className="overflow-auto">
-                            <table className="w-full text-xs border-collapse">
-                              <thead>
-                                <tr>
+                        <div className="overflow-auto">
+                          <table className="w-full text-xs border-collapse">
+                            <thead>
+                              <tr>
+                                {weightedResult.nodeOrder.map((n: string) => (
+                                  <th key={n} className="p-1 font-medium">{weightedResult.nodeLabels[n]}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {attr.states.map((s: StateSnapshot, si: number) => (
+                                <tr key={si} className="odd:bg-muted/40">
                                   {weightedResult.nodeOrder.map((n: string) => (
-                                    <th key={n} className="p-1 font-medium">{weightedResult.nodeLabels[n]}</th>
+                                    <td key={n} className="p-1 text-center">{s.values[n]}</td>
                                   ))}
                                 </tr>
-                              </thead>
-                              <tbody>
-                                {attr.states.map((s: StateSnapshot, si: number) => (
-                                  <tr key={si} className="odd:bg-muted/40">
-                                    {weightedResult.nodeOrder.map((n: string) => (
-                                      <td key={n} className="p-1 text-center">{s.values[n]}</td>
-                                    ))}
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                          <div className="min-h-[180px]">
-                            <AttractorGraph states={attr.states as any} />
-                          </div>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
                     ))}
@@ -1920,54 +1934,65 @@ function ProjectVisualizationPage() {
                           View Potential Energy Landscape
                         </Button>
                       )}
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowProbabilityTables(!showProbabilityTables)}
+                      >
+                        {showProbabilityTables ? 'Hide' : 'Show'} Probability Tables
+                      </Button>
                     </div>
 
-                    {/* Node probabilities table */}
-                    <div className="border rounded-md p-3 bg-background/50">
-                      <h4 className="font-medium text-sm mb-2">Node Steady-State Probabilities</h4>
-                      <div className="overflow-auto max-h-60">
-                        <table className="w-full text-xs border-collapse">
-                          <thead>
-                            <tr className="bg-muted/40">
-                              <th className="text-left p-2 font-semibold">Node</th>
-                              <th className="text-right p-2 font-semibold">Probability</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {probabilisticResult.nodeOrder.map((nodeId: string) => (
-                              <tr key={nodeId} className="border-t">
-                                <td className="p-2">{nodeId}</td>
-                                <td className="text-right p-2 font-mono">{(probabilisticResult.probabilities[nodeId] * 100).toFixed(2)}%</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-
-                    {/* Potential energies table */}
-                    {Object.keys(probabilisticResult.potentialEnergies).length > 0 && (
-                      <div className="border rounded-md p-3 bg-background/50">
-                        <h4 className="font-medium text-sm mb-2">Potential Energies</h4>
-                        <div className="overflow-auto max-h-60">
-                          <table className="w-full text-xs border-collapse">
-                            <thead>
-                              <tr className="bg-muted/40">
-                                <th className="text-left p-2 font-semibold">Node</th>
-                                <th className="text-right p-2 font-semibold">Energy</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {probabilisticResult.nodeOrder.map((nodeId: string) => (
-                                <tr key={nodeId} className="border-t">
-                                  <td className="p-2">{nodeId}</td>
-                                  <td className="text-right p-2 font-mono">{probabilisticResult.potentialEnergies[nodeId]?.toFixed(4) ?? 'N/A'}</td>
+                    {/* Node probabilities table - hidden by default */}
+                    {showProbabilityTables && (
+                      <>
+                        <div className="border rounded-md p-3 bg-background/50">
+                          <h4 className="font-medium text-sm mb-2">Node Steady-State Probabilities</h4>
+                          <div className="text-xs text-muted-foreground mb-2">Each value is the probability that node is ON (0–1). These are independent per-node probabilities, not a distribution.</div>
+                          <div className="overflow-auto max-h-60">
+                            <table className="w-full text-xs border-collapse">
+                              <thead>
+                                <tr className="bg-muted/40">
+                                  <th className="text-left p-2 font-semibold">Node</th>
+                                  <th className="text-right p-2 font-semibold">Probability</th>
                                 </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                              </thead>
+                              <tbody>
+                                {probabilisticResult.nodeOrder.map((nodeId: string) => (
+                                  <tr key={nodeId} className="border-t">
+                                    <td className="p-2">{nodeIdToLabel[nodeId] || nodeId}</td>
+                                    <td className="text-right p-2 font-mono">{(probabilisticResult.probabilities[nodeId] * 100).toFixed(2)}%</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
-                      </div>
+
+                        {/* Potential energies table */}
+                        {Object.keys(probabilisticResult.potentialEnergies).length > 0 && (
+                          <div className="border rounded-md p-3 bg-background/50">
+                            <h4 className="font-medium text-sm mb-2">Potential Energies</h4>
+                            <div className="overflow-auto max-h-60">
+                              <table className="w-full text-xs border-collapse">
+                                <thead>
+                                  <tr className="bg-muted/40">
+                                    <th className="text-left p-2 font-semibold">Node</th>
+                                    <th className="text-right p-2 font-semibold">Energy</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {probabilisticResult.nodeOrder.map((nodeId: string) => (
+                                    <tr key={nodeId} className="border-t">
+                                      <td className="p-2">{nodeIdToLabel[nodeId] || nodeId}</td>
+                                      <td className="text-right p-2 font-mono">{probabilisticResult.potentialEnergies[nodeId]?.toFixed(4) ?? 'N/A'}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
 
                     {probabilisticResult.warnings.length > 0 && (
@@ -2140,12 +2165,6 @@ function ProjectVisualizationPage() {
                                   <AttractorFateBadge fate={cellFates[attractor.id]} />
                                 )}
                               </div>
-                              <div className="mb-3">
-                                <AttractorGraph 
-                                  states={attractor.states}
-                                  className="h-32"
-                                />
-                              </div>
                               <div className="text-xs text-muted-foreground mb-1">States:</div>
                               <div className="flex flex-wrap gap-1">
                                 {attractor.states.map((state, stateIdx) => (
@@ -2219,7 +2238,7 @@ function ProjectVisualizationPage() {
                             <tbody>
                               {therapeuticsProbabilisticResult?.nodeOrder.map((nodeId: string) => (
                                 <tr key={nodeId} className="border-t">
-                                  <td className="p-2">{nodeId}</td>
+                                  <td className="p-2">{nodeIdToLabel[nodeId] || nodeId}</td>
                                   <td className="text-right p-2 font-mono">
                                     {((therapeuticsProbabilisticResult?.probabilities[nodeId] ?? 0) * 100).toFixed(2)}%
                                   </td>

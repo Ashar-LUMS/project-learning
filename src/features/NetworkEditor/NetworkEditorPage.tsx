@@ -24,7 +24,6 @@ import { useDeterministicAnalysis } from '@/hooks/useDeterministicAnalysis';
 import type { AnalysisEdge, AnalysisNode, ProbabilisticAnalysisOptions, WeightedAnalysisOptions } from '@/lib/analysis/types';
 import { useProjectNetworks, type ProjectNetworkRecord } from '@/hooks/useProjectNetworks';
 
-import AttractorGraph from './AttractorGraph';
 import AttractorLandscape from './AttractorLandscape';
 import ProbabilisticLandscape from './ProbabilisticLandscape';
 import { TherapeuticsPanel } from './TherapeuticsPanel';
@@ -108,6 +107,7 @@ function NetworkEditorPage() {
   const [attractorLandscapeData, setAttractorLandscapeData] = useState<any[] | null>(null);
   const [probabilityLandscapeOpen, setProbabilityLandscapeOpen] = useState(false);
   const [energyLandscapeOpen, setEnergyLandscapeOpen] = useState(false);
+  const [showProbabilityTables, setShowProbabilityTables] = useState(false);
   const probabilisticEntries = useMemo(() => {
     if (!probabilisticResult) return [] as Array<[string, number]>;
     return Object.entries(probabilisticResult.probabilities).sort(([, a], [, b]) => b - a);
@@ -130,6 +130,16 @@ function NetworkEditorPage() {
     if (!values.length) return 0;
     return Math.max(...values);
   }, [probabilisticResult]);
+  // Map of node ID to label for display purposes
+  const nodeIdToLabel = useMemo(() => {
+    const map: Record<string, string> = {};
+    const networkData = (selectedNetwork as any)?.data || selectedNetwork;
+    const nodes = networkData?.nodes || [];
+    for (const node of nodes) {
+      map[node.id] = node.label || node.id;
+    }
+    return map;
+  }, [selectedNetwork]);
   const graphRef = useRef<NetworkGraphHandle | null>(null);
   const normalizeNodesEdges = (payload: any): { nodes: AnalysisNode[]; edges: AnalysisEdge[]; options: WeightedAnalysisOptions; metadata: Record<string, any> } => {
     const nodes: AnalysisNode[] = (Array.isArray(payload?.nodes) ? payload.nodes : []).map((n: any) => ({
@@ -839,32 +849,27 @@ function NetworkEditorPage() {
                               <h3 className="font-medium text-sm">Attractor #{attr.id + 1} ({attr.type})</h3>
                               <span className="text-xs text-muted-foreground">Period {attr.period} • Basin { (attr.basinShare*100).toFixed(1) }%</span>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              <div className="overflow-auto">
-                                <table className="w-full text-xs border-collapse">
-                                  <thead>
-                                    <tr>
-                                      <th className="text-left p-1 font-semibold">State</th>
+                            <div className="overflow-auto">
+                              <table className="w-full text-xs border-collapse">
+                                <thead>
+                                  <tr>
+                                    <th className="text-left p-1 font-semibold">State</th>
+                                    {analysisResult.nodeOrder.map((n: any) => (
+                                      <th key={n} className="p-1 font-medium">{analysisResult.nodeLabels[n]}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {attr.states.map((s: any, si: number) => (
+                                    <tr key={si} className="odd:bg-muted/40">
+                                      <td className="p-1 font-mono">{s.binary}</td>
                                       {analysisResult.nodeOrder.map((n: any) => (
-                                        <th key={n} className="p-1 font-medium">{analysisResult.nodeLabels[n]}</th>
+                                        <td key={n} className="p-1 text-center">{s.values[n]}</td>
                                       ))}
                                     </tr>
-                                  </thead>
-                                  <tbody>
-                                    {attr.states.map((s: any, si: number) => (
-                                      <tr key={si} className="odd:bg-muted/40">
-                                        <td className="p-1 font-mono">{s.binary}</td>
-                                        {analysisResult.nodeOrder.map((n: any) => (
-                                          <td key={n} className="p-1 text-center">{s.values[n]}</td>
-                                        ))}
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                              <div className="min-h-[180px]">
-                                <AttractorGraph states={attr.states} />
-                              </div>
+                                  ))}
+                                </tbody>
+                              </table>
                             </div>
                           </div>
                         ))}
@@ -904,32 +909,27 @@ function NetworkEditorPage() {
                               <h3 className="font-medium text-sm">Weighted Attractor #{attr.id + 1} ({attr.type})</h3>
                               <span className="text-xs text-muted-foreground">Period {attr.period} • Basin { (attr.basinShare*100).toFixed(1) }%</span>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              <div className="overflow-auto">
-                                <table className="w-full text-xs border-collapse">
-                                  <thead>
-                                    <tr>
-                                      <th className="text-left p-1 font-semibold">State</th>
+                            <div className="overflow-auto">
+                              <table className="w-full text-xs border-collapse">
+                                <thead>
+                                  <tr>
+                                    <th className="text-left p-1 font-semibold">State</th>
+                                    {weightedResult.nodeOrder.map((n: string) => (
+                                      <th key={n} className="p-1 font-medium">{weightedResult.nodeLabels[n]}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {attr.states.map((s: any, si: number) => (
+                                    <tr key={si} className="odd:bg-muted/40">
+                                      <td className="p-1 font-mono">{s.binary}</td>
                                       {weightedResult.nodeOrder.map((n: string) => (
-                                        <th key={n} className="p-1 font-medium">{weightedResult.nodeLabels[n]}</th>
+                                        <td key={n} className="p-1 text-center">{s.values[n]}</td>
                                       ))}
                                     </tr>
-                                  </thead>
-                                  <tbody>
-                                    {attr.states.map((s: any, si: number) => (
-                                      <tr key={si} className="odd:bg-muted/40">
-                                        <td className="p-1 font-mono">{s.binary}</td>
-                                        {weightedResult.nodeOrder.map((n: string) => (
-                                          <td key={n} className="p-1 text-center">{s.values[n]}</td>
-                                        ))}
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                              <div className="min-h-[180px]">
-                                <AttractorGraph states={attr.states} />
-                              </div>
+                                  ))}
+                                </tbody>
+                              </table>
                             </div>
                           </div>
                         ))}
@@ -965,48 +965,57 @@ function NetworkEditorPage() {
                             View Potential Energy Landscape
                           </Button>
                         )}
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowProbabilityTables(!showProbabilityTables)}
+                        >
+                          {showProbabilityTables ? 'Hide' : 'Show'} Probability Tables
+                        </Button>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                        <div className="space-y-2">
-                          <div className="font-semibold text-sm">Steady-state probabilities</div>
-                          <table className="w-full text-xs border-collapse">
-                            <thead>
-                              <tr>
-                                <th className="text-left p-1 font-semibold">Node</th>
-                                <th className="text-left p-1 font-semibold">Probability</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {probabilisticEntries.map(([nodeId, prob]: [string, number]) => (
-                                <tr key={nodeId} className="odd:bg-muted/40">
-                                  <td className="p-1 font-mono">{nodeId}</td>
-                                  <td className="p-1">{prob.toFixed(4)}</td>
+                      {showProbabilityTables && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                          <div className="space-y-2">
+                            <div className="font-semibold text-sm">Node Steady-State Probabilities</div>
+                            <div className="text-xs text-muted-foreground">Each value is the probability that node is ON (0–1). These are independent per-node probabilities, not a distribution.</div>
+                            <table className="w-full text-xs border-collapse">
+                              <thead>
+                                <tr>
+                                  <th className="text-left p-1 font-semibold">Node</th>
+                                  <th className="text-left p-1 font-semibold">Probability</th>
                                 </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                        <div className="space-y-2">
-                          <div className="font-semibold text-sm">Potential energies (−ln P)</div>
-                          <table className="w-full text-xs border-collapse">
-                            <thead>
-                              <tr>
-                                <th className="text-left p-1 font-semibold">Node</th>
-                                <th className="text-left p-1 font-semibold">PE</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {probabilisticEntries.map(([nodeId]: [string, number]) => (
-                                <tr key={nodeId} className="odd:bg-muted/40">
-                                  <td className="p-1 font-mono">{nodeId}</td>
-                                  <td className="p-1">{probabilisticResult.potentialEnergies[nodeId].toFixed(4)}</td>
+                              </thead>
+                              <tbody>
+                                {probabilisticEntries.map(([nodeId, prob]: [string, number]) => (
+                                  <tr key={nodeId} className="odd:bg-muted/40">
+                                    <td className="p-1">{nodeIdToLabel[nodeId] || nodeId}</td>
+                                    <td className="p-1">{prob.toFixed(4)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="font-semibold text-sm">Potential energies (−ln P)</div>
+                            <table className="w-full text-xs border-collapse">
+                              <thead>
+                                <tr>
+                                  <th className="text-left p-1 font-semibold">Node</th>
+                                  <th className="text-left p-1 font-semibold">PE</th>
                                 </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                          <div className="text-xs text-muted-foreground">Min P = {probabilisticMinProbability.toFixed(4)} · Max PE = {probabilisticMaxPotentialEnergy.toFixed(4)}</div>
+                              </thead>
+                              <tbody>
+                                {probabilisticEntries.map(([nodeId]: [string, number]) => (
+                                  <tr key={nodeId} className="odd:bg-muted/40">
+                                    <td className="p-1">{nodeIdToLabel[nodeId] || nodeId}</td>
+                                    <td className="p-1">{probabilisticResult.potentialEnergies[nodeId].toFixed(4)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                            <div className="text-xs text-muted-foreground">Min P = {probabilisticMinProbability.toFixed(4)} · Max PE = {probabilisticMaxPotentialEnergy.toFixed(4)}</div>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   )}
                 </CardContent>
