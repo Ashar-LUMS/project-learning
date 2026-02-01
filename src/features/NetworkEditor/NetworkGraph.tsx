@@ -93,6 +93,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
 
   useEffect(() => {
     setManualRefresh((p) => p + 1);
+    setGraphReady(false);
   }, [networkId]);
 
   // Helper to get cache key for this network
@@ -193,6 +194,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
   const nodeCounterRef = useRef(0);
   const ehRef = useRef<any>(null);
   const [ehLoaded, setEhLoaded] = useState(false);
+  const [graphReady, setGraphReady] = useState(false);
   const [newNodeDraft, setNewNodeDraft] = useState<{
     modelPos: { x: number; y: number };
     label: string;
@@ -963,17 +965,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
           }
         ],
         layout: {
-          name: 'cose',
-          animate: false,
-          fit: true,
-          padding: 50,
-          nodeRepulsion: () => 8000,
-          idealEdgeLength: () => 100,
-          edgeElasticity: () => 100,
-          nestingFactor: 1.2,
-          gravity: 0.25,
-          numIter: 1000,
-          nodeDimensionsIncludeLabels: true,
+          name: 'preset',  // Don't run layout at init - handled post-init
         } as any,
         minZoom: 0.2,
         maxZoom: 4,
@@ -1082,6 +1074,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
             fit: true,
             padding: 60
           });
+          layout.one('layoutstop', () => setGraphReady(true));
           layout.run();
         } catch (err) {
           // Fallback to a simpler layout
@@ -1092,9 +1085,11 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
               fit: true,
               padding: 60
             });
+            fallbackLayout.one('layoutstop', () => setGraphReady(true));
             fallbackLayout.run();
           } catch (fallbackErr) {
-            // Fallback layout error
+            // Fallback layout error - still show the graph
+            setGraphReady(true);
           }
         }
       }, 100);
@@ -1662,7 +1657,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
           {/* Cytoscape container - Professional biological network canvas */}
           <div
             ref={containerRef}
-            className="w-full h-full"
+            className="w-full h-full transition-opacity duration-200"
             style={{ 
               background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%)',
               backgroundImage: `
@@ -1670,6 +1665,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                 linear-gradient(135deg, rgba(255,255,255,0.8) 0%, rgba(241,245,249,0.6) 100%)
               `,
               backgroundSize: '20px 20px, 100% 100%',
+              opacity: graphReady ? 1 : 0,
             }}
             aria-label="Project network visualization"
             key="cytoscape-container"

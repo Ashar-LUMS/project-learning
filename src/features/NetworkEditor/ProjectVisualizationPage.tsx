@@ -6,7 +6,7 @@ import { useToast } from '@/components/ui/toast';
 import { cn } from "@/lib/utils";
 import { formatTimestamp } from '@/lib/format';
 import type { NetworkData, NetworkNode, NetworkEdge, Rule, CellFate, TherapeuticIntervention } from '@/types/network';
-import { importNetwork, exportAndDownloadNetwork } from '@/lib/networkIO';
+import { importNetwork, exportAndDownloadNetworkAs, SUPPORTED_EXPORT_FORMATS, type ExportFormat } from '@/lib/networkIO';
 import NetworkGraph, { type NetworkGraphHandle } from "./NetworkGraph";
 import { supabase } from "../../supabaseClient";
 import NetworkEditorLayout from "./layout";
@@ -98,6 +98,10 @@ function ProjectVisualizationPage() {
   const [importError, setImportError] = useState<string | null>(null);
   const [isInferring, setIsInferring] = useState(false);
   const [isSavingImport, setIsSavingImport] = useState(false);
+
+  // Export Network dialog state
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [selectedExportFormat, setSelectedExportFormat] = useState<ExportFormat>('csv');
 
   // Fate classification state
   const [fateDialogOpen, setFateDialogOpen] = useState(false);
@@ -1198,17 +1202,13 @@ function ProjectVisualizationPage() {
               showToast({ title: 'No Network Selected', description: 'Select a network to export', variant: 'destructive' });
               return;
             }
-            const data = selectedNetwork.data as NetworkData;
-            if (!data) {
+            if (!selectedNetwork.data) {
               showToast({ title: 'No Data', description: 'Selected network has no data', variant: 'destructive' });
               return;
             }
-            exportAndDownloadNetwork(data, selectedNetwork.name || 'network');
-            showToast({ 
-              title: 'Network Exported', 
-              description: `Exported ${selectedNetwork.name || 'network'}`,
-              variant: 'default'
-            });
+            // Open export format dialog
+            setSelectedExportFormat(selectedIsRuleBased ? 'txt' : 'csv');
+            setIsExportDialogOpen(true);
           }}
           className="w-full rounded-lg border border-muted bg-card p-2 text-left text-xs font-medium transition-colors hover:bg-muted disabled:opacity-60"
           disabled={isLoading || !selectedNetwork}
@@ -2554,13 +2554,83 @@ function ProjectVisualizationPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Export Network Format Dialog */}
+      <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Export Network</DialogTitle>
+            <DialogDescription>
+              Choose a format for exporting "{selectedNetwork?.name || 'network'}"
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-3">
+              {SUPPORTED_EXPORT_FORMATS.map((format) => (
+                <button
+                  key={format.id}
+                  type="button"
+                  onClick={() => setSelectedExportFormat(format.id)}
+                  className={cn(
+                    "w-full p-3 rounded-lg border-2 text-left transition-all",
+                    selectedExportFormat === format.id
+                      ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                      : "border-muted hover:border-muted-foreground/50 hover:bg-muted/50"
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "w-4 h-4 rounded-full border-2 flex items-center justify-center",
+                        selectedExportFormat === format.id ? "border-primary" : "border-muted-foreground/50"
+                      )}>
+                        {selectedExportFormat === format.id && (
+                          <div className="w-2 h-2 rounded-full bg-primary" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="font-medium text-sm">{format.label}</div>
+                        <div className="text-xs text-muted-foreground">{format.description}</div>
+                      </div>
+                    </div>
+                    <Badge variant="secondary" className="text-[10px]">{format.extension}</Badge>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsExportDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              if (selectedNetwork?.data) {
+                exportAndDownloadNetworkAs(
+                  selectedNetwork.data as NetworkData, 
+                  selectedNetwork.name || 'network',
+                  selectedExportFormat
+                );
+                setIsExportDialogOpen(false);
+                showToast({
+                  title: 'Network Exported',
+                  description: `Exported as ${SUPPORTED_EXPORT_FORMATS.find(f => f.id === selectedExportFormat)?.label || selectedExportFormat}`,
+                });
+              }
+            }}>
+              Export
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Import Network Dialog */}
       <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Import Network</DialogTitle>
             <DialogDescription>
-              Upload a network file: CSV (weight-based) or TXT (rule-based)
+              Upload a network file: CSV, TXT, SIF, or SBML-qual
             </DialogDescription>
           </DialogHeader>
 
