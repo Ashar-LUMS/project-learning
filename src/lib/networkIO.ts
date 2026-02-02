@@ -424,18 +424,18 @@ export function parseSBMLqualNetwork(xmlContent: string): NetworkData {
 /**
  * Export a weight-based network to CSV format.
  * Format:
- * Section 1: node_id, basal_value (nodes with basal values)
- * Section 2: source, weight, target (edges with intensity)
+ * Section 1: node_id, bias (nodes with bias values)
+ * Section 2: source, weight, target (edges with weights)
  * Section 3: "Weight Based" label
  */
 export function exportWeightedNetworkToCSV(data: NetworkData): string {
   const lines: string[] = [];
   
-  // Section 1: Nodes with basal values
+  // Section 1: Nodes with bias values
   const nodes = data.nodes || [];
   for (const node of nodes) {
-    const basalValue = node.properties?.basalValue ?? node.properties?.initialValue ?? node.weight ?? 0;
-    lines.push(`${node.id},${basalValue}`);
+    const bias = node.properties?.bias ?? 0;
+    lines.push(`${node.id},${bias}`);
   }
   
   // Empty separator
@@ -521,7 +521,7 @@ export function parseWeightedNetworkCSV(csvContent: string): NetworkData {
   const section2Start = section1End + 1;
   const section2End = sectionBreaks[1] ?? lines.length;
   
-  // Section 1: Nodes (id, basalValue)
+  // Section 1: Nodes (id, bias)
   const nodeLines = lines.slice(0, section1End).filter(l => l && !l.match(/^,+$/));
   const nodes: NetworkNode[] = [];
   
@@ -529,12 +529,11 @@ export function parseWeightedNetworkCSV(csvContent: string): NetworkData {
     const parts = line.split(',').map(p => p.trim());
     if (parts.length >= 2 && parts[0]) {
       const id = parts[0];
-      const basalValue = parseFloat(parts[1]) || 0;
+      const bias = parseFloat(parts[1]) || 0;
       nodes.push({
         id,
         label: id,
-        weight: basalValue,
-        properties: { basalValue, initialValue: basalValue }
+        properties: { bias }
       });
     }
   }
