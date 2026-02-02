@@ -845,6 +845,8 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
               'arrow-scale': 1.2,
               'line-opacity': 0.85,
               'overlay-opacity': 0,
+              'loop-direction': '-45deg',
+              'loop-sweep': '-90deg',
             } as any,
           },
           // Inhibiting edges - red with T-bar (biological convention for inhibition)
@@ -998,6 +1000,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                   handleSize: 10,
                   handleColor: '#f59e0b',
                   handleOutlineColor: '#ffffff',
+                  loopAllowed: function () { return true; },
                   edgeType: function () { return 'flat'; },
                   complete: (sourceNode: any, targetNode: any) => {
                     try {
@@ -1039,6 +1042,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
             handleSize: 10,
             handleColor: '#f59e0b',
             handleOutlineColor: '#ffffff',
+            loopAllowed: function () { return true; },
             edgeType: function () { return 'flat'; },
             complete: (sourceNode: any, targetNode: any) => {
               try {
