@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { formatDate } from '@/lib/format';
 import { Button } from '@/components/ui/button';
@@ -126,6 +126,73 @@ export default function NetworkEditorLayout({
   // Sidebar collapse state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
+  // ===== CACHED PROJECTS STATE (persists across tab switches) =====
+  const [cachedProjects, setCachedProjects] = useState<SidebarProject[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
+  const [projectsError, setProjectsError] = useState<string | null>(null);
+  const [projectsFetched, setProjectsFetched] = useState(false);
+
+  // Fetch projects once and cache them
+  useEffect(() => {
+    // Only fetch if not already fetched
+    if (projectsFetched) return;
+
+    const controller = new AbortController();
+    const signal = controller.signal;
+
+    const fetchProjects = async () => {
+      // Get current user
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id ?? null;
+      const userEmail = userData.user?.email ?? null;
+
+      if (!userId && !userEmail) return;
+      if (signal.aborted) return;
+
+      setProjectsLoading(true);
+      setProjectsError(null);
+
+      try {
+        const selects = 'id, name, assignees, created_at, created_by, creator_email, networks';
+        const [a, b, c] = await Promise.all([
+          userId ? supabase.from('projects').select(selects).contains('assignees', [userId]).order('created_at', { ascending: false }) : Promise.resolve({ data: [], error: null } as { data: SidebarProject[]; error: null }),
+          userId ? supabase.from('projects').select(selects).eq('created_by', userId).order('created_at', { ascending: false }) : Promise.resolve({ data: [], error: null } as { data: SidebarProject[]; error: null }),
+          userEmail ? supabase.from('projects').select(selects).eq('creator_email', userEmail).order('created_at', { ascending: false }) : Promise.resolve({ data: [], error: null } as { data: SidebarProject[]; error: null }),
+        ]);
+
+        if (signal.aborted) return;
+
+        if (a.error) throw a.error;
+        if (b.error) throw b.error;
+        if (c.error) throw c.error;
+
+        const mergedMap = new Map<string, SidebarProject>();
+        for (const row of ([...(a.data || []), ...(b.data || []), ...(c.data || [])] as SidebarProject[])) {
+          if (row?.id) mergedMap.set(row.id, row);
+        }
+        const merged = Array.from(mergedMap.values()).sort((x, y) => (y.created_at || '').localeCompare(x.created_at || ''));
+
+        if (!signal.aborted) {
+          setCachedProjects(merged);
+          setProjectsFetched(true);
+        }
+      } catch (e) {
+        if (!signal.aborted) {
+          const errorMessage = e instanceof Error ? e.message : 'Failed to load projects';
+          setProjectsError(errorMessage);
+          setCachedProjects([]);
+        }
+      } finally {
+        if (!signal.aborted) {
+          setProjectsLoading(false);
+        }
+      }
+    };
+
+    fetchProjects();
+    return () => controller.abort();
+  }, [projectsFetched]);
+
   // Separate enabled and disabled tabs
   const enabledTabs = [
     { id: 'projects' as TabType, label: 'Projects', icon: Folder, color: 'text-blue-600' },
@@ -209,7 +276,15 @@ export default function NetworkEditorLayout({
           {!sidebarCollapsed && (
             <div className="flex-1 overflow-y-auto overflow-x-hidden">
               <div className="p-4">
-                {renderTabContent(activeTab, networkSidebar, inferenceSidebar, therapeuticsSidebar, seqAnalysisSidebar, inferenceActions)}
+                {renderTabContent(
+                  activeTab,
+                  networkSidebar,
+                  inferenceSidebar,
+                  therapeuticsSidebar,
+                  seqAnalysisSidebar,
+                  inferenceActions,
+                  { projects: cachedProjects, isLoading: projectsLoading, error: projectsError }
+                )}
               </div>
             </div>
           )}
@@ -227,10 +302,22 @@ export default function NetworkEditorLayout({
   );
 }
 
-function renderTabContent(activeTab: TabType, networkSidebar?: React.ReactNode, inferenceSidebar?: React.ReactNode, therapeuticsSidebar?: React.ReactNode, seqAnalysisSidebar?: React.ReactNode, inferenceActions?: NetworkEditorLayoutProps['inferenceActions']) {
+function renderTabContent(
+  activeTab: TabType,
+  networkSidebar?: React.ReactNode,
+  inferenceSidebar?: React.ReactNode,
+  therapeuticsSidebar?: React.ReactNode,
+  seqAnalysisSidebar?: React.ReactNode,
+  inferenceActions?: NetworkEditorLayoutProps['inferenceActions'],
+  projectsData?: { projects: SidebarProject[]; isLoading: boolean; error: string | null }
+) {
   switch (activeTab) {
     case 'projects':
-      return <ProjectsSidebar />;
+      return <ProjectsSidebar 
+        projects={projectsData?.projects ?? []} 
+        isLoading={projectsData?.isLoading ?? false} 
+        error={projectsData?.error ?? null} 
+      />;
     case 'network':
       return networkSidebar ?? <NetworkSidebar />;
     case 'network-inference':
@@ -254,7 +341,11 @@ function renderTabContent(activeTab: TabType, networkSidebar?: React.ReactNode, 
     case 'seq-data-analysis':
       return seqAnalysisSidebar ?? <SeqAnalysisSidebar />;
     default:
-      return <ProjectsSidebar />;
+      return <ProjectsSidebar 
+        projects={projectsData?.projects ?? []} 
+        isLoading={projectsData?.isLoading ?? false} 
+        error={projectsData?.error ?? null} 
+      />;
   }
 }
 
@@ -269,69 +360,14 @@ type SidebarProject = {
   networks?: string[] | null;
 };
 
-function ProjectsSidebar() {
+interface ProjectsSidebarProps {
+  projects: SidebarProject[];
+  isLoading: boolean;
+  error: string | null;
+}
+
+function ProjectsSidebar({ projects, isLoading, error }: ProjectsSidebarProps) {
   const { isLoading: rolesLoading } = useRole();
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
-  const [projects, setProjects] = useState<SidebarProject[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase.auth.getUser();
-      setCurrentUserId(data.user?.id ?? null);
-      setCurrentUserEmail(data.user?.email ?? null);
-    })();
-  }, []);
-
-  const fetchProjects = useCallback(async (signal?: AbortSignal) => {
-    // 'All' = assigned to me OR created by me. Requires current user id (and optional email fallback)
-    if (!currentUserId && !currentUserEmail) return;
-    if (signal?.aborted) return;
-    
-    setIsLoading(true); setError(null);
-    try {
-      const selects = 'id, name, assignees, created_at, created_by, creator_email, networks';
-      const [a, b, c] = await Promise.all([
-        currentUserId ? supabase.from('projects').select(selects).contains('assignees', [currentUserId]).order('created_at', { ascending: false }) : Promise.resolve({ data: [], error: null } as any),
-        currentUserId ? supabase.from('projects').select(selects).eq('created_by', currentUserId).order('created_at', { ascending: false }) : Promise.resolve({ data: [], error: null } as any),
-        currentUserEmail ? supabase.from('projects').select(selects).eq('creator_email', currentUserEmail).order('created_at', { ascending: false }) : Promise.resolve({ data: [], error: null } as any),
-      ]);
-      
-      if (signal?.aborted) return;
-      
-      if (a.error) throw a.error;
-      if (b.error) throw b.error;
-      if (c.error) throw c.error;
-      
-      const mergedMap = new Map<string, SidebarProject>();
-      for (const row of ([...(a.data || []), ...(b.data || []), ...(c.data || [])] as SidebarProject[])) {
-        if (row?.id) mergedMap.set(row.id, row);
-      }
-      const merged = Array.from(mergedMap.values()).sort((x, y) => (y.created_at || '').localeCompare(x.created_at || ''));
-      
-      if (!signal?.aborted) {
-        setProjects(merged);
-      }
-    } catch (e) {
-      if (!signal?.aborted) {
-        const errorMessage = e instanceof Error ? e.message : 'Failed to load projects';
-        setError(errorMessage);
-        setProjects([]);
-      }
-    } finally {
-      if (!signal?.aborted) {
-        setIsLoading(false);
-      }
-    }
-  }, [currentUserId, currentUserEmail]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchProjects(controller.signal);
-    return () => controller.abort();
-  }, [fetchProjects]);
 
   // Using shared formatDate from @/lib/format
   return (

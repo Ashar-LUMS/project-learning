@@ -71,15 +71,16 @@ const POLL_INTERVAL = 30000; // 30 seconds
 export function SeqAnalysisTab({
   networkNodes = [],
   networks = [],
-  onNetworkSelect,
+  onNetworkSelect: _onNetworkSelect,
   selectedNetworkId: propSelectedNetworkId,
   projectId: _projectId,
   networkId: _networkId,
   networkName,
 }: SeqAnalysisTabProps) {
-  // projectId and networkId reserved for future use
+  // projectId, networkId, onNetworkSelect reserved for future use (network selection moved to sidebar)
   void _projectId;
   void _networkId;
+  void _onNetworkSelect;
   const { showToast } = useToast();
 
   // Local selected network for the analysis tab. Prefers prop value when present.
