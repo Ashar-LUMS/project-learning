@@ -320,8 +320,11 @@ const AppLayout = () => {
             />
           </Link>
 
+          {/* Spacer to push nav to the right */}
+          <div className="flex-1" />
+
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex gap-2">
+          <nav className="hidden md:flex items-center gap-2">
             <Link
               to="/app"
               className="text-gray-600 hover:text-[#2f5597] transition-colors duration-200 font-medium text-sm px-3 py-2 rounded-lg hover:bg-blue-50"
