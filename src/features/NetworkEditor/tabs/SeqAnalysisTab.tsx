@@ -399,40 +399,6 @@ export function SeqAnalysisTab({
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-4 space-y-4">
-        {/* Network chooser — show when multiple networks available or none preselected */}
-        {Array.isArray(networks) && networks.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Select Network Context</CardTitle>
-              <CardDescription>
-                Choose which network to use for filtering sequence results before running analysis.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-3">
-                <select
-                  value={localSelectedNetworkId ?? ''}
-                  onChange={(e) => {
-                    const val = e.target.value || null;
-                    setLocalSelectedNetworkId(val);
-                    if (val && onNetworkSelect) onNetworkSelect(val);
-                  }}
-                  className="border p-2 rounded"
-                >
-                  <option value="">-- Select a network --</option>
-                  {networks.map(n => (
-                    <option key={n.id} value={n.id}>{n.name || n.id}</option>
-                  ))}
-                </select>
-                {localSelectedNetworkId ? (
-                  <div className="text-sm text-muted-foreground">Using: {localNetworkName}</div>
-                ) : (
-                  <div className="text-sm text-amber-600">No network selected — analysis will show all genes</div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
         {/* Form Section */}
         {(analysisState === 'idle' || analysisState === 'validating') && (
           <Card>

@@ -6,17 +6,18 @@ import ProjectTabComponent from './tabs/ProjectTab';
 import { SeqAnalysisTab } from './tabs/SeqAnalysisTab';
 
 import NetworkGraph, { type NetworkGraphHandle } from './NetworkGraph';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 // Using native textarea (no shadcn textarea present)
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, BarChart3 } from 'lucide-react';
 // analysis node type is internal to the hook now
 import { useWeightedAnalysis } from '@/hooks/useWeightedAnalysis';
 import { useProbabilisticAnalysis } from '@/hooks/useProbabilisticAnalysis';
@@ -1198,12 +1199,94 @@ function NetworkEditorPage() {
     keysCount: Object.keys(inferenceActionsObj).length,
   });
 
+  // Seq Analysis Sidebar with network selector
+  const seqAnalysisSidebarContent = (
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-sky-500/10">
+            <BarChart3 className="w-5 h-5 text-sky-600" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold tracking-tight text-foreground">
+              Seq Analysis
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              RNA-seq data processing
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Network Context Selector */}
+      {networks.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Network Context</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <select
+              value={selectedNetworkId ?? ''}
+              onChange={(e) => {
+                const val = e.target.value || null;
+                if (val) selectNetwork(val);
+              }}
+              className="w-full border p-2 rounded text-sm"
+            >
+              <option value="">-- Select a network --</option>
+              {networks.map(n => (
+                <option key={n.id} value={n.id}>{n.name || n.id}</option>
+              ))}
+            </select>
+            {selectedNetworkId ? (
+              <p className="text-xs text-muted-foreground">Filtering by: {selectedNetwork?.name || selectedNetworkId}</p>
+            ) : (
+              <p className="text-xs text-amber-600">No network selected — analysis will show all genes</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      <Separator className="bg-border/50" />
+
+      {/* Requirements */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium">Required Files</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="space-y-1.5 text-xs">
+            <div className="flex items-start gap-2">
+              <span className="font-medium text-sky-600 shrink-0">R1:</span>
+              <span className="text-muted-foreground">Forward reads (.fastq.gz)</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="font-medium text-sky-600 shrink-0">R2:</span>
+              <span className="text-muted-foreground">Reverse reads (.fastq.gz)</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="font-medium text-sky-600 shrink-0">Ref:</span>
+              <span className="text-muted-foreground">Reference genome (.fa.gz)</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="font-medium text-sky-600 shrink-0">Ann:</span>
+              <span className="text-muted-foreground">Gene annotation (.gff3.gz)</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+
   return (
     <>
       <NetworkEditorLayout
         activeTab={activeTab}
         onTabChange={(tab: TabType) => setActiveTab(tab)}
         inferenceActions={inferenceActionsObj}
+        seqAnalysisSidebar={seqAnalysisSidebarContent}
       >
         {renderMainContent()}
       </NetworkEditorLayout>

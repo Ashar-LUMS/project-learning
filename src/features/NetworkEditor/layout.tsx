@@ -45,6 +45,7 @@ export interface NetworkEditorLayoutProps {
   networkSidebar?: React.ReactNode;
   inferenceSidebar?: React.ReactNode;
   therapeuticsSidebar?: React.ReactNode;
+  seqAnalysisSidebar?: React.ReactNode;
   weightedResult?: DeterministicAnalysisResult | null;
   inferenceActions?: {
     run?: () => void;
@@ -82,6 +83,7 @@ export default function NetworkEditorLayout({
   networkSidebar,
   inferenceSidebar,
   therapeuticsSidebar,
+  seqAnalysisSidebar,
   weightedResult,
   inferenceActions,
 }: NetworkEditorLayoutProps) {
@@ -207,7 +209,7 @@ export default function NetworkEditorLayout({
           {!sidebarCollapsed && (
             <div className="flex-1 overflow-y-auto overflow-x-hidden">
               <div className="p-4">
-                {renderTabContent(activeTab, networkSidebar, inferenceSidebar, therapeuticsSidebar, inferenceActions)}
+                {renderTabContent(activeTab, networkSidebar, inferenceSidebar, therapeuticsSidebar, seqAnalysisSidebar, inferenceActions)}
               </div>
             </div>
           )}
@@ -225,7 +227,7 @@ export default function NetworkEditorLayout({
   );
 }
 
-function renderTabContent(activeTab: TabType, networkSidebar?: React.ReactNode, inferenceSidebar?: React.ReactNode, therapeuticsSidebar?: React.ReactNode, inferenceActions?: NetworkEditorLayoutProps['inferenceActions']) {
+function renderTabContent(activeTab: TabType, networkSidebar?: React.ReactNode, inferenceSidebar?: React.ReactNode, therapeuticsSidebar?: React.ReactNode, seqAnalysisSidebar?: React.ReactNode, inferenceActions?: NetworkEditorLayoutProps['inferenceActions']) {
   switch (activeTab) {
     case 'projects':
       return <ProjectsSidebar />;
@@ -250,7 +252,7 @@ function renderTabContent(activeTab: TabType, networkSidebar?: React.ReactNode, 
     case 'autonetcan':
       return <AutoNetCanSidebar />;
     case 'seq-data-analysis':
-      return <SeqAnalysisSidebar />;
+      return seqAnalysisSidebar ?? <SeqAnalysisSidebar />;
     default:
       return <ProjectsSidebar />;
   }

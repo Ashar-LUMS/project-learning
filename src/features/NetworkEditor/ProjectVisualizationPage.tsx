@@ -30,7 +30,7 @@ import { FateClassificationDialog, AttractorFateBadge } from './FateClassificati
 import { TherapeuticsPanel } from './TherapeuticsPanel';
 import { applyTherapiesToNetwork } from '@/lib/applyTherapies';
 import { SeqAnalysisTab } from './tabs/SeqAnalysisTab';
-import { Network, FileText } from 'lucide-react';
+import { Network, FileText, BarChart3 } from 'lucide-react';
 
 type ProjectRecord = {
   id: string;
@@ -1346,6 +1346,79 @@ function ProjectVisualizationPage() {
     </div>
   );
 
+  // Seq Analysis sidebar content with network selector
+  const seqAnalysisSidebarContent = (
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-sky-500/10">
+            <BarChart3 className="w-5 h-5 text-sky-600" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold tracking-tight text-foreground">
+              Seq Analysis
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              RNA-seq data processing
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Network Context Selector */}
+      {networks.length > 0 && (
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Network Context</label>
+          <select
+            value={selectedNetworkId ?? ''}
+            onChange={(e) => {
+              const val = e.target.value || null;
+              if (val) selectNetwork(val);
+            }}
+            className="w-full border p-2 rounded text-sm"
+          >
+            <option value="">-- Select a network --</option>
+            {networks.map(n => (
+              <option key={n.id} value={n.id}>{n.name || n.id}</option>
+            ))}
+          </select>
+          {selectedNetworkId ? (
+            <p className="text-xs text-muted-foreground">Filtering by: {selectedNetwork?.name || selectedNetworkId}</p>
+          ) : (
+            <p className="text-xs text-amber-600">No network selected — analysis will show all genes</p>
+          )}
+        </div>
+      )}
+
+      <Separator className="bg-border/50" />
+
+      {/* Requirements */}
+      <div className="space-y-2">
+        <h3 className="text-sm font-medium">Required Files</h3>
+        <div className="space-y-1.5 text-xs">
+          <div className="flex items-start gap-2">
+            <span className="font-medium text-sky-600 shrink-0">R1:</span>
+            <span className="text-muted-foreground">Forward reads (.fastq.gz)</span>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="font-medium text-sky-600 shrink-0">R2:</span>
+            <span className="text-muted-foreground">Reverse reads (.fastq.gz)</span>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="font-medium text-sky-600 shrink-0">Ref:</span>
+            <span className="text-muted-foreground">Reference genome (.fa.gz)</span>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="font-medium text-sky-600 shrink-0">Ann:</span>
+            <span className="text-muted-foreground">Gene annotation (.gff3.gz)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   // Build therapeutics sidebar content
   const therapeuticsSidebarContent = useMemo(() => {
     if (!selectedNetworkId || !selectedNetwork?.data) {
@@ -2492,6 +2565,7 @@ function ProjectVisualizationPage() {
       onTabChange={setActiveTab}
       networkSidebar={networkSidebarContent}
       therapeuticsSidebar={therapeuticsSidebarContent}
+      seqAnalysisSidebar={seqAnalysisSidebarContent}
       inferenceActions={{
         run: handleRunRuleBasedDA,
         runWeighted: handleRunWeighted,
