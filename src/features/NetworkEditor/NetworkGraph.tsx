@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import type { NetworkData } from '@/types/network';
 import { exportAndDownloadNetwork } from '@/lib/networkIO';
+import { NetworkPersonalizationDialog } from './NetworkPersonalizationDialog';
 
 // Module-level flag to prevent duplicate edgehandles extension registration (survives HMR)
 let edgehandlesRegistered = false;
@@ -77,6 +78,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
   const { showToast, showConfirm, showPrompt } = useToast();
 
   const [manualRefresh, setManualRefresh] = useState(0);
+  const [isNetworkPersonalizationOpen, setIsNetworkPersonalizationOpen] = useState(false);
   const effectiveRefresh = (refreshToken ?? 0) + manualRefresh;
   
   // Only fetch from database if no override data is provided
@@ -1653,6 +1655,18 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
           >
             <DownloadIcon />
           </Button>
+
+          <div className="w-6 border-t border-slate-300 my-1" />
+
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setIsNetworkPersonalizationOpen(true)}
+            className="h-9 w-9 rounded-md hover:bg-slate-200 text-slate-600"
+            title="Network Personalization"
+          >
+            <PersonIcon />
+          </Button>
         </div>
         )}
 
@@ -2087,6 +2101,12 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
           </Card>
         </div>
       )}
+
+      {/* Network Personalization Dialog */}
+      <NetworkPersonalizationDialog 
+        open={isNetworkPersonalizationOpen} 
+        onOpenChange={setIsNetworkPersonalizationOpen} 
+      />
     </div>
   );
 });
@@ -2146,6 +2166,13 @@ const LayoutIcon = () => (
 const MaximizeIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+  </svg>
+);
+
+const PersonIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
   </svg>
 );
 
