@@ -256,7 +256,7 @@ export function PatientDrugScoresDialog({ open, onOpenChange }: PatientDrugScore
           </Button>
           <Button 
             onClick={handleCalculate}
-            className="px-6 bg-emerald-600 hover:bg-emerald-700 text-white"
+            className="px-6 text-white"
           >
             Calculate Scores
           </Button>
