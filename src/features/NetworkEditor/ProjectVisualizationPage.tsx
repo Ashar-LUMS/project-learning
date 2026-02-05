@@ -30,6 +30,7 @@ import { FateClassificationDialog, AttractorFateBadge } from './FateClassificati
 import { TherapeuticsPanel } from './TherapeuticsPanel';
 import { applyTherapiesToNetwork } from '@/lib/applyTherapies';
 import { SeqAnalysisTab } from './tabs/SeqAnalysisTab';
+import { PatientDrugScoresDialog } from './PatientDrugScoresDialog';
 import { Network, FileText, BarChart3 } from 'lucide-react';
 
 type ProjectRecord = {
@@ -105,6 +106,9 @@ function ProjectVisualizationPage() {
   // Fate classification state
   const [fateDialogOpen, setFateDialogOpen] = useState(false);
   const [selectedAttractorId, setSelectedAttractorId] = useState<number | null>(null);
+
+  // Patient Drug Scores dialog state
+  const [patientDrugScoresDialogOpen, setPatientDrugScoresDialogOpen] = useState(false);
 
   // Landscape dialog states
   const [attractorLandscapeOpen, setAttractorLandscapeOpen] = useState(false);
@@ -2186,27 +2190,37 @@ function ProjectVisualizationPage() {
           <div className="h-full flex flex-col p-4">
             {/* Header with Tabs */}
             <div className="flex items-center justify-between mb-3">
-              <Tabs value={therapeuticsSubTab} onValueChange={(v) => setTherapeuticsSubTab(v as 'preview' | 'attractors' | 'landscape' | 'comparison')}>
-                <TabsList className="h-8">
-                  <TabsTrigger value="preview" className="text-xs px-3 h-7">
-                    Preview
-                  </TabsTrigger>
-                  <TabsTrigger value="attractors" className="text-xs px-3 h-7" disabled={!hasAttractorResults}>
-                    Attractors
-                    {hasAttractorResults && (
-                      <Badge variant="secondary" className="ml-1.5 text-[10px] px-1 py-0 h-4">
-                        {(therapeuticsWeightedResult?.attractors?.length || therapeuticsRuleBasedResult?.attractors?.length || 0)}
-                      </Badge>
-                    )}
-                  </TabsTrigger>
-                  <TabsTrigger value="landscape" className="text-xs px-3 h-7" disabled={!hasLandscapeResults}>
-                    Landscape
-                  </TabsTrigger>
-                  <TabsTrigger value="comparison" className="text-xs px-3 h-7" disabled={!hasComparisonData}>
-                    Comparison
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
+              <div className="flex items-center gap-3">
+                <Tabs value={therapeuticsSubTab} onValueChange={(v) => setTherapeuticsSubTab(v as 'preview' | 'attractors' | 'landscape' | 'comparison')}>
+                  <TabsList className="h-8">
+                    <TabsTrigger value="preview" className="text-xs px-3 h-7">
+                      Preview
+                    </TabsTrigger>
+                    <TabsTrigger value="attractors" className="text-xs px-3 h-7" disabled={!hasAttractorResults}>
+                      Attractors
+                      {hasAttractorResults && (
+                        <Badge variant="secondary" className="ml-1.5 text-[10px] px-1 py-0 h-4">
+                          {(therapeuticsWeightedResult?.attractors?.length || therapeuticsRuleBasedResult?.attractors?.length || 0)}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+                    <TabsTrigger value="landscape" className="text-xs px-3 h-7" disabled={!hasLandscapeResults}>
+                      Landscape
+                    </TabsTrigger>
+                    <TabsTrigger value="comparison" className="text-xs px-3 h-7" disabled={!hasComparisonData}>
+                      Comparison
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPatientDrugScoresDialogOpen(true)}
+                  className="text-xs h-7"
+                >
+                  Patient Drug Scores
+                </Button>
+              </div>
               <div className="flex items-center gap-2">
                 {interventionsToApply.length > 0 && (
                   <Badge variant="secondary" className="text-xs">
@@ -2510,8 +2524,7 @@ function ProjectVisualizationPage() {
                         </div>
                       )}
                     </div>
-                  )}
-                </div>
+                  )}                </div>
               )}
             </div>
           </div>
@@ -3068,6 +3081,12 @@ function ProjectVisualizationPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Patient Drug Scores Dialog */}
+      <PatientDrugScoresDialog
+        open={patientDrugScoresDialogOpen}
+        onOpenChange={setPatientDrugScoresDialogOpen}
+      />
     </NetworkEditorLayout>
   );
 }
