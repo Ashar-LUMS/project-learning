@@ -424,7 +424,7 @@ export function parseSBMLqualNetwork(xmlContent: string): NetworkData {
 /**
  * Export a weight-based network to CSV format.
  * Format:
- * Section 1: node_id, bias (nodes with bias values)
+ * Section 1: node_id, basal_value (nodes with basal values)
  * Section 2: source, weight, target (edges with weights)
  * Section 3: "Weight Based" label
  */

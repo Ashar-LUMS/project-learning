@@ -13,7 +13,76 @@ interface ProbabilisticLandscapeProps {
   probabilities: Record<string, number>;
   potentialEnergies: Record<string, number>;
   type: 'probability' | 'energy';
+  mappingType?: 'sammon' | 'naive-grid';
   className?: string;
+}
+
+/**
+ * Sammon Mapping - a nonlinear dimensionality reduction technique
+ * that tries to preserve pairwise distances between points.
+ */
+function sammonMapping(values: number[], iterations: number = 100): { x: number[]; y: number[] } {
+  const n = values.length;
+  if (n <= 1) return { x: [0], y: [0] };
+  
+  // Initialize positions randomly in a circle
+  const positions = values.map((_, i) => ({
+    x: Math.cos((2 * Math.PI * i) / n) * 0.5 + Math.random() * 0.1,
+    y: Math.sin((2 * Math.PI * i) / n) * 0.5 + Math.random() * 0.1,
+  }));
+  
+  // Compute original distances (use value differences as distance metric)
+  const originalDistances: number[][] = [];
+  for (let i = 0; i < n; i++) {
+    originalDistances[i] = [];
+    for (let j = 0; j < n; j++) {
+      originalDistances[i][j] = Math.abs(values[i] - values[j]);
+    }
+  }
+  
+  // Normalize original distances
+  const maxDist = Math.max(...originalDistances.flat().filter(d => d > 0), 1);
+  const normDistances = originalDistances.map(row => row.map(d => d / maxDist));
+  
+  // Gradient descent
+  const learningRate = 0.5;
+  for (let iter = 0; iter < iterations; iter++) {
+    for (let i = 0; i < n; i++) {
+      let gradX = 0;
+      let gradY = 0;
+      
+      for (let j = 0; j < n; j++) {
+        if (i === j) continue;
+        
+        const dx = positions[i].x - positions[j].x;
+        const dy = positions[i].y - positions[j].y;
+        const currentDist = Math.sqrt(dx * dx + dy * dy) + 1e-8;
+        const origDist = normDistances[i][j] + 1e-8;
+        
+        const error = (currentDist - origDist) / origDist;
+        gradX += error * dx / currentDist;
+        gradY += error * dy / currentDist;
+      }
+      
+      positions[i].x -= learningRate * gradX / n;
+      positions[i].y -= learningRate * gradY / n;
+    }
+  }
+  
+  // Normalize to [0, gridSize-1] range
+  const xs = positions.map(p => p.x);
+  const ys = positions.map(p => p.y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const rangeX = maxX - minX || 1;
+  const rangeY = maxY - minY || 1;
+  
+  return {
+    x: xs.map(x => ((x - minX) / rangeX)),
+    y: ys.map(y => ((y - minY) / rangeY)),
+  };
 }
 
 export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
@@ -21,6 +90,7 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
   probabilities,
   potentialEnergies,
   type,
+  mappingType = 'naive-grid',
   className = '',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -29,12 +99,14 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
   useEffect(() => {
     if (!plotRef.current || !window.Plotly) return;
 
+    const data = type === 'probability' ? probabilities : potentialEnergies;
+    const values = nodeOrder.map(nodeId => data[nodeId] || 0);
+    
     // Create a grid for the landscape
     const gridSize = Math.max(4, Math.ceil(Math.sqrt(nodeOrder.length)));
-    const data = type === 'probability' ? probabilities : potentialEnergies;
 
     // Create 2D grid of values
-    const zValues: number[][] = [];
+    let zValues: number[][] = [];
     const xValues: number[] = [];
     const yValues: number[] = [];
 
@@ -42,20 +114,56 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
       xValues.push(i);
       yValues.push(i);
     }
-
-    // Fill the grid with values
-    for (let y = 0; y < gridSize; y++) {
-      const row: number[] = [];
-      for (let x = 0; x < gridSize; x++) {
-        const index = y * gridSize + x;
-        if (index < nodeOrder.length) {
-          const nodeId = nodeOrder[index];
-          row.push(data[nodeId] || 0);
-        } else {
-          row.push(0);
+    
+    if (mappingType === 'sammon') {
+      // Use Sammon mapping to position nodes
+      const { x: mappedX, y: mappedY } = sammonMapping(values);
+      
+      // Initialize grid with zeros
+      for (let y = 0; y < gridSize; y++) {
+        zValues[y] = new Array(gridSize).fill(0);
+      }
+      
+      // Place values at mapped positions with Gaussian spread
+      const sigma = 0.8; // Spread of influence
+      for (let idx = 0; idx < nodeOrder.length; idx++) {
+        const px = mappedX[idx] * (gridSize - 1);
+        const py = mappedY[idx] * (gridSize - 1);
+        const value = values[idx];
+        
+        // Add Gaussian contribution to grid
+        for (let y = 0; y < gridSize; y++) {
+          for (let x = 0; x < gridSize; x++) {
+            const dx = x - px;
+            const dy = y - py;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const gaussian = Math.exp(-(dist * dist) / (2 * sigma * sigma));
+            zValues[y][x] += value * gaussian;
+          }
         }
       }
-      zValues.push(row);
+      
+      // Normalize so that the grid reflects the actual value range
+      const maxZ = Math.max(...zValues.flat());
+      const maxVal = Math.max(...values);
+      if (maxZ > 0 && maxVal > 0) {
+        const scale = maxVal / maxZ;
+        zValues = zValues.map(row => row.map(v => v * scale));
+      }
+    } else {
+      // Naive grid layout - simple row-major order
+      for (let y = 0; y < gridSize; y++) {
+        const row: number[] = [];
+        for (let x = 0; x < gridSize; x++) {
+          const index = y * gridSize + x;
+          if (index < nodeOrder.length) {
+            row.push(values[index]);
+          } else {
+            row.push(0);
+          }
+        }
+        zValues.push(row);
+      }
     }
 
     // Color scales with semantic meaning
@@ -194,9 +302,10 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
         plotRef.current.innerHTML = '';
       }
     }
-  }, [nodeOrder, probabilities, potentialEnergies, type]);
+  }, [nodeOrder, probabilities, potentialEnergies, type, mappingType]);
 
   // Legend content based on type
+  const mappingLabel = mappingType === 'sammon' ? 'Sammon Mapping' : 'Naive Grid';
   const legendContent = type === 'probability' ? (
     <>
       <div className="font-medium text-foreground">Legend</div>
@@ -209,6 +318,7 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
         <span className="text-muted-foreground">Valleys = Low probability</span>
       </div>
       <div className="text-[10px] text-muted-foreground mt-1">States the system is most likely to occupy appear as peaks</div>
+      <div className="text-[10px] text-blue-600 mt-1 border-t pt-1">Mapping: {mappingLabel}</div>
     </>
   ) : (
     <>
@@ -222,6 +332,7 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
         <span className="text-muted-foreground">Peaks = Unstable (high energy)</span>
       </div>
       <div className="text-[10px] text-muted-foreground mt-1">System naturally flows toward low-energy valleys</div>
+      <div className="text-[10px] text-blue-600 mt-1 border-t pt-1">Mapping: {mappingLabel}</div>
     </>
   );
 

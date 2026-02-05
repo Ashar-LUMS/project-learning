@@ -94,6 +94,16 @@ function NetworkEditorPage() {
   const clear = () => {};
   const handleRunAnalysis = () => {};
   const handleRunDeterministic = () => {};
+  
+  // Weighted Analysis Dialog State
+  const [isWeightedDialogOpen, setIsWeightedDialogOpen] = useState(false);
+  const [weightedForm, setWeightedForm] = useState({
+    thresholdMultiplier: '0.5',
+    tieBehavior: 'hold' as 'hold' | 'zero-as-zero' | 'zero-as-one',
+    mappingType: 'sammon' as 'sammon' | 'naive-grid',
+  });
+  const [weightedFormError, setWeightedFormError] = useState<string | null>(null);
+  
   const [isProbabilisticDialogOpen, setIsProbabilisticDialogOpen] = useState(false);
   const [probabilisticForm, setProbabilisticForm] = useState({
     noise: '0.25',
@@ -101,8 +111,13 @@ function NetworkEditorPage() {
     maxIterations: '500',
     tolerance: '1e-4',
     initialProbability: '0.5',
+    mappingType: 'sammon' as 'sammon' | 'naive-grid',
   });
   const [probabilisticFormError, setProbabilisticFormError] = useState<string | null>(null);
+  
+  // Global mapping type for landscapes (persisted from last analysis)
+  const [landscapeMappingType, setLandscapeMappingType] = useState<'sammon' | 'naive-grid'>('sammon');
+  
   // Landscape dialog states
   const [attractorLandscapeOpen, setAttractorLandscapeOpen] = useState(false);
   const [attractorLandscapeData, setAttractorLandscapeData] = useState<any[] | null>(null);
@@ -168,25 +183,34 @@ function NetworkEditorPage() {
     return { nodes, edges, options, metadata };
   };
 
+  // Open weighted analysis dialog
+  const handleOpenWeightedDialog = () => {
+    setWeightedFormError(null);
+    setIsWeightedDialogOpen(true);
+  };
 
+  // Execute weighted analysis after dialog submission
+  const handleWeightedSubmit = async () => {
+    const thresholdMultiplier = Number(weightedForm.thresholdMultiplier);
+    if (!Number.isFinite(thresholdMultiplier) || thresholdMultiplier < 0 || thresholdMultiplier > 1) {
+      setWeightedFormError('Threshold multiplier must be between 0 and 1.');
+      return;
+    }
+    
+    setWeightedFormError(null);
+    setLandscapeMappingType(weightedForm.mappingType);
+    setIsWeightedDialogOpen(false);
 
-  const handleRunWeighted = async () => {
-    console.log('[NetworkEditorPage] handleRunWeighted called', {
-      hasGraphRef: !!graphRef.current,
-      hasSelectedNetwork: !!selectedNetwork,
-      selectedNetworkKeys: selectedNetwork ? Object.keys(selectedNetwork) : [],
-    });
-
-    // Prefer live config from the graph (unsaved panel settings)
+    // Now run the actual analysis
     const live = graphRef.current?.getLiveWeightedConfig();
     if (live && live.nodes && live.nodes.length > 0) {
-      console.log('[NetworkEditorPage] Using live graph config', { nodeCount: live.nodes.length, edgeCount: live.edges.length });
       const { nodes, edges, options } = normalizeNodesEdges(live);
+      options.thresholdMultiplier = thresholdMultiplier;
+      options.tieBehavior = weightedForm.tieBehavior;
       await runWeightedAnalysis(nodes, edges, options);
       return;
     }
 
-    // Fallback to saved network data
     if (!selectedNetwork) {
       showToast({ 
         title: 'No Network Selected', 
@@ -196,16 +220,9 @@ function NetworkEditorPage() {
       return;
     }
 
-    // Try multiple paths for network data
     const networkData = (selectedNetwork as any).data || selectedNetwork;
     const networkNodes = networkData?.nodes || [];
     const networkEdges = networkData?.edges || [];
-
-    console.log('[NetworkEditorPage] Using saved network data', {
-      hasData: !!(selectedNetwork as any).data,
-      nodeCount: networkNodes.length,
-      edgeCount: networkEdges.length,
-    });
 
     if (!networkNodes.length) {
       showToast({ 
@@ -219,12 +236,25 @@ function NetworkEditorPage() {
     const { nodes, edges, options } = normalizeNodesEdges({
       nodes: networkNodes,
       edges: networkEdges,
-      thresholdMultiplier: networkData?.metadata?.thresholdMultiplier,
+      thresholdMultiplier: thresholdMultiplier,
       metadata: networkData?.metadata,
     });
+    options.thresholdMultiplier = thresholdMultiplier;
+    options.tieBehavior = weightedForm.tieBehavior;
 
-    console.log('[NetworkEditorPage] Running weighted analysis', { nodeCount: nodes.length, edgeCount: edges.length, options });
     await runWeightedAnalysis(nodes, edges, options);
+  };
+
+  // Legacy handler that now opens the dialog
+  const handleRunWeighted = async () => {
+    console.log('[NetworkEditorPage] handleRunWeighted called', {
+      hasGraphRef: !!graphRef.current,
+      hasSelectedNetwork: !!selectedNetwork,
+      selectedNetworkKeys: selectedNetwork ? Object.keys(selectedNetwork) : [],
+    });
+
+    // Open dialog instead of running directly
+    handleOpenWeightedDialog();
   };
 
   const runProbabilisticWithParams = async (params: {
@@ -368,6 +398,8 @@ function NetworkEditorPage() {
     }
 
     setProbabilisticFormError(null);
+    // Save the mapping type for landscape visualization
+    setLandscapeMappingType(probabilisticForm.mappingType);
     // Don't close dialog yet - wait for the run to complete so we can show errors if needed
 
     try {
@@ -400,6 +432,7 @@ function NetworkEditorPage() {
       maxIterations: String(maxIterations),
       tolerance: String(tolerance),
       initialProbability: String(initialProbability),
+      mappingType: probabilisticForm.mappingType,
     });
   };
   const handleDownloadResults = () => downloadResults();
@@ -1366,6 +1399,22 @@ function NetworkEditorPage() {
               />
               <p className="text-xs text-muted-foreground">Fallback when per-node initial P is absent.</p>
             </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="mappingType">Landscape Mapping</Label>
+              <Select
+                value={probabilisticForm.mappingType}
+                onValueChange={(value: 'sammon' | 'naive-grid') => setProbabilisticForm((prev) => ({ ...prev, mappingType: value }))}
+              >
+                <SelectTrigger id="mappingType">
+                  <SelectValue placeholder="Select mapping type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sammon">Sammon Mapping (Distance-preserving)</SelectItem>
+                  <SelectItem value="naive-grid">Naive Grid (Simple layout)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Sammon mapping preserves distances between states; Naive Grid uses a simple uniform layout.</p>
+            </div>
           </div>
 
           <DialogFooter className="mt-4">
@@ -1374,6 +1423,82 @@ function NetworkEditorPage() {
             </Button>
             <Button onClick={handleProbabilisticSubmit} disabled={isProbabilisticAnalyzing}>
               {isProbabilisticAnalyzing ? 'Running…' : 'Run Probabilistic Analysis'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Weighted Analysis Dialog */}
+      <Dialog open={isWeightedDialogOpen} onOpenChange={setIsWeightedDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Weighted Deterministic Analysis</DialogTitle>
+            <DialogDescription>
+              Configure threshold multiplier, tie behavior, and landscape visualization settings.
+            </DialogDescription>
+          </DialogHeader>
+
+          {weightedFormError && (
+            <Alert variant="destructive">
+              <AlertDescription>{weightedFormError}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="thresholdMultiplier">Threshold Multiplier</Label>
+              <Input
+                id="thresholdMultiplier"
+                type="number"
+                step="0.1"
+                min="0"
+                max="1"
+                value={weightedForm.thresholdMultiplier}
+                onChange={(e) => setWeightedForm((prev) => ({ ...prev, thresholdMultiplier: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">0–1; threshold = inDegree × multiplier</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tieBehavior">Tie Behavior</Label>
+              <Select
+                value={weightedForm.tieBehavior}
+                onValueChange={(value: 'hold' | 'zero-as-zero' | 'zero-as-one') => setWeightedForm((prev) => ({ ...prev, tieBehavior: value }))}
+              >
+                <SelectTrigger id="tieBehavior">
+                  <SelectValue placeholder="Select tie behavior" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="hold">Hold (keep current state)</SelectItem>
+                  <SelectItem value="zero-as-zero">Zero as Zero (set to OFF)</SelectItem>
+                  <SelectItem value="zero-as-one">Zero as One (set to ON)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Behavior when weighted sum equals threshold.</p>
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="weightedMappingType">Landscape Mapping</Label>
+              <Select
+                value={weightedForm.mappingType}
+                onValueChange={(value: 'sammon' | 'naive-grid') => setWeightedForm((prev) => ({ ...prev, mappingType: value }))}
+              >
+                <SelectTrigger id="weightedMappingType">
+                  <SelectValue placeholder="Select mapping type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sammon">Sammon Mapping (Distance-preserving)</SelectItem>
+                  <SelectItem value="naive-grid">Naive Grid (Simple layout)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Sammon mapping preserves distances between states; Naive Grid uses a simple uniform layout.</p>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setIsWeightedDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleWeightedSubmit} disabled={isWeightedAnalyzing}>
+              {isWeightedAnalyzing ? 'Running…' : 'Run Weighted Analysis'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1390,7 +1515,7 @@ function NetworkEditorPage() {
           </DialogHeader>
           <div className="flex-1 h-[calc(90vh-100px)] p-4">
             {attractorLandscapeData && attractorLandscapeData.length > 0 && (
-              <AttractorLandscape attractors={attractorLandscapeData} className="h-full" />
+              <AttractorLandscape attractors={attractorLandscapeData} mappingType={landscapeMappingType} className="h-full" />
             )}
           </div>
         </DialogContent>
@@ -1412,6 +1537,7 @@ function NetworkEditorPage() {
                 probabilities={probabilisticResult.probabilities}
                 potentialEnergies={probabilisticResult.potentialEnergies}
                 type="probability"
+                mappingType={landscapeMappingType}
                 className="h-full"
               />
             )}
@@ -1435,6 +1561,7 @@ function NetworkEditorPage() {
                 probabilities={probabilisticResult.probabilities}
                 potentialEnergies={probabilisticResult.potentialEnergies}
                 type="energy"
+                mappingType={landscapeMappingType}
                 className="h-full"
               />
             )}

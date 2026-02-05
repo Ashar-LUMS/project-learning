@@ -4,10 +4,64 @@ import Plotly from 'plotly.js-dist-min';
 
 interface AttractorLandscapeProps {
   attractors: DeterministicAttractor[];
+  mappingType?: 'sammon' | 'naive-grid';
   className?: string;
 }
 
-export default function AttractorLandscape({ attractors, className = '' }: AttractorLandscapeProps) {
+/**
+ * Sammon Mapping for attractor positions - uses basin share as the value
+ * to preserve distances between attractors.
+ */
+function sammonMappingAttractors(attractors: DeterministicAttractor[], gridSize: number, iterations: number = 50): Array<{x: number; y: number}> {
+  const n = attractors.length;
+  if (n === 0) return [];
+  if (n === 1) return [{ x: gridSize / 2, y: gridSize / 2 }];
+  
+  // Initialize positions in a circle
+  const positions = attractors.map((_, i) => ({
+    x: gridSize / 2 + Math.cos((2 * Math.PI * i) / n) * gridSize * 0.3,
+    y: gridSize / 2 + Math.sin((2 * Math.PI * i) / n) * gridSize * 0.3,
+  }));
+  
+  // Use basin share difference as distance metric
+  const targetDistances: number[][] = [];
+  for (let i = 0; i < n; i++) {
+    targetDistances[i] = [];
+    for (let j = 0; j < n; j++) {
+      targetDistances[i][j] = Math.abs(attractors[i].basinShare - attractors[j].basinShare) * gridSize;
+    }
+  }
+  
+  // Gradient descent to optimize positions
+  const learningRate = 0.1;
+  for (let iter = 0; iter < iterations; iter++) {
+    for (let i = 0; i < n; i++) {
+      let gradX = 0;
+      let gradY = 0;
+      
+      for (let j = 0; j < n; j++) {
+        if (i === j) continue;
+        
+        const dx = positions[i].x - positions[j].x;
+        const dy = positions[i].y - positions[j].y;
+        const currentDist = Math.sqrt(dx * dx + dy * dy) + 1e-8;
+        const targetDist = targetDistances[i][j] + 1e-8;
+        
+        const error = (currentDist - targetDist) / targetDist;
+        gradX += error * dx / currentDist;
+        gradY += error * dy / currentDist;
+      }
+      
+      // Update position with constraints to stay in grid
+      positions[i].x = Math.max(2, Math.min(gridSize - 2, positions[i].x - learningRate * gradX));
+      positions[i].y = Math.max(2, Math.min(gridSize - 2, positions[i].y - learningRate * gradY));
+    }
+  }
+  
+  return positions;
+}
+
+export default function AttractorLandscape({ attractors, mappingType = 'naive-grid', className = '' }: AttractorLandscapeProps) {
   const plotRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -26,14 +80,28 @@ export default function AttractorLandscape({ attractors, className = '' }: Attra
         Array.from({ length: gridSize }, () => 1) // Start at high "instability"
       );
 
+      // Get attractor positions based on mapping type
+      let attractorPositions: Array<{x: number; y: number}>;
+      
+      if (mappingType === 'sammon') {
+        attractorPositions = sammonMappingAttractors(attractors, gridSize);
+      } else {
+        // Naive grid: circular layout
+        attractorPositions = attractors.map((_, idx) => {
+          const angle = (idx / attractors.length) * 2 * Math.PI;
+          const radius = gridSize * 0.3;
+          return {
+            x: gridSize / 2 + Math.cos(angle) * radius,
+            y: gridSize / 2 + Math.sin(angle) * radius,
+          };
+        });
+      }
+
       // Create valleys for each attractor based on basin share
       // Larger basin share = deeper valley = more stable
       attractors.forEach((attr, idx) => {
-        // Position attractors in a circular pattern or grid
-        const angle = (idx / attractors.length) * 2 * Math.PI;
-        const radius = gridSize * 0.3;
-        const centerX = gridSize / 2 + Math.cos(angle) * radius;
-        const centerY = gridSize / 2 + Math.sin(angle) * radius;
+        const centerX = attractorPositions[idx].x;
+        const centerY = attractorPositions[idx].y;
         
         // Create a Gaussian valley for this attractor (inverted)
         for (let i = 0; i < gridSize; i++) {
@@ -71,10 +139,8 @@ export default function AttractorLandscape({ attractors, className = '' }: Attra
 
       // Generate attractor labels for annotations
       const annotations = attractors.map((attr, idx) => {
-        const angle = (idx / attractors.length) * 2 * Math.PI;
-        const radius = gridSize * 0.3;
-        const centerX = gridSize / 2 + Math.cos(angle) * radius;
-        const centerY = gridSize / 2 + Math.sin(angle) * radius;
+        const centerX = attractorPositions[idx].x;
+        const centerY = attractorPositions[idx].y;
         return {
           x: centerX,
           y: centerY,
@@ -186,7 +252,7 @@ export default function AttractorLandscape({ attractors, className = '' }: Attra
         }
       }
     };
-  }, [attractors]);
+  }, [attractors, mappingType]);
 
   if (attractors.length === 0) {
     return (
@@ -214,6 +280,7 @@ export default function AttractorLandscape({ attractors, className = '' }: Attra
           <span className="text-muted-foreground">Peaks = Transient states</span>
         </div>
         <div className="text-[10px] text-muted-foreground mt-1">Deeper valleys indicate larger basins of attraction</div>
+        <div className="text-[10px] text-blue-600 mt-1 border-t pt-1">Mapping: {mappingType === 'sammon' ? 'Sammon Mapping' : 'Naive Grid'}</div>
       </div>
 
       <div ref={plotRef} style={{ width: '100%', height: '100%' }} className="rounded-md" />

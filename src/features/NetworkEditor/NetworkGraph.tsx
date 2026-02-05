@@ -1747,45 +1747,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                     {!isRuleBased && (
                       <>
                         <div className="space-y-1.5">
-                          <label className="text-xs font-medium text-slate-600 uppercase tracking-wide">Weight</label>
-                          <Input
-                            type="number"
-                            value={selectedNode.weight ?? defaultNodeWeight}
-                            onChange={(e) => {
-                              const newWeight = parseFloat(e.target.value) || defaultNodeWeight;
-                              setSelectedNode(prev => prev ? { ...prev, weight: newWeight } : null);
-                              if (cyRef.current) {
-                                const node = cyRef.current.getElementById(selectedNode.id);
-                                if (node) {
-                                  node.data('weight', newWeight);
-                                }
-                              }
-                              const isLocal = localNodes.some(n => n.id === selectedNode.id);
-                              if (isLocal) {
-                                // Update existing local node
-                                setLocalNodes(prev =>
-                                  prev.map(n => n.id === selectedNode.id ? { ...n, weight: newWeight } : n)
-                                );
-                              } else {
-                                // Node from network, add to local modifications only if not already there
-                                setLocalNodes(prev => {
-                                  const alreadyModified = prev.find(n => n.id === selectedNode.id);
-                                  if (alreadyModified) {
-                                    return prev.map(n => n.id === selectedNode.id ? { ...n, weight: newWeight } : n);
-                                  }
-                                  return [...prev, { ...selectedNode, weight: newWeight }];
-                                });
-                              }
-                            }}
-                            min="0"
-                            step="0.1"
-                            className="h-9 text-sm border-slate-200 focus:border-blue-400 focus:ring-blue-400"
-                          />
-                          <p className="text-[10px] text-slate-500">Larger values increase node influence in weighted analysis.</p>
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-medium text-slate-600 uppercase tracking-wide">Bias</label>
+                          <label className="text-xs font-medium text-slate-600 uppercase tracking-wide">Basal Value</label>
                           <Input
                             type="number"
                             value={Number((selectedNode.properties?.bias ?? 0))}
@@ -1814,7 +1776,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                             step="0.1"
                             className="h-9 text-sm border-slate-200 focus:border-blue-400 focus:ring-blue-400"
                           />
-                          <p className="text-[10px] text-slate-500">Bias shifts the threshold for this node.</p>
+                          <p className="text-[10px] text-slate-500">The node's intrinsic activation level (positive = tends ON, negative = tends OFF).</p>
                         </div>
                       </>
                     )}
@@ -2025,15 +1987,15 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Weight</label>
+                <label className="text-sm font-medium">Basal Value</label>
                 <Input
                   type="number"
-                  value={newNodeDraft.weight ?? defaultNodeWeight}
-                  onChange={(e) => setNewNodeDraft(prev => prev ? { ...prev, weight: parseFloat(e.target.value) || defaultNodeWeight } : null)}
-                  placeholder="Enter node weight"
-                  min="0"
+                  value={newNodeDraft.weight ?? 0}
+                  onChange={(e) => setNewNodeDraft(prev => prev ? { ...prev, weight: parseFloat(e.target.value) || 0 } : null)}
+                  placeholder="Enter basal value (default: 0)"
                   step="0.1"
                 />
+                <p className="text-xs text-muted-foreground">Intrinsic activation level (positive = tends ON, negative = tends OFF)</p>
               </div>
 
               <div className="flex gap-2 pt-2">
