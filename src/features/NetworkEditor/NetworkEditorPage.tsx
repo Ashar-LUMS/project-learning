@@ -98,7 +98,7 @@ function NetworkEditorPage() {
   // Weighted Analysis Dialog State
   const [isWeightedDialogOpen, setIsWeightedDialogOpen] = useState(false);
   const [weightedForm, setWeightedForm] = useState({
-    thresholdMultiplier: '0.5',
+    thresholdMultiplier: '0',
     tieBehavior: 'hold' as 'hold' | 'zero-as-zero' | 'zero-as-one',
     mappingType: 'sammon' as 'sammon' | 'naive-grid',
   });
@@ -174,7 +174,7 @@ function NetworkEditorPage() {
       : metadata.thresholdMultiplier;
     const options: WeightedAnalysisOptions = {
       tieBehavior: 'hold',
-      thresholdMultiplier: typeof thresholdCandidate === 'number' ? thresholdCandidate : 0.5,
+      thresholdMultiplier: typeof thresholdCandidate === 'number' ? thresholdCandidate : 0,
       biases,
     };
     return { nodes, edges, options, metadata };

@@ -124,10 +124,17 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
     const renderPlot = () => {
       if (!currentPlotRef || !window.Plotly) return;
       
-      const values = nodeOrder.map(nodeId => dataSource[nodeId] || 0);
+      // Get all states from the data source
+      const states = Object.keys(dataSource);
+      const numStates = states.length;
+      
+      if (numStates === 0) {
+        console.warn('ProbabilisticLandscape: no states in dataSource');
+        return;
+      }
       
       // Create a grid for the landscape
-      const gridSize = Math.max(4, Math.ceil(Math.sqrt(nodeOrder.length)));
+      const gridSize = Math.max(4, Math.ceil(Math.sqrt(numStates)));
 
       // Create 2D grid of values
       let zValues: number[][] = [];
@@ -139,8 +146,19 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
         yValues.push(i);
       }
       
+      // Sort states by value for consistent ordering
+      const sortedStates = [...states].sort((a, b) => {
+        const va = dataSource[a] || 0;
+        const vb = dataSource[b] || 0;
+        return vb - va; // Descending for probability, will be ascending for energy
+      });
+      
+      // Map each state to its grid position
+      const statePositions: Map<string, { x: number; y: number; z: number }> = new Map();
+      
       if (mappingType === 'sammon') {
-        // Use Sammon mapping to position nodes
+        // Use Sammon mapping to position states
+        const values = sortedStates.map(s => dataSource[s] || 0);
         const { x: mappedX, y: mappedY } = sammonMapping(values);
         
         // Initialize grid with zeros
@@ -149,11 +167,13 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
         }
         
         // Place values at mapped positions with Gaussian spread
-        const sigma = 0.8; // Spread of influence
-        for (let idx = 0; idx < nodeOrder.length; idx++) {
+        const sigma = 0.8;
+        for (let idx = 0; idx < sortedStates.length; idx++) {
           const px = mappedX[idx] * (gridSize - 1);
           const py = mappedY[idx] * (gridSize - 1);
           const value = values[idx];
+          
+          statePositions.set(sortedStates[idx], { x: px, y: py, z: value });
           
           // Add Gaussian contribution to grid
           for (let y = 0; y < gridSize; y++) {
@@ -175,13 +195,16 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
           zValues = zValues.map(row => row.map(v => v * scale));
         }
       } else {
-        // Naive grid layout - simple row-major order
+        // Naive grid layout - place states in row-major order
         for (let y = 0; y < gridSize; y++) {
           const row: number[] = [];
           for (let x = 0; x < gridSize; x++) {
             const index = y * gridSize + x;
-            if (index < nodeOrder.length) {
-              row.push(values[index]);
+            if (index < sortedStates.length) {
+              const state = sortedStates[index];
+              const value = dataSource[state] || 0;
+              row.push(value);
+              statePositions.set(state, { x, y, z: value });
             } else {
               row.push(0);
             }
@@ -189,6 +212,60 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
           zValues.push(row);
         }
       }
+      
+      // Helper to format state as readable label
+      const formatStateLabel = (stateStr: string): string => {
+        // Show which nodes are ON
+        const onNodes: string[] = [];
+        for (let i = 0; i < stateStr.length && i < nodeOrder.length; i++) {
+          if (stateStr[i] === '1') {
+            onNodes.push(nodeOrder[i]);
+          }
+        }
+        if (onNodes.length === 0) return 'All OFF';
+        if (onNodes.length === nodeOrder.length) return 'All ON';
+        if (onNodes.length <= 3) return onNodes.join(', ');
+        return `${onNodes.slice(0, 2).join(', ')}+${onNodes.length - 2}`;
+      };
+      
+      // Find significant states for annotations
+      // For probability: top N highest probability states (peaks)
+      // For energy: top N lowest energy states (valleys)
+      const topN = Math.min(5, sortedStates.length);
+      let significantStates: string[];
+      
+      if (type === 'probability') {
+        // Top probability states (already sorted descending)
+        significantStates = sortedStates.slice(0, topN);
+      } else {
+        // Bottom energy states (sort ascending)
+        significantStates = [...sortedStates].sort((a, b) => 
+          (dataSource[a] || 0) - (dataSource[b] || 0)
+        ).slice(0, topN);
+      }
+      
+      // Create annotations for significant states
+      const annotations = significantStates.map((state) => {
+        const pos = statePositions.get(state);
+        if (!pos) return null;
+        
+        const value = dataSource[state] || 0;
+        const label = formatStateLabel(state);
+        const valueStr = type === 'probability' 
+          ? `${(value * 100).toFixed(1)}%`
+          : value.toFixed(2);
+        
+        return {
+          x: pos.x,
+          y: pos.y,
+          z: pos.z + (type === 'probability' ? 0.02 : -0.1), // Offset for visibility
+          text: `${label}<br>${valueStr}`,
+          showarrow: false,
+          font: { size: 9, color: '#1e293b' },
+          bgcolor: 'rgba(255,255,255,0.8)',
+          borderpad: 2,
+        };
+      }).filter(Boolean);
 
       // Color scales with semantic meaning
       const colorscale = type === 'probability'
@@ -283,6 +360,7 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
             gridcolor: '#e0e0e0',
           },
           bgcolor: '#ffffff',
+          annotations: annotations as any,
         },
         paper_bgcolor: '#fafafa',
         plot_bgcolor: '#ffffff',
@@ -362,7 +440,6 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
   }
 
   // Legend content based on type
-  const mappingLabel = mappingType === 'sammon' ? 'Sammon Mapping' : 'Naive Grid';
   const legendContent = type === 'probability' ? (
     <>
       <div className="font-medium text-foreground">Legend</div>
@@ -374,8 +451,7 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
         <span className="w-3 h-3 rounded-sm" style={{ background: '#440154' }}></span>
         <span className="text-muted-foreground">Valleys = Low probability</span>
       </div>
-      <div className="text-[10px] text-muted-foreground mt-1">States the system is most likely to occupy appear as peaks</div>
-      <div className="text-[10px] text-blue-600 mt-1 border-t pt-1">Mapping: {mappingLabel}</div>
+      <div className="text-[10px] text-muted-foreground mt-1">Labels show active nodes in top states</div>
     </>
   ) : (
     <>
@@ -388,8 +464,7 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
         <span className="w-3 h-3 rounded-sm" style={{ background: '#b2182b' }}></span>
         <span className="text-muted-foreground">Peaks = Unstable (high energy)</span>
       </div>
-      <div className="text-[10px] text-muted-foreground mt-1">System naturally flows toward low-energy valleys</div>
-      <div className="text-[10px] text-blue-600 mt-1 border-t pt-1">Mapping: {mappingLabel}</div>
+      <div className="text-[10px] text-muted-foreground mt-1">Labels show active nodes in stable states</div>
     </>
   );
 

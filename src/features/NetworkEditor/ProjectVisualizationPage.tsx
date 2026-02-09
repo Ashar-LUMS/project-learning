@@ -300,7 +300,7 @@ function ProjectVisualizationPage() {
     const biases = Object.fromEntries(biasesEntries);
     const options: WeightedAnalysisOptions = {
       tieBehavior: 'hold',
-      thresholdMultiplier: typeof payload?.thresholdMultiplier === 'number' ? payload.thresholdMultiplier : 0.5,
+      thresholdMultiplier: typeof payload?.thresholdMultiplier === 'number' ? payload.thresholdMultiplier : 0,
       biases,
     };
     return { nodes, edges, options };

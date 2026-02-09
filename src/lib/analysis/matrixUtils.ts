@@ -19,8 +19,8 @@ export function edgesToMatrix(
 ): WeightMatrix {
   const {
     biases = {},
-    thresholdMultiplier = 0.5,
-    tieBehavior = 'zero-as-zero',
+    thresholdMultiplier = 0,
+    tieBehavior = 'hold',
   } = options;
 
   const n = nodes.length;
@@ -100,7 +100,7 @@ export function getInDegree(nodeIdx: number, weightMatrix: WeightMatrix): number
  */
 export function computeThreshold(
   inDegree: number,
-  thresholdMultiplier: number = 0.5
+  thresholdMultiplier: number = 0
 ): number {
   return inDegree * thresholdMultiplier;
 }

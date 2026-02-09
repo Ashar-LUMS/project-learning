@@ -133,7 +133,7 @@ export function performWeightedAnalysis(
   edges: AnalysisEdge[],
   options: WeightedAnalysisOptions = {}
 ): DeterministicAnalysisResult {
-  const { stateCap = 2 ** 17, stepCap = 2 ** 17, tieBehavior = 'zero-as-zero', biases = {}, thresholdMultiplier = 0.5 } = options;
+  const { stateCap = 2 ** 17, stepCap = 2 ** 17, tieBehavior = 'hold', biases = {}, thresholdMultiplier = 0 } = options;
 
   const nodeOrder = nodes.map((n) => n.id);
   const nodeLabels: Record<string, string> = Object.fromEntries(
@@ -149,7 +149,6 @@ export function performWeightedAnalysis(
   const attractors: InternalAttractor[] = [];
   const stateToAttractorId = new Map<string, number>();
   const basinSizes = new Map<number, number>();
-  let exploredCount = 0;
 
   // Explore states
   for (let stateNum = 0; stateNum < maxStates; stateNum++) {
@@ -219,8 +218,6 @@ export function performWeightedAnalysis(
         break;
       }
     }
-
-    exploredCount++;
   }
 
   // Compute basin shares
@@ -231,7 +228,7 @@ export function performWeightedAnalysis(
       ...att,
       basinShare: basinSizes.get(att.id)! / maxStates,
     })),
-    exploredStateCount: exploredCount,
+    exploredStateCount: stateToAttractorId.size, // All states assigned to an attractor
     totalStateSpace,
     truncated,
     warnings: truncated ? [`Analysis truncated: explored ${maxStates} of ${totalStateSpace} states`] : [],
