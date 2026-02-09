@@ -1509,8 +1509,8 @@ function NetworkEditorPage() {
 
       {/* Attractor Landscape Full-Screen Dialog */}
       <Dialog open={attractorLandscapeOpen} onOpenChange={setAttractorLandscapeOpen}>
-        <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] max-h-[90vh] p-0 overflow-hidden">
-          <DialogHeader className="p-4 pb-0">
+        <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] max-h-[90vh] p-0 overflow-hidden flex flex-col">
+          <DialogHeader className="p-4 pb-0 shrink-0">
             <div className="flex items-center justify-between">
               <div>
                 <DialogTitle>Attractor Landscape</DialogTitle>
@@ -1527,7 +1527,7 @@ function NetworkEditorPage() {
                   <SelectTrigger id="attractor-mapping" className="w-[180px] h-8 text-xs">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[200]">
                     <SelectItem value="sammon">Sammon Mapping</SelectItem>
                     <SelectItem value="naive-grid">Naive Grid</SelectItem>
                   </SelectContent>
@@ -1535,7 +1535,7 @@ function NetworkEditorPage() {
               </div>
             </div>
           </DialogHeader>
-          <div className="flex-1 h-[calc(90vh-100px)] p-4">
+          <div className="flex-1 min-h-0 p-4">
             {attractorLandscapeData && attractorLandscapeData.length > 0 && (
               <AttractorLandscape attractors={attractorLandscapeData} mappingType={landscapeMappingType} className="h-full" />
             )}
@@ -1545,8 +1545,8 @@ function NetworkEditorPage() {
 
       {/* Probability Landscape Full-Screen Dialog */}
       <Dialog open={probabilityLandscapeOpen} onOpenChange={setProbabilityLandscapeOpen}>
-        <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] max-h-[90vh] p-0 overflow-hidden">
-          <DialogHeader className="p-4 pb-0">
+        <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] max-h-[90vh] p-0 overflow-hidden flex flex-col">
+          <DialogHeader className="p-4 pb-0 shrink-0">
             <div className="flex items-center justify-between">
               <div>
                 <DialogTitle>Probability Landscape</DialogTitle>
@@ -1563,7 +1563,7 @@ function NetworkEditorPage() {
                   <SelectTrigger id="prob-mapping" className="w-[180px] h-8 text-xs">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[200]">
                     <SelectItem value="sammon">Sammon Mapping</SelectItem>
                     <SelectItem value="naive-grid">Naive Grid</SelectItem>
                   </SelectContent>
@@ -1571,7 +1571,7 @@ function NetworkEditorPage() {
               </div>
             </div>
           </DialogHeader>
-          <div className="flex-1 h-[calc(90vh-100px)] p-4">
+          <div className="flex-1 min-h-0 p-4">
             {probabilisticResult && (
               <ProbabilisticLandscape
                 nodeOrder={probabilisticResult.nodeOrder}
@@ -1588,8 +1588,8 @@ function NetworkEditorPage() {
 
       {/* Potential Energy Landscape Full-Screen Dialog */}
       <Dialog open={energyLandscapeOpen} onOpenChange={setEnergyLandscapeOpen}>
-        <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] max-h-[90vh] p-0 overflow-hidden">
-          <DialogHeader className="p-4 pb-0">
+        <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] max-h-[90vh] p-0 overflow-hidden flex flex-col">
+          <DialogHeader className="p-4 pb-0 shrink-0">
             <div className="flex items-center justify-between">
               <div>
                 <DialogTitle>Potential Energy Landscape</DialogTitle>
@@ -1606,7 +1606,7 @@ function NetworkEditorPage() {
                   <SelectTrigger id="energy-mapping" className="w-[180px] h-8 text-xs">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[200]">
                     <SelectItem value="sammon">Sammon Mapping</SelectItem>
                     <SelectItem value="naive-grid">Naive Grid</SelectItem>
                   </SelectContent>
@@ -1614,7 +1614,7 @@ function NetworkEditorPage() {
               </div>
             </div>
           </DialogHeader>
-          <div className="flex-1 h-[calc(90vh-100px)] p-4">
+          <div className="flex-1 min-h-0 p-4">
             {probabilisticResult && (
               <ProbabilisticLandscape
                 nodeOrder={probabilisticResult.nodeOrder}
