@@ -560,6 +560,103 @@ export function parseWeightedNetworkCSV(csvContent: string): NetworkData {
   };
 }
 
+/**
+ * Parse a rule-based network from CSV format.
+ * Rules are read from the first section only (up to the first empty row).
+ * Each row may contain either:
+ * - A full rule in a cell: TARGET = EXPRESSION
+ * - Target in the first column and expression in the remaining columns
+ * Lines below the first empty row are ignored.
+ */
+export function parseRuleBasedNetworkCSV(csvContent: string): NetworkData {
+  const rawLines = csvContent.split(/\r?\n/);
+  const rules: string[] = [];
+
+  for (const rawLine of rawLines) {
+    const trimmed = rawLine.trim();
+    if (trimmed === '' || trimmed === ',,' || /^,+$/.test(trimmed)) {
+      break;
+    }
+
+    const cells = rawLine.split(',').map(cell => cell.trim());
+    const nonEmptyCells = cells.filter(cell => cell.length > 0);
+    if (nonEmptyCells.length === 0) continue;
+
+    const hasEquals = nonEmptyCells.some(cell => cell.includes('='));
+    const looksLikeHeader = nonEmptyCells.every(cell => /^(rule|rules|target|node|source|expression|logic|boolean|formula)$/i.test(cell));
+    if (looksLikeHeader && !hasEquals) continue;
+
+    let ruleText: string | null = null;
+
+    if (hasEquals) {
+      const cellWithEquals = nonEmptyCells.find(cell => cell.includes('='));
+      if (cellWithEquals) {
+        ruleText = cellWithEquals;
+      }
+      if (ruleText && !/^[a-zA-Z0-9_]+\s*=/.test(ruleText) && nonEmptyCells.length >= 2) {
+        const target = nonEmptyCells[0];
+        const expr = nonEmptyCells.slice(1).join(',');
+        if (target && expr) ruleText = `${target}=${expr}`;
+      }
+    } else if (nonEmptyCells.length >= 2) {
+      const target = nonEmptyCells[0];
+      const expr = nonEmptyCells.slice(1).join(',');
+      if (target && expr) ruleText = `${target}=${expr}`;
+    }
+
+    if (ruleText) {
+      rules.push(ruleText.trim());
+    }
+  }
+
+  if (rules.length === 0) {
+    return {
+      nodes: [],
+      edges: [],
+      rules: [],
+      metadata: {
+        type: 'Rule based',
+        createdFrom: 'rules',
+        importedAt: new Date().toISOString(),
+        importFormat: 'CSV'
+      }
+    };
+  }
+
+  const parsed = parseRuleBasedNetworkTXT(rules.join('\n'));
+  return {
+    ...parsed,
+    metadata: {
+      ...(parsed.metadata || {}),
+      type: 'Rule based',
+      createdFrom: 'rules',
+      importedAt: new Date().toISOString(),
+      importFormat: 'CSV'
+    }
+  };
+}
+
+function looksLikeRuleBasedCSV(csvContent: string): boolean {
+  const rawLines = csvContent.split(/\r?\n/);
+  const sampleLines: string[] = [];
+
+  for (const rawLine of rawLines) {
+    const trimmed = rawLine.trim();
+    if (trimmed === '' || trimmed === ',,' || /^,+$/.test(trimmed)) {
+      break;
+    }
+    if (trimmed.length > 0) sampleLines.push(rawLine);
+    if (sampleLines.length >= 20) break;
+  }
+
+  if (sampleLines.length === 0) return false;
+
+  return sampleLines.some(line => {
+    const cells = line.split(',').map(cell => cell.trim()).filter(Boolean);
+    return cells.some(cell => cell.includes('='));
+  });
+}
+
 // ============================================================================
 // RULE-BASED NETWORK IMPORT (TXT)
 // ============================================================================
@@ -575,14 +672,31 @@ export function parseRuleBasedNetworkTXT(txtContent: string): NetworkData {
   const edgeMap = new Map<string, Set<string>>(); // target -> sources
   const rules: Rule[] = [];
   
+  // Reserved words that should not be treated as node identifiers
+  const reservedWords = new Set([
+    'AND', 'OR', 'XOR', 'NAND', 'NOR', 'NOT',
+    'and', 'or', 'xor', 'nand', 'nor', 'not',
+    'undefined', 'UNDEFINED', 'null', 'NULL', 'true', 'TRUE', 'false', 'FALSE'
+  ]);
+  
   for (const line of lines) {
     // Match: nodename=(expression) or nodename = (expression)
     const match = line.match(/^([a-zA-Z0-9_]+)\s*=\s*(.+)$/);
     if (match) {
       const target = match[1].toLowerCase();
-      const expression = match[2];
+      const expression = match[2].trim();
       
       nodeSet.add(target);
+      
+      // Skip rules that are just "undefined" or similar (input nodes with no regulators)
+      if (reservedWords.has(expression) || reservedWords.has(expression.toLowerCase())) {
+        // Still store the rule for completeness, but don't extract edges
+        rules.push({
+          name: line,
+          enabled: true
+        });
+        continue;
+      }
       
       // Store the rule
       rules.push({
@@ -590,13 +704,13 @@ export function parseRuleBasedNetworkTXT(txtContent: string): NetworkData {
         enabled: true
       });
       
-      // Extract all identifiers from the expression (excluding operators)
+      // Extract all identifiers from the expression (excluding operators and reserved words)
       const identifiers = expression.match(/[a-zA-Z][a-zA-Z0-9_]*/g) || [];
-      const operators = new Set(['AND', 'OR', 'XOR', 'NAND', 'NOR', 'NOT', 'and', 'or', 'xor', 'nand', 'nor', 'not']);
       
       for (const id of identifiers) {
         const normalized = id.toLowerCase();
-        if (!operators.has(id.toUpperCase()) && normalized !== target) {
+        // Skip reserved words but ALLOW self-loops (don't skip when normalized === target)
+        if (!reservedWords.has(id) && !reservedWords.has(normalized)) {
           nodeSet.add(normalized);
           if (!edgeMap.has(target)) {
             edgeMap.set(target, new Set());
@@ -734,6 +848,9 @@ export function importNetwork(fileContent: string, fileName: string): NetworkDat
   
   switch (extension) {
     case 'csv':
+      if (looksLikeRuleBasedCSV(fileContent)) {
+        return parseRuleBasedNetworkCSV(fileContent);
+      }
       return parseWeightedNetworkCSV(fileContent);
     
     case 'txt':
@@ -773,6 +890,11 @@ function detectAndParseNetwork(content: string): NetworkData {
   const looksLikeRules = lines.some(l => /^[a-zA-Z][a-zA-Z0-9_]*\s*=\s*[\(\!a-zA-Z]/.test(l));
   if (looksLikeRules) {
     return parseRuleBasedNetworkTXT(content);
+  }
+
+  // Check for rule-based CSV
+  if (looksLikeRuleBasedCSV(content)) {
+    return parseRuleBasedNetworkCSV(content);
   }
   
   // Check for SIF format (tab or space separated with interaction types)
