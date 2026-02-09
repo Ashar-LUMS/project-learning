@@ -100,7 +100,7 @@ function NetworkEditorPage() {
   const [weightedForm, setWeightedForm] = useState({
     thresholdMultiplier: '0',
     tieBehavior: 'hold' as 'hold' | 'zero-as-zero' | 'zero-as-one',
-    mappingType: 'sammon' as 'sammon' | 'naive-grid',
+    mappingType: 'naive-grid' as 'sammon' | 'naive-grid',
   });
   const [weightedFormError, setWeightedFormError] = useState<string | null>(null);
   
@@ -111,7 +111,7 @@ function NetworkEditorPage() {
     maxIterations: '500',
     tolerance: '1e-4',
     initialProbability: '0.5',
-    mappingType: 'sammon' as 'sammon' | 'naive-grid',
+    mappingType: 'naive-grid' as 'sammon' | 'naive-grid',
   });
   const [probabilisticFormError, setProbabilisticFormError] = useState<string | null>(null);
   
@@ -1406,7 +1406,7 @@ function NetworkEditorPage() {
                   <SelectValue placeholder="Select mapping type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="sammon">Sammon Mapping (Distance-preserving)</SelectItem>
+                  <SelectItem value="sammon" disabled>Sammon Mapping (Distance-preserving)</SelectItem>
                   <SelectItem value="naive-grid">Naive Grid (Simple layout)</SelectItem>
                 </SelectContent>
               </Select>
@@ -1482,7 +1482,7 @@ function NetworkEditorPage() {
                   <SelectValue placeholder="Select mapping type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="sammon">Sammon Mapping (Distance-preserving)</SelectItem>
+                  <SelectItem value="sammon" disabled>Sammon Mapping (Distance-preserving)</SelectItem>
                   <SelectItem value="naive-grid">Naive Grid (Simple layout)</SelectItem>
                 </SelectContent>
               </Select>
