@@ -273,15 +273,18 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
       responsive: true,
     };
 
+    let resizeObserver: ResizeObserver | null = null;
+    const currentPlotRef = plotRef.current;
+
     try {
       if (window.Plotly.purge) {
-        try { window.Plotly.purge(plotRef.current); } catch (e) { /* ignore purge errors */ }
+        try { window.Plotly.purge(currentPlotRef); } catch (e) { /* ignore purge errors */ }
       }
 
-      window.Plotly.newPlot(plotRef.current, [trace as any], layout as any, config as any);
+      window.Plotly.newPlot(currentPlotRef, [trace as any], layout as any, config as any);
 
       // Handle resize when fullscreen changes
-      const resizeObserver = new ResizeObserver(() => {
+      resizeObserver = new ResizeObserver(() => {
         if (plotRef.current && window.Plotly?.Plots?.resize) {
           window.Plotly.Plots.resize(plotRef.current);
         }
@@ -289,19 +292,29 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
       if (containerRef.current) {
         resizeObserver.observe(containerRef.current);
       }
-
-      return () => {
-        resizeObserver.disconnect();
-      };
     } catch (err) {
       // Fail gracefully: log and clear any partial DOM so errors don't bubble
       // up to an ErrorBoundary leaving overlays/portals in the DOM.
       // eslint-disable-next-line no-console
       console.error('Plotly render failed:', err);
-      if (plotRef.current) {
-        plotRef.current.innerHTML = '';
+      if (currentPlotRef) {
+        currentPlotRef.innerHTML = '';
       }
     }
+
+    // Consolidated cleanup function
+    return () => {
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+      if (currentPlotRef && window.Plotly?.purge) {
+        try {
+          window.Plotly.purge(currentPlotRef);
+        } catch (e) {
+          /* ignore purge errors */
+        }
+      }
+    };
   }, [nodeOrder, probabilities, potentialEnergies, type, mappingType]);
 
   // Legend content based on type

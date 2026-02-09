@@ -151,6 +151,13 @@ function ProjectVisualizationPage() {
     }
   }, [selectedNetwork]);
 
+  // Reset networkSubTab to 'editor' when switching to a weight-based network
+  useEffect(() => {
+    if (!selectedIsRuleBased && networkSubTab === 'rules') {
+      setNetworkSubTab('editor');
+    }
+  }, [selectedIsRuleBased, networkSubTab]);
+
   // Cell fates derived from selected network metadata (needed early for handlers)
   const cellFates = useMemo<Record<string, CellFate>>(
     () => selectedNetwork?.data?.metadata?.cellFates || {},

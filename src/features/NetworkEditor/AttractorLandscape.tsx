@@ -68,6 +68,9 @@ export default function AttractorLandscape({ attractors, mappingType = 'naive-gr
   useEffect(() => {
     if (!plotRef.current || attractors.length === 0) return;
 
+    let resizeObserver: ResizeObserver | null = null;
+    const currentPlotRef = plotRef.current;
+
     try {
       // Create a 2D grid for the landscape
       const gridSize = 20;
@@ -224,10 +227,10 @@ export default function AttractorLandscape({ attractors, mappingType = 'naive-gr
         modeBarButtonsToRemove: ['toImage', 'sendDataToCloud'] as any,
       };
 
-      Plotly.newPlot(plotRef.current, data, layout, config);
+      Plotly.newPlot(currentPlotRef, data, layout, config);
 
       // Handle resize when fullscreen changes
-      const resizeObserver = new ResizeObserver(() => {
+      resizeObserver = new ResizeObserver(() => {
         if (plotRef.current) {
           Plotly.Plots.resize(plotRef.current);
         }
@@ -235,18 +238,18 @@ export default function AttractorLandscape({ attractors, mappingType = 'naive-gr
       if (containerRef.current) {
         resizeObserver.observe(containerRef.current);
       }
-
-      return () => {
-        resizeObserver.disconnect();
-      };
     } catch (err) {
       console.error('Failed to render Plotly landscape:', err);
     }
 
+    // Consolidated cleanup function
     return () => {
-      if (plotRef.current) {
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+      if (currentPlotRef) {
         try {
-          Plotly.purge(plotRef.current);
+          Plotly.purge(currentPlotRef);
         } catch (err) {
           console.error('Failed to clean up Plotly:', err);
         }

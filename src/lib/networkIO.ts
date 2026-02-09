@@ -426,7 +426,7 @@ export function parseSBMLqualNetwork(xmlContent: string): NetworkData {
  * Format:
  * Section 1: node_id, basal_value (nodes with basal values)
  * Section 2: source, weight, target (edges with weights)
- * Section 3: "Weight Based" label
+ * Sections separated by ",,"
  */
 export function exportWeightedNetworkToCSV(data: NetworkData): string {
   const lines: string[] = [];
@@ -448,11 +448,8 @@ export function exportWeightedNetworkToCSV(data: NetworkData): string {
     lines.push(`${edge.source},${weight},${edge.target}`);
   }
   
-  // Empty separator
+  // Empty separator (end marker)
   lines.push(',,');
-  
-  // Section 3: Network type label
-  lines.push('Weight Based');
   
   return lines.join('\n');
 }
@@ -500,10 +497,10 @@ export function exportRuleBasedNetworkToTXT(data: NetworkData): string {
 
 /**
  * Parse a weight-based network from CSV format.
- * Expects the format from exportWeightedNetworkToCSV:
+ * Format:
  * Section 1: node_id, basal_value
  * Section 2: source, weight, target
- * Section 3: "Weight Based" label
+ * Lines below the second ",," separator are ignored.
  */
 export function parseWeightedNetworkCSV(csvContent: string): NetworkData {
   const lines = csvContent.split(/\r?\n/).map(l => l.trim());
@@ -516,7 +513,7 @@ export function parseWeightedNetworkCSV(csvContent: string): NetworkData {
     }
   });
   
-  // Determine sections based on breaks
+  // Determine sections based on breaks (ignore anything after the second break)
   const section1End = sectionBreaks[0] ?? lines.length;
   const section2Start = section1End + 1;
   const section2End = sectionBreaks[1] ?? lines.length;
@@ -553,15 +550,11 @@ export function parseWeightedNetworkCSV(csvContent: string): NetworkData {
     }
   }
   
-  // Check for network type label in remaining lines
-  const remainingLines = lines.slice(section2End + 1).filter(l => l && !l.match(/^,+$/));
-  const isWeightBased = remainingLines.some(l => l.toLowerCase().includes('weight'));
-  
   return {
     nodes,
     edges,
     metadata: {
-      type: isWeightBased ? 'weight based' : 'weight based', // Default to weight-based for CSV
+      type: 'Weight based',
       importedAt: new Date().toISOString()
     }
   };
