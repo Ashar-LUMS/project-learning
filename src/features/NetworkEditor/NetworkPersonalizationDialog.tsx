@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
+import { useToast } from "@/components/ui/toast";
 
 interface NetworkPersonalizationDialogProps {
   open: boolean;
@@ -10,7 +10,7 @@ interface NetworkPersonalizationDialogProps {
 }
 
 export function NetworkPersonalizationDialog({ open, onOpenChange }: NetworkPersonalizationDialogProps) {
-  
+  const { showToast } = useToast();
   const [cancerType, setCancerType] = useState<string>('');
   const [sampleType, setSampleType] = useState<'normal' | 'cancer'>('cancer');
   const [normalizationCohort, setNormalizationCohort] = useState<string>('');
@@ -18,20 +18,25 @@ export function NetworkPersonalizationDialog({ open, onOpenChange }: NetworkPers
 
   const handleApplyPersonalization = () => {
     if (!cancerType) {
-      toast.error('Please select a cancer type', {
+      showToast({
+        title: 'Please select a cancer type',
         description: 'Choose a cancer type to proceed',
+        variant: 'destructive',
       });
       return;
     }
 
     if (!normalizationCohort) {
-      toast.error('Please select a normalization cohort', {
+      showToast({
+        title: 'Please select a normalization cohort',
         description: 'Choose a normalization cohort project to proceed',
+        variant: 'destructive',
       });
       return;
     }
 
-    toast.info('Network Personalization', {
+    showToast({
+      title: 'Network Personalization',
       description: `Personalizing network with ${cancerType} ${sampleType} samples using ${normalizationCohort}${rnaSeqFile ? ` and ${rnaSeqFile.name}` : ''}`,
     });
   };

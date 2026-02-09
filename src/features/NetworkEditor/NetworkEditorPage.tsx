@@ -1508,10 +1508,29 @@ function NetworkEditorPage() {
       <Dialog open={attractorLandscapeOpen} onOpenChange={setAttractorLandscapeOpen}>
         <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] max-h-[90vh] p-0 overflow-hidden">
           <DialogHeader className="p-4 pb-0">
-            <DialogTitle>Attractor Landscape</DialogTitle>
-            <DialogDescription>
-              3D visualization of the attractor landscape. Valleys represent stable attractors (deeper = larger basin), peaks represent transient states.
-            </DialogDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle>Attractor Landscape</DialogTitle>
+                <DialogDescription>
+                  3D visualization of the attractor landscape. Valleys represent stable attractors (deeper = larger basin), peaks represent transient states.
+                </DialogDescription>
+              </div>
+              <div className="flex items-center gap-2 mr-8">
+                <Label htmlFor="attractor-mapping" className="text-xs text-muted-foreground whitespace-nowrap">Mapping:</Label>
+                <Select
+                  value={landscapeMappingType}
+                  onValueChange={(value: 'sammon' | 'naive-grid') => setLandscapeMappingType(value)}
+                >
+                  <SelectTrigger id="attractor-mapping" className="w-[180px] h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sammon">Sammon Mapping</SelectItem>
+                    <SelectItem value="naive-grid">Naive Grid</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </DialogHeader>
           <div className="flex-1 h-[calc(90vh-100px)] p-4">
             {attractorLandscapeData && attractorLandscapeData.length > 0 && (
@@ -1525,10 +1544,29 @@ function NetworkEditorPage() {
       <Dialog open={probabilityLandscapeOpen} onOpenChange={setProbabilityLandscapeOpen}>
         <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] max-h-[90vh] p-0 overflow-hidden">
           <DialogHeader className="p-4 pb-0">
-            <DialogTitle>Probability Landscape</DialogTitle>
-            <DialogDescription>
-              3D visualization of steady-state probabilities. Peaks represent high-probability states that the system is most likely to occupy.
-            </DialogDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle>Probability Landscape</DialogTitle>
+                <DialogDescription>
+                  3D visualization of steady-state probabilities. Peaks represent high-probability states that the system is most likely to occupy.
+                </DialogDescription>
+              </div>
+              <div className="flex items-center gap-2 mr-8">
+                <Label htmlFor="prob-mapping" className="text-xs text-muted-foreground whitespace-nowrap">Mapping:</Label>
+                <Select
+                  value={landscapeMappingType}
+                  onValueChange={(value: 'sammon' | 'naive-grid') => setLandscapeMappingType(value)}
+                >
+                  <SelectTrigger id="prob-mapping" className="w-[180px] h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sammon">Sammon Mapping</SelectItem>
+                    <SelectItem value="naive-grid">Naive Grid</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </DialogHeader>
           <div className="flex-1 h-[calc(90vh-100px)] p-4">
             {probabilisticResult && (
@@ -1549,10 +1587,29 @@ function NetworkEditorPage() {
       <Dialog open={energyLandscapeOpen} onOpenChange={setEnergyLandscapeOpen}>
         <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] max-h-[90vh] p-0 overflow-hidden">
           <DialogHeader className="p-4 pb-0">
-            <DialogTitle>Potential Energy Landscape</DialogTitle>
-            <DialogDescription>
-              3D visualization of potential energy (−ln P). Valleys represent stable states (low energy) where the system tends to settle; peaks represent unstable states (high energy).
-            </DialogDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle>Potential Energy Landscape</DialogTitle>
+                <DialogDescription>
+                  3D visualization of potential energy (−ln P). Valleys represent stable states (low energy) where the system tends to settle; peaks represent unstable states (high energy).
+                </DialogDescription>
+              </div>
+              <div className="flex items-center gap-2 mr-8">
+                <Label htmlFor="energy-mapping" className="text-xs text-muted-foreground whitespace-nowrap">Mapping:</Label>
+                <Select
+                  value={landscapeMappingType}
+                  onValueChange={(value: 'sammon' | 'naive-grid') => setLandscapeMappingType(value)}
+                >
+                  <SelectTrigger id="energy-mapping" className="w-[180px] h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sammon">Sammon Mapping</SelectItem>
+                    <SelectItem value="naive-grid">Naive Grid</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </DialogHeader>
           <div className="flex-1 h-[calc(90vh-100px)] p-4">
             {probabilisticResult && (

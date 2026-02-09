@@ -646,11 +646,20 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
       // Determine final rules and metadata
       const finalRules = Array.isArray(existingRules) ? existingRules : (existingRules ? [existingRules] : []);
       const finalMetadata: any = { ...existingMetadata };
-      // If rules exist, mark as Rule based; otherwise if graph has nodes+edges mark weight based
-      if (Array.isArray(finalRules) && finalRules.length > 0) {
-        finalMetadata.type = 'Rule based';
-      } else if (Array.isArray(nodes) && nodes.length > 0 && Array.isArray(dedupedEdges) && dedupedEdges.length > 0) {
-        finalMetadata.type = 'weight based';
+      // Preserve network type if already set (from creation or previous saves)
+      // Only infer type if not explicitly set in metadata
+      if (!finalMetadata.type) {
+        // If rules exist, mark as Rule based; otherwise default to Weight based
+        if (Array.isArray(finalRules) && finalRules.length > 0) {
+          finalMetadata.type = 'Rule based';
+        } else {
+          finalMetadata.type = 'Weight based';
+        }
+      } else {
+        // Normalize existing type to consistent casing
+        if (finalMetadata.type === 'weight based') {
+          finalMetadata.type = 'Weight based';
+        }
       }
 
       // If rule-based, strip node weights and biases before saving
@@ -1633,7 +1642,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                 })),
                 rules: isRuleBased ? rulesArray : undefined,
                 metadata: {
-                  type: isRuleBased ? 'Rule based' : 'weight based',
+                  type: isRuleBased ? 'Rule based' : 'Weight based',
                   exportedAt: new Date().toISOString()
                 }
               };

@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { inferRulesFromBiomolecules } from "@/lib/openRouter";
 import { useProjectNetworks, type ProjectNetworkRecord } from '@/hooks/useProjectNetworks';
 import ProbabilisticLandscape from './ProbabilisticLandscape';
@@ -90,6 +91,8 @@ function ProjectVisualizationPage() {
 
   // Import Network dialog state
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [importStep, setImportStep] = useState<'type' | 'upload'>('type');
+  const [importNetworkType, setImportNetworkType] = useState<'rules' | 'weights'>('weights');
   const [importNetworkName, setImportNetworkName] = useState<string>("Imported Network");
   const [networkFileName, setNetworkFileName] = useState<string>("");
   const [rulesFileName, setRulesFileName] = useState<string>("");
@@ -121,6 +124,7 @@ function ProjectVisualizationPage() {
     probabilities: Record<string, number>;
     potentialEnergies: Record<string, number>;
   } | null>(null);
+  const [landscapeMappingType, setLandscapeMappingType] = useState<'sammon' | 'naive-grid'>('sammon');
 
   // Minimal inference wiring so sidebar actions work here too
   const [rulesText, setRulesText] = useState('');
@@ -939,13 +943,15 @@ function ProjectVisualizationPage() {
   }, [projectId, newNetworkName, newNetworkType, refreshNetworks, selectNetwork, setRecentNetworkIds, showToast]);
 
   const handleImportNetwork = useCallback(() => {
-    // Open the Import dialog
+    // Open the Import dialog and reset to type selection step
     setImportError(null);
     setImportedNetwork(null);
     setImportedRules(null);
     setNetworkFileName("");
     setRulesFileName("");
     setImportNetworkName(`Imported Network ${new Date().toLocaleString()}`);
+    setImportStep('type');
+    setImportNetworkType('weights');
     setIsImportOpen(true);
   }, []);
 
@@ -1022,15 +1028,19 @@ function ProjectVisualizationPage() {
       setIsSavingImport(true);
       setImportError(null);
 
+      // Determine the final network type based on user selection
+      const finalType = importNetworkType === 'rules' ? 'Rule based' : 'Weight based';
+
       // Build payload differently depending on whether a full network JSON was provided
       let networkPayload: any;
       if (importedNetwork) {
         networkPayload = {
           nodes: importedNetwork.nodes ?? [],
           edges: importedNetwork.edges ?? [],
-          rules: importedRules ?? importedNetwork.rules ?? null,
+          rules: importNetworkType === 'rules' ? (importedRules ?? importedNetwork.rules ?? []) : undefined,
           metadata: {
             ...(importedNetwork.metadata || {}),
+            type: finalType,
             importedAt: new Date().toISOString(),
             sourceFile: networkFileName || undefined,
             rulesFile: rulesFileName || undefined,
@@ -1133,9 +1143,10 @@ function ProjectVisualizationPage() {
     if (!data) return 'weight-based'; // Default to weight-based if no data
     
     // Check metadata.type first (authoritative source)
+    // Support both 'Weight based' and legacy 'weight based' casing
     const metaType = data.metadata?.type;
     if (metaType === 'Rule based') return 'rule-based';
-    if (metaType === 'weight based') return 'weight-based';
+    if (metaType === 'Weight based' || metaType === 'weight based') return 'weight-based';
     
     // Fallback: check if network has rules
     if (Array.isArray(data.rules) && data.rules.length > 0) return 'rule-based';
@@ -2760,79 +2771,168 @@ function ProjectVisualizationPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Import Network Dialog */}
+      {/* Import Network Dialog - Two-step flow */}
       <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Import Network</DialogTitle>
             <DialogDescription>
-              Upload a network file: CSV, TXT, SIF, or SBML-qual
+              {importStep === 'type' 
+                ? 'Choose the type of network you want to import.'
+                : 'Upload a network file: CSV, TXT, SIF, or SBML-qual'}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="import-name">Network name</Label>
-              <Input id="import-name" value={importNetworkName} onChange={(e) => setImportNetworkName(e.target.value)} />
-            </div>
+          {importStep === 'type' ? (
+            <>
+              {/* Step 1: Network Type Selection */}
+              <div className="space-y-5">
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Network Type</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setImportNetworkType('weights')}
+                      className={cn(
+                        "p-4 rounded-lg border-2 text-left transition-all",
+                        importNetworkType === 'weights'
+                          ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                          : "border-muted hover:border-muted-foreground/50 hover:bg-muted/50"
+                      )}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className={cn(
+                          "w-4 h-4 rounded-full border-2 flex items-center justify-center",
+                          importNetworkType === 'weights' ? "border-primary" : "border-muted-foreground/50"
+                        )}>
+                          {importNetworkType === 'weights' && (
+                            <div className="w-2 h-2 rounded-full bg-primary" />
+                          )}
+                        </div>
+                        <span className="font-semibold text-sm">Weight-based</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground pl-6">
+                        Import networks with edge weights for weighted deterministic analysis
+                      </p>
+                    </button>
+                    
+                    <button
+                      type="button"
+                      onClick={() => setImportNetworkType('rules')}
+                      className={cn(
+                        "p-4 rounded-lg border-2 text-left transition-all",
+                        importNetworkType === 'rules'
+                          ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                          : "border-muted hover:border-muted-foreground/50 hover:bg-muted/50"
+                      )}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className={cn(
+                          "w-4 h-4 rounded-full border-2 flex items-center justify-center",
+                          importNetworkType === 'rules' ? "border-primary" : "border-muted-foreground/50"
+                        )}>
+                          {importNetworkType === 'rules' && (
+                            <div className="w-2 h-2 rounded-full bg-primary" />
+                          )}
+                        </div>
+                        <span className="font-semibold text-sm">Rule-based</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground pl-6">
+                        Import networks with Boolean rules (AND, OR, NOT)
+                      </p>
+                    </button>
+                  </div>
+                </div>
+              </div>
 
-            <div className="space-y-2">
-              <Label>Network File (CSV or TXT)</Label>
-              <Input 
-                type="file" 
-                accept=".csv,.txt,text/csv,text/plain" 
-                onChange={(e) => onPickNetworkFile(e.target.files?.[0])} 
-              />
-              {networkFileName && (
-                <div className="text-xs text-muted-foreground">
-                  Selected: {networkFileName}
-                  {importedNetwork?.metadata?.type && (
-                    <Badge variant="outline" className="ml-2">
-                      {importedNetwork.metadata.type}
-                    </Badge>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsImportOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={() => setImportStep('upload')}>
+                  Continue
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              {/* Step 2: File Upload */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                  <Badge variant="outline">
+                    {importNetworkType === 'rules' ? 'Rule-based' : 'Weight-based'}
+                  </Badge>
+                  <button 
+                    className="text-primary text-xs hover:underline"
+                    onClick={() => setImportStep('type')}
+                  >
+                    Change type
+                  </button>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="import-name">Network name</Label>
+                  <Input id="import-name" value={importNetworkName} onChange={(e) => setImportNetworkName(e.target.value)} />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Network File (CSV or TXT)</Label>
+                  <Input 
+                    type="file" 
+                    accept=".csv,.txt,text/csv,text/plain" 
+                    onChange={(e) => onPickNetworkFile(e.target.files?.[0])} 
+                  />
+                  {networkFileName && (
+                    <div className="text-xs text-muted-foreground">
+                      Selected: {networkFileName}
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
 
-            <div className="space-y-2 border-t pt-4">
-              <Label className="text-muted-foreground">Or upload separate Rules file (optional)</Label>
-              <Input type="file" accept="text/plain,.txt" onChange={(e) => onPickRulesFile(e.target.files?.[0])} />
-              <div className="flex items-center gap-2 pt-1">
-                <Button type="button" variant="outline" size="sm" onClick={onInferRules} disabled={isInferring || !importedNetwork}>
-                  {isInferring ? 'Inferring…' : 'Infer Rules from AI'}
-                </Button>
-                {Array.isArray(importedRules) && (
-                  <span className="text-xs text-muted-foreground">{importedRules.length} rules loaded</span>
+                {importNetworkType === 'rules' && (
+                  <div className="space-y-2 border-t pt-4">
+                    <Label className="text-muted-foreground">Or upload separate Rules file (optional)</Label>
+                    <Input type="file" accept="text/plain,.txt" onChange={(e) => onPickRulesFile(e.target.files?.[0])} />
+                    <div className="flex items-center gap-2 pt-1">
+                      <Button type="button" variant="outline" size="sm" onClick={onInferRules} disabled={isInferring || !importedNetwork}>
+                        {isInferring ? 'Inferring…' : 'Infer Rules from AI'}
+                      </Button>
+                      {Array.isArray(importedRules) && (
+                        <span className="text-xs text-muted-foreground">{importedRules.length} rules loaded</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {importError && (
+                  <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-destructive text-sm">
+                    {importError}
+                  </div>
+                )}
+
+                {importedNetwork && (
+                  <div className="rounded-md border p-3 text-xs text-muted-foreground">
+                    <div><strong>Preview</strong></div>
+                    <div>Nodes: {Array.isArray(importedNetwork.nodes) ? importedNetwork.nodes.length : 0}</div>
+                    <div>Edges: {Array.isArray(importedNetwork.edges) ? importedNetwork.edges.length : 0}</div>
+                    {importNetworkType === 'rules' && (
+                      <div>Rules: {Array.isArray(importedRules) ? importedRules.length : (Array.isArray(importedNetwork.rules) ? importedNetwork.rules!.length : 0)}</div>
+                    )}
+                    <div>Type: {importNetworkType === 'rules' ? 'Rule based' : 'Weight based'}</div>
+                  </div>
                 )}
               </div>
-            </div>
 
-            {importError && (
-              <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-destructive text-sm">
-                {importError}
-              </div>
-            )}
-
-            {importedNetwork && (
-              <div className="rounded-md border p-3 text-xs text-muted-foreground">
-                <div><strong>Preview</strong></div>
-                <div>Nodes: {Array.isArray(importedNetwork.nodes) ? importedNetwork.nodes.length : 0}</div>
-                <div>Edges: {Array.isArray(importedNetwork.edges) ? importedNetwork.edges.length : 0}</div>
-                <div>Rules: {Array.isArray(importedRules) ? importedRules.length : (Array.isArray(importedNetwork.rules) ? importedNetwork.rules!.length : 0)}</div>
-                <div>Type: {importedNetwork.metadata?.type || 'Unknown'}</div>
-              </div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsImportOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={onSaveImportedNetwork} disabled={!(importedNetwork || Array.isArray(importedRules)) || isSavingImport}>
-              {isSavingImport ? 'Saving…' : 'Save & Link'}
-            </Button>
-          </DialogFooter>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setImportStep('type')}>
+                  Back
+                </Button>
+                <Button onClick={onSaveImportedNetwork} disabled={!(importedNetwork || Array.isArray(importedRules)) || isSavingImport}>
+                  {isSavingImport ? 'Saving…' : 'Save & Link'}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -3023,14 +3123,33 @@ function ProjectVisualizationPage() {
       <Dialog open={attractorLandscapeOpen} onOpenChange={setAttractorLandscapeOpen}>
         <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] max-h-[90vh] p-0 overflow-hidden">
           <DialogHeader className="p-4 pb-0">
-            <DialogTitle>Attractor Landscape</DialogTitle>
-            <DialogDescription>
-              3D visualization of the attractor landscape. Valleys represent stable attractors (deeper = larger basin), peaks represent transient states.
-            </DialogDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle>Attractor Landscape</DialogTitle>
+                <DialogDescription>
+                  3D visualization of the attractor landscape. Valleys represent stable attractors (deeper = larger basin), peaks represent transient states.
+                </DialogDescription>
+              </div>
+              <div className="flex items-center gap-2 mr-8">
+                <Label htmlFor="pvp-attractor-mapping" className="text-xs text-muted-foreground whitespace-nowrap">Mapping:</Label>
+                <Select
+                  value={landscapeMappingType}
+                  onValueChange={(value: 'sammon' | 'naive-grid') => setLandscapeMappingType(value)}
+                >
+                  <SelectTrigger id="pvp-attractor-mapping" className="w-[180px] h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sammon">Sammon Mapping</SelectItem>
+                    <SelectItem value="naive-grid">Naive Grid</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </DialogHeader>
           <div className="flex-1 h-[calc(90vh-100px)] p-4">
             {attractorLandscapeData && attractorLandscapeData.length > 0 && (
-              <AttractorLandscape attractors={attractorLandscapeData} className="h-full" />
+              <AttractorLandscape attractors={attractorLandscapeData} mappingType={landscapeMappingType} className="h-full" />
             )}
           </div>
         </DialogContent>
@@ -3040,10 +3159,29 @@ function ProjectVisualizationPage() {
       <Dialog open={probabilityLandscapeOpen} onOpenChange={setProbabilityLandscapeOpen}>
         <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] max-h-[90vh] p-0 overflow-hidden">
           <DialogHeader className="p-4 pb-0">
-            <DialogTitle>Probability Landscape</DialogTitle>
-            <DialogDescription>
-              3D visualization of steady-state probabilities. Peaks represent high-probability states that the system is most likely to occupy.
-            </DialogDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle>Probability Landscape</DialogTitle>
+                <DialogDescription>
+                  3D visualization of steady-state probabilities. Peaks represent high-probability states that the system is most likely to occupy.
+                </DialogDescription>
+              </div>
+              <div className="flex items-center gap-2 mr-8">
+                <Label htmlFor="pvp-prob-mapping" className="text-xs text-muted-foreground whitespace-nowrap">Mapping:</Label>
+                <Select
+                  value={landscapeMappingType}
+                  onValueChange={(value: 'sammon' | 'naive-grid') => setLandscapeMappingType(value)}
+                >
+                  <SelectTrigger id="pvp-prob-mapping" className="w-[180px] h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sammon">Sammon Mapping</SelectItem>
+                    <SelectItem value="naive-grid">Naive Grid</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </DialogHeader>
           <div className="flex-1 h-[calc(90vh-100px)] p-4">
             {landscapeProbabilisticData && (
@@ -3052,6 +3190,7 @@ function ProjectVisualizationPage() {
                 probabilities={landscapeProbabilisticData.probabilities}
                 potentialEnergies={landscapeProbabilisticData.potentialEnergies}
                 type="probability"
+                mappingType={landscapeMappingType}
                 className="h-full"
               />
             )}
@@ -3063,10 +3202,29 @@ function ProjectVisualizationPage() {
       <Dialog open={energyLandscapeOpen} onOpenChange={setEnergyLandscapeOpen}>
         <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] max-h-[90vh] p-0 overflow-hidden">
           <DialogHeader className="p-4 pb-0">
-            <DialogTitle>Potential Energy Landscape</DialogTitle>
-            <DialogDescription>
-              3D visualization of potential energy (−ln P). Valleys represent stable states (low energy) where the system tends to settle; peaks represent unstable states (high energy).
-            </DialogDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle>Potential Energy Landscape</DialogTitle>
+                <DialogDescription>
+                  3D visualization of potential energy (−ln P). Valleys represent stable states (low energy) where the system tends to settle; peaks represent unstable states (high energy).
+                </DialogDescription>
+              </div>
+              <div className="flex items-center gap-2 mr-8">
+                <Label htmlFor="pvp-energy-mapping" className="text-xs text-muted-foreground whitespace-nowrap">Mapping:</Label>
+                <Select
+                  value={landscapeMappingType}
+                  onValueChange={(value: 'sammon' | 'naive-grid') => setLandscapeMappingType(value)}
+                >
+                  <SelectTrigger id="pvp-energy-mapping" className="w-[180px] h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sammon">Sammon Mapping</SelectItem>
+                    <SelectItem value="naive-grid">Naive Grid</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </DialogHeader>
           <div className="flex-1 h-[calc(90vh-100px)] p-4">
             {landscapeProbabilisticData && (
@@ -3075,6 +3233,7 @@ function ProjectVisualizationPage() {
                 probabilities={landscapeProbabilisticData.probabilities}
                 potentialEnergies={landscapeProbabilisticData.potentialEnergies}
                 type="energy"
+                mappingType={landscapeMappingType}
                 className="h-full"
               />
             )}

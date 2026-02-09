@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
+import { useToast } from "@/components/ui/toast";
 
 interface PatientDrugScoresDialogProps {
   open: boolean;
@@ -10,7 +10,7 @@ interface PatientDrugScoresDialogProps {
 }
 
 export function PatientDrugScoresDialog({ open, onOpenChange }: PatientDrugScoresDialogProps) {
-  
+  const { showToast } = useToast();
   const [cancerType, setCancerType] = useState<string>('');
   const [normalizationCohort, setNormalizationCohort] = useState<string>('');
   const [drugStatus, setDrugStatus] = useState({
@@ -30,7 +30,8 @@ export function PatientDrugScoresDialog({ open, onOpenChange }: PatientDrugScore
 
   const handleCalculate = () => {
     // TODO: Implement drug score calculation
-    toast.info('Feature Coming Soon', {
+    showToast({
+      title: 'Feature Coming Soon',
       description: 'Drug score calculation will be implemented soon.',
     });
   };
