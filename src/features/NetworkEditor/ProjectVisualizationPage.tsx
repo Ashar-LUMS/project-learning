@@ -1822,9 +1822,6 @@ function ProjectVisualizationPage() {
               <div className="flex-1 grid place-items-center text-sm text-muted-foreground">Select a network in the Network tab to run analysis.</div>
             ) : (
               <div className="space-y-4">
-                <div className="flex gap-2 items-center text-xs text-muted-foreground">
-                  <span>Rules source: network rules or editor text</span>
-                </div>
                 <div className="flex flex-wrap gap-2">
                   <input
                     className="hidden" // keep rules support minimal; full editor lives in main editor page

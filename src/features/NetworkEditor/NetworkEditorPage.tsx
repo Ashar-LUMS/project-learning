@@ -850,8 +850,10 @@ function NetworkEditorPage() {
                       </AlertDescription>
                     </Alert>
                   )}
+                  {/* Results Container - Scrollable */}
+                  <div className="flex-1 overflow-auto min-h-0 space-y-4">
                   {analysisResult && (
-                    <div className="flex-1 overflow-auto border rounded-md p-4 space-y-4 bg-muted/30">
+                    <div className="border rounded-md p-4 space-y-4 bg-muted/30">
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <Stat label="Nodes" value={analysisResult.nodeOrder.length} />
                         <Stat label="Explored States" value={analysisResult.exploredStateCount} />
@@ -911,7 +913,7 @@ function NetworkEditorPage() {
                     </div>
                   )}
                   {weightedResult && (
-                    <div className="flex-1 overflow-auto space-y-4">
+                    <div className="space-y-4">
                       {/* Weighted Analysis Section Header */}
                       <div className="flex items-center gap-2 pb-2 border-b-2 border-blue-500">
                         <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center">
@@ -987,7 +989,7 @@ function NetworkEditorPage() {
                   )}
                   
                   {probabilisticResult && (
-                    <div className="flex-1 overflow-auto space-y-4">
+                    <div className="space-y-4">
                       {/* Probabilistic Analysis Section Header */}
                       <div className="flex items-center gap-2 pb-2 border-b-2 border-purple-500">
                         <div className="w-8 h-8 rounded-lg bg-purple-500 flex items-center justify-center">
@@ -1086,6 +1088,7 @@ function NetworkEditorPage() {
                       </div>
                     </div>
                   )}
+                  </div>
                 </CardContent>
               </Card>
               <div className="w-full lg:w-80 space-y-6">
