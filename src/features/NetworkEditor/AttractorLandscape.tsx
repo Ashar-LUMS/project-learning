@@ -269,7 +269,7 @@ export default function AttractorLandscape({ attractors, mappingType = 'naive-gr
     <div 
       ref={containerRef}
       className={`${className} w-full h-full relative`}
-      style={{ minHeight: '450px' }}
+      style={{ minHeight: '450px', height: '100%' }}
     >
       {/* Legend */}
       <div className="absolute bottom-2 left-2 z-10 bg-background/90 border rounded-md p-2 text-xs space-y-1 max-w-[200px]">
@@ -286,7 +286,7 @@ export default function AttractorLandscape({ attractors, mappingType = 'naive-gr
         <div className="text-[10px] text-blue-600 mt-1 border-t pt-1">Mapping: {mappingType === 'sammon' ? 'Sammon Mapping' : 'Naive Grid'}</div>
       </div>
 
-      <div ref={plotRef} style={{ width: '100%', height: '100%' }} className="rounded-md" />
+      <div ref={plotRef} style={{ width: '100%', height: '100%', minHeight: '450px' }} className="rounded-md" />
     </div>
   );
 }

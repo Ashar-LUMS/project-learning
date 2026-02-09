@@ -97,9 +97,26 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
   const plotRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!plotRef.current || !window.Plotly) return;
+    if (!plotRef.current) return;
+    
+    // Check if Plotly is available (from CDN)
+    if (!window.Plotly) {
+      console.error('Plotly not loaded. Make sure plotly.js is included in index.html');
+      return;
+    }
+    
+    // Early return if no data
+    if (!nodeOrder || nodeOrder.length === 0) {
+      console.warn('ProbabilisticLandscape: nodeOrder is empty');
+      return;
+    }
 
     const data = type === 'probability' ? probabilities : potentialEnergies;
+    if (!data || Object.keys(data).length === 0) {
+      console.warn('ProbabilisticLandscape: no probability/energy data');
+      return;
+    }
+    
     const values = nodeOrder.map(nodeId => data[nodeId] || 0);
     
     // Create a grid for the landscape
@@ -317,6 +334,15 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
     };
   }, [nodeOrder, probabilities, potentialEnergies, type, mappingType]);
 
+  // Early return for empty data
+  if (!nodeOrder || nodeOrder.length === 0) {
+    return (
+      <div className={`flex items-center justify-center h-96 text-sm text-muted-foreground ${className}`}>
+        No data to visualize
+      </div>
+    );
+  }
+
   // Legend content based on type
   const mappingLabel = mappingType === 'sammon' ? 'Sammon Mapping' : 'Naive Grid';
   const legendContent = type === 'probability' ? (
@@ -353,14 +379,14 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
     <div 
       ref={containerRef}
       className={`${className} w-full h-full relative`}
-      style={{ minHeight: '400px' }}
+      style={{ minHeight: '400px', height: '100%' }}
     >
       {/* Legend */}
       <div className="absolute bottom-2 left-2 z-10 bg-background/90 border rounded-md p-2 text-xs space-y-1 max-w-[220px]">
         {legendContent}
       </div>
 
-      <div ref={plotRef} className="w-full h-full rounded-md" />
+      <div ref={plotRef} style={{ width: '100%', height: '100%', minHeight: '400px' }} className="rounded-md" />
     </div>
   );
 };

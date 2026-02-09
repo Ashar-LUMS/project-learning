@@ -1535,7 +1535,7 @@ function NetworkEditorPage() {
               </div>
             </div>
           </DialogHeader>
-          <div className="flex-1 min-h-0 p-4">
+          <div className="flex-1 min-h-0 p-4" style={{ height: 'calc(90vh - 120px)' }}>
             {attractorLandscapeData && attractorLandscapeData.length > 0 && (
               <AttractorLandscape attractors={attractorLandscapeData} mappingType={landscapeMappingType} className="h-full" />
             )}
@@ -1571,7 +1571,7 @@ function NetworkEditorPage() {
               </div>
             </div>
           </DialogHeader>
-          <div className="flex-1 min-h-0 p-4">
+          <div className="flex-1 min-h-0 p-4" style={{ height: 'calc(90vh - 120px)' }}>
             {probabilisticResult && (
               <ProbabilisticLandscape
                 nodeOrder={probabilisticResult.nodeOrder}
@@ -1614,7 +1614,7 @@ function NetworkEditorPage() {
               </div>
             </div>
           </DialogHeader>
-          <div className="flex-1 min-h-0 p-4">
+          <div className="flex-1 min-h-0 p-4" style={{ height: 'calc(90vh - 120px)' }}>
             {probabilisticResult && (
               <ProbabilisticLandscape
                 nodeOrder={probabilisticResult.nodeOrder}

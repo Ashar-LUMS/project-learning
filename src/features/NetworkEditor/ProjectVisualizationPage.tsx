@@ -3151,7 +3151,7 @@ function ProjectVisualizationPage() {
               </div>
             </div>
           </DialogHeader>
-          <div className="flex-1 min-h-0 p-4">
+          <div className="flex-1 min-h-0 p-4" style={{ height: 'calc(90vh - 120px)' }}>
             {attractorLandscapeData && attractorLandscapeData.length > 0 && (
               <AttractorLandscape attractors={attractorLandscapeData} mappingType={landscapeMappingType} className="h-full" />
             )}
@@ -3187,7 +3187,7 @@ function ProjectVisualizationPage() {
               </div>
             </div>
           </DialogHeader>
-          <div className="flex-1 min-h-0 p-4">
+          <div className="flex-1 min-h-0 p-4" style={{ height: 'calc(90vh - 120px)' }}>
             {landscapeProbabilisticData && (
               <ProbabilisticLandscape
                 nodeOrder={landscapeProbabilisticData.nodeOrder}
@@ -3230,7 +3230,7 @@ function ProjectVisualizationPage() {
               </div>
             </div>
           </DialogHeader>
-          <div className="flex-1 min-h-0 p-4">
+          <div className="flex-1 min-h-0 p-4" style={{ height: 'calc(90vh - 120px)' }}>
             {landscapeProbabilisticData && (
               <ProbabilisticLandscape
                 nodeOrder={landscapeProbabilisticData.nodeOrder}
