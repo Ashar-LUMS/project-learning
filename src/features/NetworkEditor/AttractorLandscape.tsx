@@ -69,181 +69,204 @@ export default function AttractorLandscape({ attractors, mappingType = 'naive-gr
     if (!plotRef.current || attractors.length === 0) return;
 
     let resizeObserver: ResizeObserver | null = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
     const currentPlotRef = plotRef.current;
 
-    try {
-      // Create a 2D grid for the landscape
-      const gridSize = 20;
-      const x = Array.from({ length: gridSize }, (_, i) => i);
-      const y = Array.from({ length: gridSize }, (_, i) => i);
+    const renderPlot = () => {
+      if (!currentPlotRef) return;
       
-      // Initialize z values (energy landscape)
-      // We invert so attractors appear as VALLEYS (low stability score = stable)
-      const z: number[][] = Array.from({ length: gridSize }, () => 
-        Array.from({ length: gridSize }, () => 1) // Start at high "instability"
-      );
-
-      // Get attractor positions based on mapping type
-      let attractorPositions: Array<{x: number; y: number}>;
-      
-      if (mappingType === 'sammon') {
-        attractorPositions = sammonMappingAttractors(attractors, gridSize);
-      } else {
-        // Naive grid: circular layout
-        attractorPositions = attractors.map((_, idx) => {
-          const angle = (idx / attractors.length) * 2 * Math.PI;
-          const radius = gridSize * 0.3;
-          return {
-            x: gridSize / 2 + Math.cos(angle) * radius,
-            y: gridSize / 2 + Math.sin(angle) * radius,
-          };
-        });
-      }
-
-      // Create valleys for each attractor based on basin share
-      // Larger basin share = deeper valley = more stable
-      attractors.forEach((attr, idx) => {
-        const centerX = attractorPositions[idx].x;
-        const centerY = attractorPositions[idx].y;
+      try {
+        // Create a 2D grid for the landscape
+        const gridSize = 20;
+        const x = Array.from({ length: gridSize }, (_, i) => i);
+        const y = Array.from({ length: gridSize }, (_, i) => i);
         
-        // Create a Gaussian valley for this attractor (inverted)
-        for (let i = 0; i < gridSize; i++) {
-          for (let j = 0; j < gridSize; j++) {
-            const dx = i - centerX;
-            const dy = j - centerY;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            const sigma = 2.5; // Width of the valley
-            const depth = attr.basinShare; // Depth proportional to basin share
-            const gaussian = depth * Math.exp(-(dist * dist) / (2 * sigma * sigma));
-            z[j][i] -= gaussian; // Subtract to create valleys
-          }
-        }
-      });
+        // Initialize z values (energy landscape)
+        // We invert so attractors appear as VALLEYS (low stability score = stable)
+        const z: number[][] = Array.from({ length: gridSize }, () => 
+          Array.from({ length: gridSize }, () => 1) // Start at high "instability"
+        );
 
-      // Smooth the landscape using simple averaging
-      const smoothZ = z.map((row, i) => 
-        row.map((val, j) => {
-          let sum = val;
-          let count = 1;
-          for (let di = -1; di <= 1; di++) {
-            for (let dj = -1; dj <= 1; dj++) {
-              if (di === 0 && dj === 0) continue;
-              const ni = i + di;
-              const nj = j + dj;
-              if (ni >= 0 && ni < gridSize && nj >= 0 && nj < gridSize) {
-                sum += z[ni][nj];
-                count++;
-              }
+        // Get attractor positions based on mapping type
+        let attractorPositions: Array<{x: number; y: number}>;
+        
+        if (mappingType === 'sammon') {
+          attractorPositions = sammonMappingAttractors(attractors, gridSize);
+        } else {
+          // Naive grid: circular layout
+          attractorPositions = attractors.map((_, idx) => {
+            const angle = (idx / attractors.length) * 2 * Math.PI;
+            const radius = gridSize * 0.3;
+            return {
+              x: gridSize / 2 + Math.cos(angle) * radius,
+              y: gridSize / 2 + Math.sin(angle) * radius,
+            };
+          });
+        }
+
+        // Create valleys for each attractor based on basin share
+        // Larger basin share = deeper valley = more stable
+        attractors.forEach((attr, idx) => {
+          const centerX = attractorPositions[idx].x;
+          const centerY = attractorPositions[idx].y;
+          
+          // Create a Gaussian valley for this attractor (inverted)
+          for (let i = 0; i < gridSize; i++) {
+            for (let j = 0; j < gridSize; j++) {
+              const dx = i - centerX;
+              const dy = j - centerY;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              const sigma = 2.5; // Width of the valley
+              const depth = attr.basinShare; // Depth proportional to basin share
+              const gaussian = depth * Math.exp(-(dist * dist) / (2 * sigma * sigma));
+              z[j][i] -= gaussian; // Subtract to create valleys
             }
           }
-          return sum / count;
-        })
-      );
+        });
 
-      // Generate attractor labels for annotations
-      const annotations = attractors.map((attr, idx) => {
-        const centerX = attractorPositions[idx].x;
-        const centerY = attractorPositions[idx].y;
-        return {
-          x: centerX,
-          y: centerY,
-          z: 1 - attr.basinShare - 0.1, // Position slightly above the valley bottom
-          text: `A${idx + 1}<br>${(attr.basinShare * 100).toFixed(0)}%`,
-          showarrow: false,
-          font: { size: 10, color: '#1e293b' },
-        };
-      });
+        // Smooth the landscape using simple averaging
+        const smoothZ = z.map((row, i) => 
+          row.map((val, j) => {
+            let sum = val;
+            let count = 1;
+            for (let di = -1; di <= 1; di++) {
+              for (let dj = -1; dj <= 1; dj++) {
+                if (di === 0 && dj === 0) continue;
+                const ni = i + di;
+                const nj = j + dj;
+                if (ni >= 0 && ni < gridSize && nj >= 0 && nj < gridSize) {
+                  sum += z[ni][nj];
+                  count++;
+                }
+              }
+            }
+            return sum / count;
+          })
+        );
 
-      const data: Partial<Plotly.PlotData>[] = [{
-        type: 'surface',
-        x: x,
-        y: y,
-        z: smoothZ,
-        colorscale: [
-          [0, '#1e40af'],   // Deep blue = stable valleys (attractors)
-          [0.25, '#3b82f6'],
-          [0.5, '#93c5fd'],
-          [0.75, '#fcd34d'],
-          [1, '#ef4444']    // Red = unstable peaks (transient states)
-        ],
-        showscale: true,
-        colorbar: {
+        // Generate attractor labels for annotations
+        const annotations = attractors.map((attr, idx) => {
+          const centerX = attractorPositions[idx].x;
+          const centerY = attractorPositions[idx].y;
+          return {
+            x: centerX,
+            y: centerY,
+            z: 1 - attr.basinShare - 0.1, // Position slightly above the valley bottom
+            text: `A${idx + 1}<br>${(attr.basinShare * 100).toFixed(0)}%`,
+            showarrow: false,
+            font: { size: 10, color: '#1e293b' },
+          };
+        });
+
+        const data: Partial<Plotly.PlotData>[] = [{
+          type: 'surface',
+          x: x,
+          y: y,
+          z: smoothZ,
+          colorscale: [
+            [0, '#1e40af'],   // Deep blue = stable valleys (attractors)
+            [0.25, '#3b82f6'],
+            [0.5, '#93c5fd'],
+            [0.75, '#fcd34d'],
+            [1, '#ef4444']    // Red = unstable peaks (transient states)
+          ],
+          showscale: true,
+          colorbar: {
+            title: {
+              text: 'Stability',
+              side: 'right',
+              font: { size: 12 }
+            },
+            tickvals: [],
+            ticktext: [],
+            thickness: 15,
+            len: 0.6,
+            y: 0.5,
+          },
+          hovertemplate: 
+            'Stability Score: %{z:.3f}<extra></extra>',
+        } as any];
+
+        const layout: Partial<Plotly.Layout> = {
           title: {
-            text: 'Stability',
-            side: 'right',
-            font: { size: 12 }
+            text: 'Attractor Landscape<br><span style="font-size:11px;color:#6b7280">Valleys = Stable Attractors (deeper = larger basin) • Peaks = Transient States</span>',
+            font: { size: 15, color: '#1f2937' },
+            y: 0.95,
           },
-          tickvals: [],
-          ticktext: [],
-          thickness: 15,
-          len: 0.6,
-          y: 0.5,
-        },
-        hovertemplate: 
-          'Stability Score: %{z:.3f}<extra></extra>',
-      } as any];
+          autosize: true,
+          scene: {
+            camera: {
+              eye: { x: 1.5, y: 1.5, z: 1.3 },
+              center: { x: 0, y: 0, z: -0.2 }
+            },
+            xaxis: { 
+              title: { text: 'State Space (dim 1)', font: { size: 11 } }, 
+              showgrid: true, 
+              gridcolor: '#e5e7eb',
+              showticklabels: false,
+            },
+            yaxis: { 
+              title: { text: 'State Space (dim 2)', font: { size: 11 } }, 
+              showgrid: true, 
+              gridcolor: '#e5e7eb',
+              showticklabels: false,
+            },
+            zaxis: { 
+              title: { text: 'Instability ↑', font: { size: 11 } }, 
+              showgrid: true, 
+              gridcolor: '#e5e7eb',
+            },
+            bgcolor: '#fafafa',
+            annotations: annotations as any,
+          },
+          paper_bgcolor: '#ffffff',
+          plot_bgcolor: '#fafafa',
+          margin: { l: 10, r: 10, t: 60, b: 10 },
+        };
 
-      const layout: Partial<Plotly.Layout> = {
-        title: {
-          text: 'Attractor Landscape<br><span style="font-size:11px;color:#6b7280">Valleys = Stable Attractors (deeper = larger basin) • Peaks = Transient States</span>',
-          font: { size: 15, color: '#1f2937' },
-          y: 0.95,
-        },
-        autosize: true,
-        scene: {
-          camera: {
-            eye: { x: 1.5, y: 1.5, z: 1.3 },
-            center: { x: 0, y: 0, z: -0.2 }
-          },
-          xaxis: { 
-            title: { text: 'State Space (dim 1)', font: { size: 11 } }, 
-            showgrid: true, 
-            gridcolor: '#e5e7eb',
-            showticklabels: false,
-          },
-          yaxis: { 
-            title: { text: 'State Space (dim 2)', font: { size: 11 } }, 
-            showgrid: true, 
-            gridcolor: '#e5e7eb',
-            showticklabels: false,
-          },
-          zaxis: { 
-            title: { text: 'Instability ↑', font: { size: 11 } }, 
-            showgrid: true, 
-            gridcolor: '#e5e7eb',
-          },
-          bgcolor: '#fafafa',
-          annotations: annotations as any,
-        },
-        paper_bgcolor: '#ffffff',
-        plot_bgcolor: '#fafafa',
-        margin: { l: 10, r: 10, t: 60, b: 10 },
-      };
+        const config: Partial<Plotly.Config> = {
+          responsive: true,
+          displayModeBar: true,
+          displaylogo: false,
+          modeBarButtonsToRemove: ['toImage', 'sendDataToCloud'] as any,
+        };
 
-      const config: Partial<Plotly.Config> = {
-        responsive: true,
-        displayModeBar: true,
-        displaylogo: false,
-        modeBarButtonsToRemove: ['toImage', 'sendDataToCloud'] as any,
-      };
+        Plotly.newPlot(currentPlotRef, data, layout, config);
 
-      Plotly.newPlot(currentPlotRef, data, layout, config);
-
-      // Handle resize when fullscreen changes
-      resizeObserver = new ResizeObserver(() => {
-        if (plotRef.current) {
-          Plotly.Plots.resize(plotRef.current);
+        // Handle resize when fullscreen changes
+        resizeObserver = new ResizeObserver(() => {
+          if (currentPlotRef) {
+            Plotly.Plots.resize(currentPlotRef);
+          }
+        });
+        if (containerRef.current) {
+          resizeObserver.observe(containerRef.current);
         }
-      });
-      if (containerRef.current) {
-        resizeObserver.observe(containerRef.current);
+      } catch (err) {
+        console.error('Failed to render Plotly landscape:', err);
       }
-    } catch (err) {
-      console.error('Failed to render Plotly landscape:', err);
-    }
+    };
+
+    // Use a small timeout to ensure the dialog has rendered and the container has dimensions
+    timeoutId = setTimeout(() => {
+      if (!currentPlotRef) return;
+      
+      // Check if container has dimensions
+      const rect = currentPlotRef.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) {
+        // Retry after a frame if dimensions are zero
+        requestAnimationFrame(renderPlot);
+        return;
+      }
+      
+      renderPlot();
+    }, 100);
 
     // Consolidated cleanup function
     return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       if (resizeObserver) {
         resizeObserver.disconnect();
       }
