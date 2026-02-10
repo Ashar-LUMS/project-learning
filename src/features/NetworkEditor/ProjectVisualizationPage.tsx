@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { formatTimestamp } from '@/lib/format';
 import type { NetworkData, NetworkNode, NetworkEdge, Rule, CellFate, TherapeuticIntervention } from '@/types/network';
 import { importNetwork, exportAndDownloadNetworkAs, SUPPORTED_EXPORT_FORMATS, type ExportFormat } from '@/lib/networkIO';
+import { MergeNetworkDialog, type NetworkOption } from './MergeNetworkDialog';
 import NetworkGraph, { type NetworkGraphHandle } from "./NetworkGraph";
 import { supabase } from "../../supabaseClient";
 import NetworkEditorLayout from "./layout";
@@ -104,6 +105,9 @@ function ProjectVisualizationPage() {
   // Export Network dialog state
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [selectedExportFormat, setSelectedExportFormat] = useState<ExportFormat>('csv');
+
+  // Merge Network dialog state
+  const [isMergeDialogOpen, setIsMergeDialogOpen] = useState(false);
 
   // Fate classification state
   const [fateDialogOpen, setFateDialogOpen] = useState(false);
@@ -960,6 +964,65 @@ function ProjectVisualizationPage() {
     setIsImportOpen(true);
   }, []);
 
+  const handleMergeNetwork = useCallback(() => {
+    if (networks.length < 2) {
+      showToast({
+        title: 'Not Enough Networks',
+        description: 'You need at least 2 networks in this project to merge.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setIsMergeDialogOpen(true);
+  }, [networks.length, showToast]);
+
+  const handleSaveMergedNetwork = useCallback(async (mergedData: NetworkData, name: string) => {
+    try {
+      if (!projectId) throw new Error('Missing project identifier.');
+
+      // 1) Insert merged network
+      const { data: created, error: createErr } = await supabase
+        .from('networks')
+        .insert([{ name, network_data: mergedData }])
+        .select('id, name, network_data, created_at')
+        .single();
+      if (createErr) throw createErr;
+
+      // 2) Link to project
+      const { data: projRow, error: projErr } = await supabase
+        .from('projects')
+        .select('networks')
+        .eq('id', projectId)
+        .maybeSingle();
+      if (projErr) throw projErr;
+      const currentIds = Array.isArray(projRow?.networks) ? (projRow!.networks as string[]) : [];
+      const updatedIds = Array.from(new Set([...(currentIds || []), created.id]));
+      const { error: updErr } = await supabase
+        .from('projects')
+        .update({ networks: updatedIds })
+        .eq('id', projectId);
+      if (updErr) throw updErr;
+
+      // Refresh networks and select the new one
+      refreshNetworks();
+      selectNetwork(created.id);
+      setRecentNetworkIds((prev) => [created.id, ...prev.filter((id) => id !== created.id)].slice(0, MAX_RECENT_NETWORKS));
+
+      showToast({
+        title: 'Networks Merged',
+        description: `Merged network "${name}" created with ${mergedData.nodes.length} nodes and ${mergedData.edges.length} edges.`,
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save merged network';
+      showToast({
+        title: 'Merge Failed',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+      throw err;
+    }
+  }, [projectId, refreshNetworks, selectNetwork, setRecentNetworkIds, showToast]);
+
   // Unified file picker: handles CSV (weighted) or TXT (rules)
   const onPickNetworkFile = async (file?: File | null) => {
     try {
@@ -1245,6 +1308,14 @@ function ProjectVisualizationPage() {
           disabled={isLoading || !selectedNetwork}
         >
           Export Network
+        </button>
+        <button
+          type="button"
+          onClick={handleMergeNetwork}
+          className="w-full rounded-lg border border-muted bg-card p-2 text-left text-xs font-medium transition-colors hover:bg-muted disabled:opacity-60"
+          disabled={isLoading || networks.length < 2}
+        >
+          Merge Networks
         </button>
       </div>
 
@@ -2772,6 +2843,15 @@ function ProjectVisualizationPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Merge Network Dialog */}
+      <MergeNetworkDialog
+        open={isMergeDialogOpen}
+        onOpenChange={setIsMergeDialogOpen}
+        networks={networks.map(n => ({ id: n.id, name: n.name, data: n.data })) as NetworkOption[]}
+        selectedNetworkId={selectedNetworkId}
+        onMerge={handleSaveMergedNetwork}
+      />
 
       {/* Import Network Dialog - Two-step flow */}
       <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>

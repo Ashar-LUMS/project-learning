@@ -968,3 +968,341 @@ export const SUPPORTED_EXPORT_FORMATS = [
   { id: 'sif' as ExportFormat, label: 'SIF (Cytoscape)', description: 'Simple Interaction Format - compatible with Cytoscape', extension: '.sif' },
   { id: 'sbml-qual' as ExportFormat, label: 'SBML-qual', description: 'BioModels compatible - Systems Biology standard', extension: '.sbml' },
 ] as const;
+
+// ============================================================================
+// NETWORK MERGE UTILITIES
+// ============================================================================
+
+export type NodeConflictStrategy = 'keep-first' | 'keep-second' | 'rename-second';
+export type EdgeConflictStrategy = 'keep-first' | 'keep-second' | 'sum-weights' | 'average-weights' | 'max-weights';
+export type RuleConflictStrategy = 'keep-first' | 'keep-second' | 'keep-both';
+
+export interface MergeNetworkOptions {
+  /** How to handle nodes with the same ID */
+  nodeConflictStrategy?: NodeConflictStrategy;
+  /** How to handle edges with the same source/target pair */
+  edgeConflictStrategy?: EdgeConflictStrategy;
+  /** How to handle rules with the same target */
+  ruleConflictStrategy?: RuleConflictStrategy;
+  /** Suffix to add to renamed nodes (when using rename-second) */
+  renameSuffix?: string;
+  /** Preserve metadata from which network: 'first', 'second', or 'merge' */
+  metadataPreference?: 'first' | 'second' | 'merge';
+}
+
+/**
+ * Merge two networks into a single network.
+ * 
+ * Handles node/edge/rule conflicts according to the specified strategies.
+ * 
+ * @param base - The base network (first network)
+ * @param overlay - The network to merge into the base (second network)
+ * @param options - Merge options for conflict resolution
+ * @returns The merged network data
+ */
+export function mergeNetworks(
+  base: NetworkData,
+  overlay: NetworkData,
+  options: MergeNetworkOptions = {}
+): NetworkData {
+  const {
+    nodeConflictStrategy = 'keep-first',
+    edgeConflictStrategy = 'keep-first',
+    ruleConflictStrategy = 'keep-both',
+    renameSuffix = '_2',
+    metadataPreference = 'merge',
+  } = options;
+
+  // Track node ID mappings for rename strategy
+  const nodeIdMap = new Map<string, string>(); // original overlay ID -> final ID
+
+  // ===== MERGE NODES =====
+  const baseNodeIds = new Set(base.nodes.map(n => n.id));
+  const mergedNodes: NetworkNode[] = [...base.nodes];
+
+  for (const overlayNode of overlay.nodes) {
+    if (baseNodeIds.has(overlayNode.id)) {
+      // Conflict: node with same ID exists
+      switch (nodeConflictStrategy) {
+        case 'keep-first':
+          // Keep base node, skip overlay node (but track mapping)
+          nodeIdMap.set(overlayNode.id, overlayNode.id);
+          break;
+        case 'keep-second':
+          // Replace base node with overlay node
+          const idx = mergedNodes.findIndex(n => n.id === overlayNode.id);
+          if (idx !== -1) {
+            mergedNodes[idx] = { ...overlayNode };
+          }
+          nodeIdMap.set(overlayNode.id, overlayNode.id);
+          break;
+        case 'rename-second':
+          // Create a new unique ID for the overlay node
+          let newId = overlayNode.id + renameSuffix;
+          let counter = 2;
+          while (baseNodeIds.has(newId) || mergedNodes.some(n => n.id === newId)) {
+            newId = overlayNode.id + renameSuffix + counter;
+            counter++;
+          }
+          mergedNodes.push({
+            ...overlayNode,
+            id: newId,
+            label: overlayNode.label ? `${overlayNode.label}${renameSuffix}` : newId,
+          });
+          nodeIdMap.set(overlayNode.id, newId);
+          break;
+      }
+    } else {
+      // No conflict: add overlay node directly
+      mergedNodes.push({ ...overlayNode });
+      nodeIdMap.set(overlayNode.id, overlayNode.id);
+    }
+  }
+
+  // ===== MERGE EDGES =====
+  // Create a map of base edges by source:target key
+  const edgeKey = (e: NetworkEdge) => `${e.source}:${e.target}`;
+  const baseEdgeMap = new Map<string, NetworkEdge>();
+  for (const edge of base.edges) {
+    baseEdgeMap.set(edgeKey(edge), edge);
+  }
+
+  const mergedEdges: NetworkEdge[] = [...base.edges];
+
+  for (const overlayEdge of overlay.edges) {
+    // Apply node ID mapping for renamed nodes
+    const mappedSource = nodeIdMap.get(overlayEdge.source) ?? overlayEdge.source;
+    const mappedTarget = nodeIdMap.get(overlayEdge.target) ?? overlayEdge.target;
+    const mappedEdge: NetworkEdge = {
+      ...overlayEdge,
+      source: mappedSource,
+      target: mappedTarget,
+    };
+    const key = edgeKey(mappedEdge);
+
+    if (baseEdgeMap.has(key)) {
+      // Conflict: edge with same source:target exists
+      const baseEdge = baseEdgeMap.get(key)!;
+      const baseIdx = mergedEdges.findIndex(e => edgeKey(e) === key);
+
+      switch (edgeConflictStrategy) {
+        case 'keep-first':
+          // Keep base edge, skip overlay edge
+          break;
+        case 'keep-second':
+          // Replace base edge with overlay edge
+          if (baseIdx !== -1) {
+            mergedEdges[baseIdx] = { ...mappedEdge };
+          }
+          break;
+        case 'sum-weights':
+          // Sum the weights
+          if (baseIdx !== -1) {
+            mergedEdges[baseIdx] = {
+              ...baseEdge,
+              weight: (baseEdge.weight ?? 1) + (overlayEdge.weight ?? 1),
+            };
+          }
+          break;
+        case 'average-weights':
+          // Average the weights
+          if (baseIdx !== -1) {
+            mergedEdges[baseIdx] = {
+              ...baseEdge,
+              weight: ((baseEdge.weight ?? 1) + (overlayEdge.weight ?? 1)) / 2,
+            };
+          }
+          break;
+        case 'max-weights':
+          // Take the maximum weight
+          if (baseIdx !== -1) {
+            mergedEdges[baseIdx] = {
+              ...baseEdge,
+              weight: Math.max(baseEdge.weight ?? 1, overlayEdge.weight ?? 1),
+            };
+          }
+          break;
+      }
+    } else {
+      // No conflict: add overlay edge with mapped IDs
+      mergedEdges.push(mappedEdge);
+    }
+  }
+
+  // ===== MERGE RULES =====
+  const mergedRules: Rule[] = [];
+  const baseRulesByTarget = new Map<string, Rule>();
+  
+  if (base.rules) {
+    for (const rule of base.rules) {
+      // Extract target from rule name (format: "Target = expression")
+      const targetMatch = rule.name?.match(/^([a-zA-Z0-9_]+)\s*=/);
+      const target = targetMatch?.[1] ?? rule.name;
+      baseRulesByTarget.set(target, rule);
+      mergedRules.push({ ...rule });
+    }
+  }
+
+  if (overlay.rules) {
+    for (const overlayRule of overlay.rules) {
+      const targetMatch = overlayRule.name?.match(/^([a-zA-Z0-9_]+)\s*=/);
+      const target = targetMatch?.[1] ?? overlayRule.name;
+      // Map target to new ID if renamed
+      const mappedTarget = nodeIdMap.get(target) ?? target;
+
+      if (baseRulesByTarget.has(target) || (mappedTarget !== target && baseRulesByTarget.has(mappedTarget))) {
+        // Conflict: rule for same target exists
+        switch (ruleConflictStrategy) {
+          case 'keep-first':
+            // Keep base rule, skip overlay rule
+            break;
+          case 'keep-second':
+            // Replace base rule with overlay rule
+            const idx = mergedRules.findIndex(r => {
+              const rTarget = r.name?.match(/^([a-zA-Z0-9_]+)\s*=/)?.[1] ?? r.name;
+              return rTarget === target || rTarget === mappedTarget;
+            });
+            if (idx !== -1) {
+              mergedRules[idx] = {
+                ...overlayRule,
+                name: mappedTarget !== target 
+                  ? overlayRule.name.replace(target, mappedTarget)
+                  : overlayRule.name,
+              };
+            }
+            break;
+          case 'keep-both':
+            // Add overlay rule (possibly with renamed target)
+            mergedRules.push({
+              ...overlayRule,
+              name: mappedTarget !== target
+                ? overlayRule.name.replace(target, mappedTarget)
+                : overlayRule.name,
+            });
+            break;
+        }
+      } else {
+        // No conflict: add overlay rule (with mapped target if renamed)
+        mergedRules.push({
+          ...overlayRule,
+          name: mappedTarget !== target
+            ? overlayRule.name.replace(target, mappedTarget)
+            : overlayRule.name,
+        });
+      }
+    }
+  }
+
+  // ===== MERGE METADATA =====
+  let mergedMetadata: Record<string, any> = {};
+  
+  switch (metadataPreference) {
+    case 'first':
+      mergedMetadata = { ...base.metadata };
+      break;
+    case 'second':
+      mergedMetadata = { ...overlay.metadata };
+      break;
+    case 'merge':
+      mergedMetadata = {
+        ...base.metadata,
+        ...overlay.metadata,
+        // Merge cell fates if both have them
+        cellFates: {
+          ...base.metadata?.cellFates,
+          ...overlay.metadata?.cellFates,
+        },
+      };
+      break;
+  }
+
+  // Add merge metadata
+  mergedMetadata.mergedAt = new Date().toISOString();
+  mergedMetadata.mergedFrom = [
+    base.metadata?.name || 'network1',
+    overlay.metadata?.name || 'network2',
+  ];
+
+  return {
+    nodes: mergedNodes,
+    edges: mergedEdges,
+    rules: mergedRules.length > 0 ? mergedRules : undefined,
+    metadata: mergedMetadata,
+  };
+}
+
+/**
+ * Get a preview of merge statistics without performing the actual merge.
+ */
+export function getMergePreview(
+  base: NetworkData,
+  overlay: NetworkData,
+  options: MergeNetworkOptions = {}
+): {
+  baseStats: { nodes: number; edges: number; rules: number };
+  overlayStats: { nodes: number; edges: number; rules: number };
+  conflicts: { nodes: number; edges: number; rules: number };
+  estimatedResult: { nodes: number; edges: number; rules: number };
+} {
+  const {
+    nodeConflictStrategy = 'keep-first',
+    edgeConflictStrategy = 'keep-first',
+    ruleConflictStrategy = 'keep-both',
+  } = options;
+
+  const baseNodeIds = new Set(base.nodes.map(n => n.id));
+  const overlayNodeIds = new Set(overlay.nodes.map(n => n.id));
+  const nodeConflicts = [...overlayNodeIds].filter(id => baseNodeIds.has(id)).length;
+
+  const edgeKey = (e: NetworkEdge) => `${e.source}:${e.target}`;
+  const baseEdgeKeys = new Set(base.edges.map(edgeKey));
+  const overlayEdgeKeys = new Set(overlay.edges.map(edgeKey));
+  const edgeConflicts = [...overlayEdgeKeys].filter(key => baseEdgeKeys.has(key)).length;
+
+  const getRuleTarget = (r: Rule) => r.name?.match(/^([a-zA-Z0-9_]+)\s*=/)?.[1] ?? r.name;
+  const baseRuleTargets = new Set((base.rules || []).map(getRuleTarget));
+  const overlayRuleTargets = new Set((overlay.rules || []).map(getRuleTarget));
+  const ruleConflicts = [...overlayRuleTargets].filter(t => baseRuleTargets.has(t)).length;
+
+  // Estimate result counts based on conflict strategies
+  let estimatedNodes = base.nodes.length;
+  if (nodeConflictStrategy === 'rename-second') {
+    estimatedNodes += overlay.nodes.length;
+  } else {
+    estimatedNodes += overlay.nodes.length - nodeConflicts;
+  }
+
+  let estimatedEdges = base.edges.length;
+  // For all edge strategies except keep-first (which adds no new edges on conflict)
+  estimatedEdges += overlay.edges.length - edgeConflicts;
+
+  let estimatedRules = (base.rules?.length || 0);
+  if (ruleConflictStrategy === 'keep-both') {
+    estimatedRules += (overlay.rules?.length || 0);
+  } else {
+    estimatedRules += (overlay.rules?.length || 0) - ruleConflicts;
+  }
+
+  return {
+    baseStats: {
+      nodes: base.nodes.length,
+      edges: base.edges.length,
+      rules: base.rules?.length || 0,
+    },
+    overlayStats: {
+      nodes: overlay.nodes.length,
+      edges: overlay.edges.length,
+      rules: overlay.rules?.length || 0,
+    },
+    conflicts: {
+      nodes: nodeConflicts,
+      edges: edgeConflicts,
+      rules: ruleConflicts,
+    },
+    estimatedResult: {
+      nodes: estimatedNodes,
+      edges: estimatedEdges,
+      rules: estimatedRules,
+    },
+  };
+}
