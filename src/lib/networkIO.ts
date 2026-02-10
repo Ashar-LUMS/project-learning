@@ -1246,7 +1246,6 @@ export function getMergePreview(
 } {
   const {
     nodeConflictStrategy = 'keep-first',
-    edgeConflictStrategy = 'keep-first',
     ruleConflictStrategy = 'keep-both',
   } = options;
 
