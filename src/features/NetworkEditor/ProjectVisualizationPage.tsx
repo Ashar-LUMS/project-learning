@@ -128,6 +128,10 @@ function ProjectVisualizationPage() {
     potentialEnergies: Record<string, number>;
   } | null>(null);
 
+  // Results view toggles
+  const [showDeterministicResults, setShowDeterministicResults] = useState(false);
+  const [showProbabilisticResults, setShowProbabilisticResults] = useState(false);
+
   // Minimal inference wiring so sidebar actions work here too
   const [rulesText, setRulesText] = useState('');
 
@@ -190,6 +194,14 @@ function ProjectVisualizationPage() {
     downloadResults: downloadRuleBasedResults,
     reset: resetRuleBasedAnalysis,
   } = useDeterministicAnalysis();
+
+  // Reset view toggles when new results arrive
+  useEffect(() => {
+    setShowDeterministicResults(false);
+  }, [ruleBasedResult, weightedResult, isWeightedAnalyzing]);
+  useEffect(() => {
+    setShowProbabilisticResults(false);
+  }, [probabilisticResult, isProbabilisticAnalyzing]);
 
   // Therapeutics-specific analysis hooks (separate from inference tab)
   const {
@@ -1960,74 +1972,175 @@ function ProjectVisualizationPage() {
                 </div>
                 {isRuleBasedRunning && <div className="text-sm text-muted-foreground">Analyzing rules…</div>}
                 {ruleBasedError && <div className="text-sm text-red-600">{ruleBasedError}</div>}
-                {ruleBasedResult ? (
+                {(ruleBasedResult || (weightedResult && !isWeightedAnalyzing)) ? (
                   <div className="space-y-4">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-xs uppercase tracking-wide text-muted-foreground">Nodes</span><span className="text-sm font-semibold">{ruleBasedResult.nodeOrder.length}</span></div>
-                      <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-xs uppercase tracking-wide text-muted-foreground">Explored States</span><span className="text-sm font-semibold">{ruleBasedResult.exploredStateCount}</span></div>
-                      <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-xs uppercase tracking-wide text-muted-foreground">State Space</span><span className="text-sm font-semibold">{ruleBasedResult.totalStateSpace}</span></div>
-                      <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-xs uppercase tracking-wide text-muted-foreground">Attractors</span><span className="text-sm font-semibold">{ruleBasedResult.attractors.length}</span></div>
-                    </div>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => setShowDeterministicResults(v => !v)}
+                    >
+                      {showDeterministicResults ? 'Hide' : 'View'} Rule/Weight based Results
+                    </Button>
 
-                    {/* Attractor Landscape Button */}
-                    {ruleBasedResult.attractors.length > 0 && (
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={() => {
-                          setAttractorLandscapeData(ruleBasedResult.attractors);
-                          setAttractorLandscapeOpen(true);
-                        }}
-                      >
-                        View Attractor Landscape
-                      </Button>
-                    )}
+                    {showDeterministicResults && (
+                      <div>
+                        {ruleBasedResult && (
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                              <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-xs uppercase tracking-wide text-muted-foreground">Nodes</span><span className="text-sm font-semibold">{ruleBasedResult.nodeOrder.length}</span></div>
+                              <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-xs uppercase tracking-wide text-muted-foreground">Explored States</span><span className="text-sm font-semibold">{ruleBasedResult.exploredStateCount}</span></div>
+                              <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-xs uppercase tracking-wide text-muted-foreground">State Space</span><span className="text-sm font-semibold">{ruleBasedResult.totalStateSpace}</span></div>
+                              <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-xs uppercase tracking-wide text-muted-foreground">Attractors</span><span className="text-sm font-semibold">{ruleBasedResult.attractors.length}</span></div>
+                            </div>
 
-                    {ruleBasedResult.attractors.map((attr: DeterministicAttractor) => (
-                      <div key={attr.id} className="border rounded-md p-3 bg-background/50">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-medium text-sm">Rule-Based Attractor #{attr.id + 1} ({attr.type})</h3>
-                            {cellFates[String(attr.id)] && (
-                              <AttractorFateBadge
-                                fate={cellFates[String(attr.id)]}
-                                onEdit={() => handleOpenFateDialog(attr.id)}
-                              />
+                            {ruleBasedResult.attractors.length > 0 && (
+                              <Button
+                                variant="outline"
+                                className="w-full"
+                                onClick={() => {
+                                  setAttractorLandscapeData(ruleBasedResult.attractors);
+                                  setAttractorLandscapeOpen(true);
+                                }}
+                              >
+                                View Attractor Landscape
+                              </Button>
                             )}
+
+                            {ruleBasedResult.attractors.map((attr: DeterministicAttractor) => (
+                              <div key={attr.id} className="border rounded-md p-3 bg-background/50">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <h3 className="font-medium text-sm">Rule-Based Attractor #{attr.id + 1} ({attr.type})</h3>
+                                    {cellFates[String(attr.id)] && (
+                                      <AttractorFateBadge
+                                        fate={cellFates[String(attr.id)]}
+                                        onEdit={() => handleOpenFateDialog(attr.id)}
+                                      />
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs text-muted-foreground">Period {attr.period} • Basin {(attr.basinShare*100).toFixed(1)}%</span>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleOpenFateDialog(attr.id)}
+                                    >
+                                      {cellFates[String(attr.id)] ? 'Edit' : 'Classify'}
+                                    </Button>
+                                  </div>
+                                </div>
+                                <div className="overflow-auto">
+                                  <table className="w-full text-xs border-collapse">
+                                    <thead>
+                                      <tr>
+                                        {ruleBasedResult.nodeOrder.map((n: string) => (
+                                          <th key={n} className="p-1 font-medium">{ruleBasedResult.nodeLabels[n]}</th>
+                                        ))}
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {attr.states.map((s: any, si: number) => (
+                                        <tr key={si} className="odd:bg-muted/40">
+                                          {ruleBasedResult.nodeOrder.map((n: string) => (
+                                            <td key={n} className="p-1 text-center">{s.values[n]}</td>
+                                          ))}
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground">Period {attr.period} • Basin {(attr.basinShare*100).toFixed(1)}%</span>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleOpenFateDialog(attr.id)}
-                            >
-                              {cellFates[String(attr.id)] ? 'Edit' : 'Classify'}
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="overflow-auto">
-                          <table className="w-full text-xs border-collapse">
-                            <thead>
-                              <tr>
-                                {ruleBasedResult.nodeOrder.map((n: string) => (
-                                  <th key={n} className="p-1 font-medium">{ruleBasedResult.nodeLabels[n]}</th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {attr.states.map((s: any, si: number) => (
-                                <tr key={si} className="odd:bg-muted/40">
-                                  {ruleBasedResult.nodeOrder.map((n: string) => (
-                                    <td key={n} className="p-1 text-center">{s.values[n]}</td>
-                                  ))}
-                                </tr>
+                        )}
+
+                        {weightedResult && !isWeightedAnalyzing && (
+                          <div className="space-y-4">
+                            {/* Weighted Analysis Section Header */}
+                            <div className="flex items-center gap-2 pb-2 border-b-2 border-primary">
+                              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                                <BarChart3 className="w-4 h-4 text-primary-foreground" />
+                              </div>
+                              <div>
+                                <h3 className="font-semibold text-base text-foreground">Weighted Deterministic Analysis</h3>
+                                <p className="text-xs text-muted-foreground">Matrix-based Boolean dynamics with threshold tie-breaking</p>
+                              </div>
+                            </div>
+                            
+                            <div className="border rounded-lg p-4 space-y-4 bg-primary/5">
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                <div className="flex flex-col p-2 rounded-md bg-card shadow-sm"><span className="text-xs uppercase tracking-wide text-muted-foreground">Nodes</span><span className="text-sm font-semibold">{weightedResult.nodeOrder.length}</span></div>
+                                <div className="flex flex-col p-2 rounded-md bg-card shadow-sm"><span className="text-xs uppercase tracking-wide text-muted-foreground">Explored States</span><span className="text-sm font-semibold">{weightedResult.exploredStateCount}</span></div>
+                                <div className="flex flex-col p-2 rounded-md bg-card shadow-sm"><span className="text-xs uppercase tracking-wide text-muted-foreground">State Space</span><span className="text-sm font-semibold">{weightedResult.totalStateSpace}</span></div>
+                                <div className="flex flex-col p-2 rounded-md bg-card shadow-sm"><span className="text-xs uppercase tracking-wide text-muted-foreground">Attractors</span><span className="text-sm font-semibold">{weightedResult.attractors.length}</span></div>
+                              </div>
+                              {weightedResult.warnings.length > 0 && (
+                                <div className="text-xs text-amber-600 space-y-1 p-2 bg-amber-50 rounded-md border border-amber-200">
+                                  {weightedResult.warnings.map((w: string, i: number) => <p key={i}>• {w}</p>)}
+                                </div>
+                              )}
+                              {weightedResult.attractors.length > 0 && (
+                                <Button
+                                  variant="outline"
+                                  className="w-full border-primary/30 hover:bg-primary/10"
+                                  onClick={() => {
+                                    setAttractorLandscapeData(weightedResult.attractors);
+                                    setAttractorLandscapeOpen(true);
+                                  }}
+                                >
+                                  View Attractor Landscape
+                                </Button>
+                              )}
+                              {weightedResult.attractors.map((attr: DeterministicAttractor) => (
+                                <div key={attr.id} className="border rounded-md p-3 bg-card shadow-sm">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                      <h3 className="font-medium text-sm text-primary">Attractor #{attr.id + 1} ({attr.type})</h3>
+                                      {cellFates[String(attr.id)] && (
+                                        <AttractorFateBadge
+                                          fate={cellFates[String(attr.id)]}
+                                          onEdit={() => handleOpenFateDialog(attr.id)}
+                                        />
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs text-muted-foreground">Period {attr.period} • Basin {(attr.basinShare*100).toFixed(1)}%</span>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleOpenFateDialog(attr.id)}
+                                      >
+                                        {cellFates[String(attr.id)] ? 'Edit' : 'Classify'}
+                                      </Button>
+                                    </div>
+                                  </div>
+                                  <div className="overflow-auto">
+                                    <table className="w-full text-xs border-collapse">
+                                      <thead>
+                                        <tr>
+                                          {weightedResult.nodeOrder.map((n: string) => (
+                                            <th key={n} className="p-1 font-medium">{weightedResult.nodeLabels[n]}</th>
+                                          ))}
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {attr.states.map((s: StateSnapshot, si: number) => (
+                                          <tr key={si} className="odd:bg-muted/40">
+                                            {weightedResult.nodeOrder.map((n: string) => (
+                                              <td key={n} className="p-1 text-center">{s.values[n]}</td>
+                                            ))}
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
                               ))}
-                            </tbody>
-                          </table>
-                        </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    ))}
+                    )}
                   </div>
                 ) : null}
 
@@ -2035,92 +2148,7 @@ function ProjectVisualizationPage() {
                   <div className="text-sm text-muted-foreground">Running weighted deterministic analysis…</div>
                 )}
 
-                {weightedResult && !isWeightedAnalyzing && (
-                  <div className="space-y-4">
-                    {/* Weighted Analysis Section Header */}
-                    <div className="flex items-center gap-2 pb-2 border-b-2 border-primary">
-                      <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                        <BarChart3 className="w-4 h-4 text-primary-foreground" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-base text-foreground">Weighted Deterministic Analysis</h3>
-                        <p className="text-xs text-muted-foreground">Matrix-based Boolean dynamics with threshold tie-breaking</p>
-                      </div>
-                    </div>
-                    
-                    <div className="border rounded-lg p-4 space-y-4 bg-primary/5">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div className="flex flex-col p-2 rounded-md bg-card shadow-sm"><span className="text-xs uppercase tracking-wide text-muted-foreground">Nodes</span><span className="text-sm font-semibold">{weightedResult.nodeOrder.length}</span></div>
-                        <div className="flex flex-col p-2 rounded-md bg-card shadow-sm"><span className="text-xs uppercase tracking-wide text-muted-foreground">Explored States</span><span className="text-sm font-semibold">{weightedResult.exploredStateCount}</span></div>
-                        <div className="flex flex-col p-2 rounded-md bg-card shadow-sm"><span className="text-xs uppercase tracking-wide text-muted-foreground">State Space</span><span className="text-sm font-semibold">{weightedResult.totalStateSpace}</span></div>
-                        <div className="flex flex-col p-2 rounded-md bg-card shadow-sm"><span className="text-xs uppercase tracking-wide text-muted-foreground">Attractors</span><span className="text-sm font-semibold">{weightedResult.attractors.length}</span></div>
-                      </div>
-                      {weightedResult.warnings.length > 0 && (
-                        <div className="text-xs text-amber-600 space-y-1 p-2 bg-amber-50 rounded-md border border-amber-200">
-                          {weightedResult.warnings.map((w: string, i: number) => <p key={i}>• {w}</p>)}
-                        </div>
-                      )}
-                      {/* Attractor Landscape Button for Weighted */}
-                      {weightedResult.attractors.length > 0 && (
-                        <Button
-                          variant="outline"
-                          className="w-full border-primary/30 hover:bg-primary/10"
-                          onClick={() => {
-                            setAttractorLandscapeData(weightedResult.attractors);
-                            setAttractorLandscapeOpen(true);
-                          }}
-                        >
-                          View Attractor Landscape
-                        </Button>
-                      )}
-                      {weightedResult.attractors.map((attr: DeterministicAttractor) => (
-                        <div key={attr.id} className="border rounded-md p-3 bg-card shadow-sm">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-medium text-sm text-primary">Attractor #{attr.id + 1} ({attr.type})</h3>
-                              {cellFates[String(attr.id)] && (
-                                <AttractorFateBadge
-                                  fate={cellFates[String(attr.id)]}
-                                  onEdit={() => handleOpenFateDialog(attr.id)}
-                                />
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground">Period {attr.period} • Basin {(attr.basinShare*100).toFixed(1)}%</span>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleOpenFateDialog(attr.id)}
-                              >
-                                {cellFates[String(attr.id)] ? 'Edit' : 'Classify'}
-                              </Button>
-                            </div>
-                          </div>
-                          <div className="overflow-auto">
-                            <table className="w-full text-xs border-collapse">
-                              <thead>
-                                <tr>
-                                  {weightedResult.nodeOrder.map((n: string) => (
-                                    <th key={n} className="p-1 font-medium">{weightedResult.nodeLabels[n]}</th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {attr.states.map((s: StateSnapshot, si: number) => (
-                                  <tr key={si} className="odd:bg-muted/40">
-                                    {weightedResult.nodeOrder.map((n: string) => (
-                                      <td key={n} className="p-1 text-center">{s.values[n]}</td>
-                                    ))}
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {/* Weighted results are gated above; no direct render here */}
 
                 {isProbabilisticAnalyzing && (
                   <div className="text-sm text-muted-foreground">Running probabilistic analysis…</div>
@@ -2128,65 +2156,75 @@ function ProjectVisualizationPage() {
 
                 {probabilisticResult && !isProbabilisticAnalyzing && (
                   <div className="space-y-4">
-                    {/* Probabilistic Analysis Section Header */}
-                    <div className="flex items-center gap-2 pb-2 border-b-2 border-purple-500 dark:border-purple-400">
-                      <div className="w-8 h-8 rounded-lg bg-purple-500 dark:bg-purple-600 flex items-center justify-center">
-                        <BarChart3 className="w-4 h-4 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-base text-foreground">Probabilistic Analysis</h3>
-                        <p className="text-xs text-muted-foreground">Markovian dynamics with noise and self-degradation</p>
-                      </div>
-                    </div>
-                    
-                    <div className="border rounded-lg p-4 space-y-4 bg-purple-50/50 dark:bg-purple-950/20">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div className="flex flex-col p-2 rounded-md bg-card shadow-sm"><span className="text-xs uppercase tracking-wide text-muted-foreground">Nodes</span><span className="text-sm font-semibold">{probabilisticResult.nodeOrder.length}</span></div>
-                        <div className="flex flex-col p-2 rounded-md bg-card shadow-sm"><span className="text-xs uppercase tracking-wide text-muted-foreground">Converged</span><span className="text-sm font-semibold">{probabilisticResult.converged ? 'Yes' : 'No'}</span></div>
-                        <div className="flex flex-col p-2 rounded-md bg-card shadow-sm"><span className="text-xs uppercase tracking-wide text-muted-foreground">Iterations</span><span className="text-sm font-semibold">{probabilisticResult.iterations}</span></div>
-                        <div className="flex flex-col p-2 rounded-md bg-card shadow-sm"><span className="text-xs uppercase tracking-wide text-muted-foreground">Avg P</span><span className="text-sm font-semibold">{(Object.values(probabilisticResult.probabilities).reduce((a, b) => a + b, 0) / probabilisticResult.nodeOrder.length * 100).toFixed(1)}%</span></div>
-                      </div>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => setShowProbabilisticResults(v => !v)}
+                    >
+                      {showProbabilisticResults ? 'Hide' : 'View'} Probabilistic Results
+                    </Button>
 
-                      {/* Landscape Buttons */}
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          variant="outline"
-                          className="border-purple-300 hover:bg-purple-100"
-                          onClick={() => {
-                            setLandscapeProbabilisticData({
-                              nodeOrder: probabilisticResult.nodeOrder,
-                              probabilities: probabilisticResult.probabilities,
-                              potentialEnergies: probabilisticResult.potentialEnergies,
-                            });
-                            setProbabilityLandscapeOpen(true);
-                          }}
-                        >
-                          View Probability Landscape
-                        </Button>
-                        {Object.keys(probabilisticResult.potentialEnergies).length > 0 && (
-                          <Button
-                            variant="outline"
-                            className="border-purple-300 hover:bg-purple-100"
-                            onClick={() => {
-                              setLandscapeProbabilisticData({
-                                nodeOrder: probabilisticResult.nodeOrder,
-                                probabilities: probabilisticResult.probabilities,
-                                potentialEnergies: probabilisticResult.potentialEnergies,
-                              });
-                              setEnergyLandscapeOpen(true);
-                            }}
-                          >
-                            View Potential Energy Landscape
-                          </Button>
-                        )}
-                        <Button
-                          variant="outline"
-                          className="border-purple-300 hover:bg-purple-100"
-                          onClick={() => setShowProbabilityTables(!showProbabilityTables)}
-                        >
-                          {showProbabilityTables ? 'Hide' : 'Show'} Probability Tables
-                        </Button>
-                      </div>
+                    {showProbabilisticResults && (
+                      <div>
+                        {/* Probabilistic Analysis Section Header */}
+                        <div className="flex items-center gap-2 pb-2 border-b-2 border-purple-500 dark:border-purple-400">
+                          <div className="w-8 h-8 rounded-lg bg-purple-500 dark:bg-purple-600 flex items-center justify-center">
+                            <BarChart3 className="w-4 h-4 text-white" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-base text-foreground">Probabilistic Analysis</h3>
+                            <p className="text-xs text-muted-foreground">Markovian dynamics with noise and self-degradation</p>
+                          </div>
+                        </div>
+                        
+                        <div className="border rounded-lg p-4 space-y-4 bg-purple-50/50 dark:bg-purple-950/20">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div className="flex flex-col p-2 rounded-md bg-card shadow-sm"><span className="text-xs uppercase tracking-wide text-muted-foreground">Nodes</span><span className="text-sm font-semibold">{probabilisticResult.nodeOrder.length}</span></div>
+                            <div className="flex flex-col p-2 rounded-md bg-card shadow-sm"><span className="text-xs uppercase tracking-wide text-muted-foreground">Converged</span><span className="text-sm font-semibold">{probabilisticResult.converged ? 'Yes' : 'No'}</span></div>
+                            <div className="flex flex-col p-2 rounded-md bg-card shadow-sm"><span className="text-xs uppercase tracking-wide text-muted-foreground">Iterations</span><span className="text-sm font-semibold">{probabilisticResult.iterations}</span></div>
+                            <div className="flex flex-col p-2 rounded-md bg-card shadow-sm"><span className="text-xs uppercase tracking-wide text-muted-foreground">Avg P</span><span className="text-sm font-semibold">{(Object.values(probabilisticResult.probabilities).reduce((a, b) => a + b, 0) / probabilisticResult.nodeOrder.length * 100).toFixed(1)}%</span></div>
+                          </div>
+
+                          {/* Landscape Buttons */}
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              variant="outline"
+                              className="border-purple-300 hover:bg-purple-100"
+                              onClick={() => {
+                                setLandscapeProbabilisticData({
+                                  nodeOrder: probabilisticResult.nodeOrder,
+                                  probabilities: probabilisticResult.probabilities,
+                                  potentialEnergies: probabilisticResult.potentialEnergies,
+                                });
+                                setProbabilityLandscapeOpen(true);
+                              }}
+                            >
+                              View Probability Landscape
+                            </Button>
+                            {Object.keys(probabilisticResult.potentialEnergies).length > 0 && (
+                              <Button
+                                variant="outline"
+                                className="border-purple-300 hover:bg-purple-100"
+                                onClick={() => {
+                                  setLandscapeProbabilisticData({
+                                    nodeOrder: probabilisticResult.nodeOrder,
+                                    probabilities: probabilisticResult.probabilities,
+                                    potentialEnergies: probabilisticResult.potentialEnergies,
+                                  });
+                                  setEnergyLandscapeOpen(true);
+                                }}
+                              >
+                                View Potential Energy Landscape
+                              </Button>
+                            )}
+                            <Button
+                              variant="outline"
+                              className="border-purple-300 hover:bg-purple-100"
+                              onClick={() => setShowProbabilityTables(!showProbabilityTables)}
+                            >
+                              {showProbabilityTables ? 'Hide' : 'Show'} Probability Tables
+                            </Button>
+                          </div>
 
                       {/* Node probabilities table - hidden by default */}
                       {showProbabilityTables && (
@@ -2238,7 +2276,7 @@ function ProjectVisualizationPage() {
                               </div>
                             </div>
                           )}
-                        </>
+                        </div>
                       )}
 
                       {probabilisticResult.warnings.length > 0 && (
@@ -2247,7 +2285,8 @@ function ProjectVisualizationPage() {
                           {probabilisticResult.warnings.map((w: string, i: number) => <p key={i}>• {w}</p>)}
                         </div>
                       )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
