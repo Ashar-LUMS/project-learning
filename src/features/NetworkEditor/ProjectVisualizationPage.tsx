@@ -1493,7 +1493,7 @@ function ProjectVisualizationPage() {
   const inferenceSidebarContent = (
     <div className="flex flex-col h-full gap-3">
       <div className="flex-shrink-0">
-        <h2 className="text-lg font-bold tracking-tight text-foreground">Network Inference</h2>
+        <h2 className="text-lg font-bold tracking-tight text-foreground">Network Analysis</h2>
       </div>
 
       <Separator />
