@@ -201,6 +201,42 @@ export function SeqAnalysisTab({
     [handleFileChange]
   );
 
+  // Sample file download helpers
+  const downloadTextFile = useCallback((filename: string, text: string) => {
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, []);
+
+  const downloadFastqSample = useCallback((r: 'R1'|'R2') => {
+    const content = [
+      '@SEQ_ID',
+      'GATTTGGGGTTCAAAGCAGTATCGATCAAATAGTAA',
+      '+',
+      'IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII',
+    ].join('\n');
+    downloadTextFile(`sample_${r.toLowerCase()}.fastq.gz`, content);
+  }, [downloadTextFile]);
+
+  const downloadFastaSample = useCallback(() => {
+    const content = ['>chr1', 'ACGTACGTACGTACGTACGTACGTACGT'].join('\n');
+    downloadTextFile('sample_reference.fa.gz', content);
+  }, [downloadTextFile]);
+
+  const downloadGff3Sample = useCallback(() => {
+    const content = [
+      '##gff-version 3',
+      'chr1\tsource\tgene\t1000\t2000\t.\t+\t.\tID=gene1;Name=GENE1',
+    ].join('\n');
+    downloadTextFile('sample_annotation.gff3.gz', content);
+  }, [downloadTextFile]);
+
   // Validate all files
   const validateForm = useCallback(() => {
     const validation = validateRNASeqFiles({
@@ -444,6 +480,7 @@ export function SeqAnalysisTab({
                     disabled={isRunning}
                     className={cn(fastq1.error && "border-red-500")}
                   />
+                  <Button variant="outline" size="sm" onClick={() => downloadFastqSample('R1')}>Sample</Button>
                   {fastq1.file && (
                     <Badge variant="secondary" className="shrink-0">
                       {formatFileSize(fastq1.file.size)}
@@ -471,6 +508,7 @@ export function SeqAnalysisTab({
                     disabled={isRunning}
                     className={cn(fastq2.error && "border-red-500")}
                   />
+                  <Button variant="outline" size="sm" onClick={() => downloadFastqSample('R2')}>Sample</Button>
                   {fastq2.file && (
                     <Badge variant="secondary" className="shrink-0">
                       {formatFileSize(fastq2.file.size)}
@@ -500,6 +538,7 @@ export function SeqAnalysisTab({
                     disabled={isRunning}
                     className={cn(reference.error && "border-red-500")}
                   />
+                  <Button variant="outline" size="sm" onClick={downloadFastaSample}>Sample</Button>
                   {reference.file && (
                     <Badge variant="secondary" className="shrink-0">
                       {formatFileSize(reference.file.size)}
@@ -527,6 +566,7 @@ export function SeqAnalysisTab({
                     disabled={isRunning}
                     className={cn(annotation.error && "border-red-500")}
                   />
+                  <Button variant="outline" size="sm" onClick={downloadGff3Sample}>Sample</Button>
                   {annotation.file && (
                     <Badge variant="secondary" className="shrink-0">
                       {formatFileSize(annotation.file.size)}

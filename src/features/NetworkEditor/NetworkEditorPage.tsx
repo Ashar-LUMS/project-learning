@@ -791,6 +791,34 @@ function NetworkEditorPage() {
                   {analysisError && (
                     <Alert variant="destructive" className="border-red-200 bg-red-50">
                       <AlertCircle className="h-4 w-4" />
+                        inferenceSidebar={(
+                          <div className="flex flex-col h-full gap-3">
+                            <div className="flex-shrink-0">
+                              <h2 className="text-lg font-bold tracking-tight text-foreground">Network Inference</h2>
+                            </div>
+                            <Separator />
+                            {networks.length > 0 && (
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium">Network Context</label>
+                                <select
+                                  value={selectedNetworkId ?? ''}
+                                  onChange={(e) => selectNetwork(e.target.value)}
+                                  className="w-full border p-2 rounded text-sm"
+                                >
+                                  <option value="">-- Select a network --</option>
+                                  {networks.map(n => (
+                                    <option key={n.id} value={n.id}>{n.name || n.id}</option>
+                                  ))}
+                                </select>
+                                {selectedNetworkId ? (
+                                  <p className="text-xs text-muted-foreground">Using: {selectedNetwork?.name || selectedNetworkId}</p>
+                                ) : (
+                                  <p className="text-xs text-amber-600">No network selected</p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       <AlertTitle>Analysis Error</AlertTitle>
                       <AlertDescription className="space-y-2">
                         <p>{analysisError}</p>

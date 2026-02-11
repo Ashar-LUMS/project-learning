@@ -310,7 +310,7 @@ const AppLayout = () => {
       ) : null}
       {/* Header */}
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-border">
-        <div className="container px-4 sm:px-6 h-14 flex items-center justify-between">
+        <div className="w-full px-4 sm:px-6 h-14 flex items-center justify-between">
           {/* Logo Section */}
           <Link to="/app" className="flex items-center shrink-0">
             <img 

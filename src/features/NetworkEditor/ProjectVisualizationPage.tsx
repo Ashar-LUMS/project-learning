@@ -1489,6 +1489,87 @@ function ProjectVisualizationPage() {
     </div>
   );
 
+  // Inference sidebar content with network selector
+  const inferenceSidebarContent = (
+    <div className="flex flex-col h-full gap-3">
+      <div className="flex-shrink-0">
+        <h2 className="text-lg font-bold tracking-tight text-foreground">Network Inference</h2>
+      </div>
+
+      <Separator />
+
+      {/* Network Context Selector */}
+      {networks.length > 0 && (
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Network Context</label>
+          <select
+            value={selectedNetworkId ?? ''}
+            onChange={(e) => {
+              const val = e.target.value || null;
+              if (val) selectNetwork(val);
+            }}
+            className="w-full border p-2 rounded text-sm"
+          >
+            <option value="">-- Select a network --</option>
+            {networks.map(n => (
+              <option key={n.id} value={n.id}>{n.name || n.id}</option>
+            ))}
+          </select>
+          {selectedNetworkId ? (
+            <p className="text-xs text-muted-foreground">Using: {selectedNetwork?.name || selectedNetworkId}</p>
+          ) : (
+            <p className="text-xs text-amber-600">No network selected</p>
+          )}
+        </div>
+      )}
+
+      <Separator />
+
+      {/* Quick actions */}
+      <div className="space-y-2">
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Run Analysis</p>
+        <Button
+          className="w-full justify-start gap-2 h-8 px-2 text-xs"
+          onClick={handleRunRuleBasedDA}
+          disabled={Boolean(isRuleBasedRunning) || !selectedIsRuleBased}
+          variant="secondary"
+          title={!selectedIsRuleBased ? 'Rule-based deterministic analysis only' : undefined}
+          size="sm"
+        >
+          Run Rule-based
+        </Button>
+        <Button
+          className="w-full justify-start gap-2 h-8 px-2 text-xs"
+          onClick={handleRunWeighted}
+          disabled={isWeightedAnalyzing || selectedIsRuleBased}
+          variant="secondary"
+          title={selectedIsRuleBased ? 'Weighted analysis disabled for rule-based networks' : undefined}
+          size="sm"
+        >
+          Run Weighted
+        </Button>
+        <Button
+          className="w-full justify-start gap-2 h-8 px-2 text-xs"
+          onClick={handleOpenProbabilisticDialog}
+          disabled={Boolean(isProbabilisticAnalyzing)}
+          variant="secondary"
+          size="sm"
+        >
+          Run Probabilistic
+        </Button>
+      </div>
+
+      <Button
+        variant="outline"
+        className="w-full justify-start gap-2 h-8 px-2 text-xs"
+        onClick={handleDownloadResults}
+        disabled={!Boolean(ruleBasedResult || weightedResult || probabilisticResult)}
+      >
+        Download Results
+      </Button>
+    </div>
+  );
+
   // Build therapeutics sidebar content
   const therapeuticsSidebarContent = useMemo(() => {
     if (!selectedNetworkId || !selectedNetwork?.data) {
@@ -2627,6 +2708,7 @@ function ProjectVisualizationPage() {
       activeTab={activeTab}
       onTabChange={setActiveTab}
       networkSidebar={networkSidebarContent}
+      inferenceSidebar={inferenceSidebarContent}
       therapeuticsSidebar={therapeuticsSidebarContent}
       seqAnalysisSidebar={seqAnalysisSidebarContent}
       disableAfterTherapeutics

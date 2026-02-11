@@ -413,13 +413,21 @@ const HomePage: React.FC = () => {
   const filteredUsersForCreate = useMemo(() => {
     const q = createTeamSearch.trim().toLowerCase();
     if (!q) return [];
-    return users.filter(u => (u.name || u.email || "").toLowerCase().includes(q));
+    return users.filter(u => {
+      const name = (u.name || '').toLowerCase();
+      const email = (u.email || '').toLowerCase();
+      return name.includes(q) || email.includes(q);
+    });
   }, [users, createTeamSearch]);
 
   const filteredUsersForEdit = useMemo(() => {
     const q = editTeamSearch.trim().toLowerCase();
     if (!q) return users;
-    return users.filter(u => (u.name || u.email || "").toLowerCase().includes(q));
+    return users.filter(u => {
+      const name = (u.name || '').toLowerCase();
+      const email = (u.email || '').toLowerCase();
+      return name.includes(q) || email.includes(q);
+    });
   }, [users, editTeamSearch]);
 
   return (

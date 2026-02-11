@@ -135,6 +135,50 @@ export function ExomeSeqTab({
     [handleFileChange]
   );
 
+  // Sample file download helpers
+  const downloadTextFile = useCallback((filename: string, text: string) => {
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, []);
+
+  const downloadFastqSample = useCallback((prefix: string) => {
+    const content = [
+      '@SEQ_ID',
+      'GATTTGGGGTTCAAAGCAGTATCGATCAAATAGTAA',
+      '+',
+      'IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII',
+    ].join('\n');
+    downloadTextFile(`${prefix.toLowerCase()}_sample.fastq.gz`, content);
+  }, [downloadTextFile]);
+
+  const downloadFastaSample = useCallback(() => {
+    const content = ['>chr1', 'ACGTACGTACGTACGTACGTACGTACGT'].join('\n');
+    downloadTextFile('sample_reference.fa.gz', content);
+  }, [downloadTextFile]);
+
+  const downloadBedSample = useCallback(() => {
+    const content = ['chr1\t10000\t10100\tEXON1', 'chr1\t15000\t15100\tEXON2'].join('\n');
+    downloadTextFile('sample_targets.bed.gz', content);
+  }, [downloadTextFile]);
+
+  const downloadManifestSample = useCallback(() => {
+    const content = ['chr1\t20000\t20100\tCAPTURE1'].join('\n');
+    downloadTextFile('sample_capture_manifest.bed.gz', content);
+  }, [downloadTextFile]);
+
+  const downloadVcfSample = useCallback((name: string) => {
+    const header = ['##fileformat=VCFv4.2', '#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO'].join('\n');
+    const record = ['chr1','10100','.','A','G','60','PASS','.'].join('\t');
+    downloadTextFile(`${name}.vcf.gz`, `${header}\n${record}`);
+  }, [downloadTextFile]);
+
   const totalFileSize = useMemo(() => {
     const sizes = [
       tumorFastq1.file?.size || 0,
@@ -271,6 +315,7 @@ export function ExomeSeqTab({
                       disabled={isRunning}
                       className={cn(tumorFastq1.error && "border-red-500")}
                     />
+                    <Button variant="outline" size="sm" className="mt-2" onClick={() => downloadFastqSample('tumor_R1')}>Sample</Button>
                     {tumorFastq1.file && (
                       <Badge variant="secondary" className="mt-2">
                         {formatFileSize(tumorFastq1.file.size)}
@@ -286,6 +331,7 @@ export function ExomeSeqTab({
                       disabled={isRunning}
                       className={cn(tumorFastq2.error && "border-red-500")}
                     />
+                    <Button variant="outline" size="sm" className="mt-2" onClick={() => downloadFastqSample('tumor_R2')}>Sample</Button>
                     {tumorFastq2.file && (
                       <Badge variant="secondary" className="mt-2">
                         {formatFileSize(tumorFastq2.file.size)}
@@ -320,6 +366,7 @@ export function ExomeSeqTab({
                         disabled={isRunning}
                         className={cn(normalFastq1.error && "border-red-500")}
                       />
+                      <Button variant="outline" size="sm" className="mt-2" onClick={() => downloadFastqSample('normal_R1')}>Sample</Button>
                       {normalFastq1.file && (
                         <Badge variant="secondary" className="mt-2">
                           {formatFileSize(normalFastq1.file.size)}
@@ -335,6 +382,7 @@ export function ExomeSeqTab({
                         disabled={isRunning}
                         className={cn(normalFastq2.error && "border-red-500")}
                       />
+                      <Button variant="outline" size="sm" className="mt-2" onClick={() => downloadFastqSample('normal_R2')}>Sample</Button>
                       {normalFastq2.file && (
                         <Badge variant="secondary" className="mt-2">
                           {formatFileSize(normalFastq2.file.size)}
@@ -359,6 +407,7 @@ export function ExomeSeqTab({
                     disabled={isRunning}
                     className={cn(reference.error && "border-red-500")}
                   />
+                  <Button variant="outline" size="sm" onClick={downloadFastaSample}>Sample</Button>
                   {reference.file && (
                     <Badge variant="secondary" className="shrink-0">{formatFileSize(reference.file.size)}</Badge>
                   )}
@@ -377,6 +426,7 @@ export function ExomeSeqTab({
                     disabled={isRunning}
                     className={cn(targetsBed.error && "border-red-500")}
                   />
+                  <Button variant="outline" size="sm" onClick={downloadBedSample}>Sample</Button>
                   {targetsBed.file && (
                     <Badge variant="secondary" className="shrink-0">{formatFileSize(targetsBed.file.size)}</Badge>
                   )}
@@ -394,6 +444,7 @@ export function ExomeSeqTab({
                     onChange={handleCaptureManifestChange}
                     disabled={isRunning}
                   />
+                  <Button variant="outline" size="sm" onClick={downloadManifestSample}>Sample</Button>
                   {captureManifest.file && (
                     <Badge variant="secondary" className="shrink-0">{formatFileSize(captureManifest.file.size)}</Badge>
                   )}
@@ -406,19 +457,28 @@ export function ExomeSeqTab({
               {/* Known variants (VCF) */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Known SNPs (dbSNP VCF)</Label>
-                <Input type="file" accept=".vcf,.vcf.gz" onChange={handleDbsnpVcfChange} disabled={isRunning} />
+                <div className="flex items-center gap-2">
+                  <Input type="file" accept=".vcf,.vcf.gz" onChange={handleDbsnpVcfChange} disabled={isRunning} />
+                  <Button variant="outline" size="sm" onClick={() => downloadVcfSample('sample_dbsnp')}>Sample</Button>
+                </div>
                 <p className="text-xs text-muted-foreground">Optional: known SNPs for annotation</p>
               </div>
 
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Known Indels (VCF)</Label>
-                <Input type="file" accept=".vcf,.vcf.gz" onChange={handleKnownIndelsVcfChange} disabled={isRunning} />
+                <div className="flex items-center gap-2">
+                  <Input type="file" accept=".vcf,.vcf.gz" onChange={handleKnownIndelsVcfChange} disabled={isRunning} />
+                  <Button variant="outline" size="sm" onClick={() => downloadVcfSample('sample_indels')}>Sample</Button>
+                </div>
                 <p className="text-xs text-muted-foreground">Optional: known indels for annotation</p>
               </div>
 
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Panel of Normals (VCF)</Label>
-                <Input type="file" accept=".vcf,.vcf.gz" onChange={handlePanelOfNormalsChange} disabled={isRunning} />
+                <div className="flex items-center gap-2">
+                  <Input type="file" accept=".vcf,.vcf.gz" onChange={handlePanelOfNormalsChange} disabled={isRunning} />
+                  <Button variant="outline" size="sm" onClick={() => downloadVcfSample('sample_pon')}>Sample</Button>
+                </div>
                 <p className="text-xs text-muted-foreground">Optional: reduce false positives in tumor-only mode</p>
               </div>
 
