@@ -311,15 +311,6 @@ function ProjectVisualizationPage() {
   };
 
   const handleRunWeighted = async () => {
-    console.log('[ProjectVisualizationPage] handleRunWeighted called', {
-      hasSelectedNetwork: !!selectedNetwork,
-      selectedNetworkId,
-      networkName: selectedNetwork?.name,
-      hasData: !!selectedNetwork?.data,
-      nodeCount: selectedNetwork?.data?.nodes?.length ?? 0,
-      edgeCount: selectedNetwork?.data?.edges?.length ?? 0,
-    });
-
     if (!selectedNetwork) {
       showToast({ 
         title: 'No Network Selected', 
@@ -605,12 +596,6 @@ function ProjectVisualizationPage() {
   };
 
   const handleProbabilisticSubmit = async () => {
-    console.log('[ProjectVisualizationPage] handleProbabilisticSubmit called', {
-      hasSelectedNetwork: !!selectedNetwork,
-      selectedNetworkId,
-      networkName: selectedNetwork?.name,
-    });
-
     if (!selectedNetwork) {
       setProbabilisticFormError('No network selected. Please select a network in the Network tab first.');
       return;
@@ -794,10 +779,6 @@ function ProjectVisualizationPage() {
 
   // Clear analysis results when selected network changes
   useEffect(() => {
-    console.log('[ProjectVisualizationPage] Selected network changed, clearing analysis results', {
-      selectedNetworkId,
-      networkName: selectedNetwork?.name,
-    });
     resetWeightedAnalysis();
     resetProbabilisticAnalysis();
     resetRuleBasedAnalysis();
@@ -909,7 +890,7 @@ function ProjectVisualizationPage() {
 
       // 3) Append new network id uniquely and update project
       if (currentIds.includes(newNetworkId)) {
-        console.warn('[handleCreateNewNetwork] Network already in project, skipping update');
+        // Network already in project, skipping update
       } else {
         const updatedIds = [...currentIds, newNetworkId];
         const { error: updateErr } = await supabase
@@ -1258,11 +1239,11 @@ function ProjectVisualizationPage() {
         <div className="flex items-start justify-between gap-2">
           <span className="text-xs font-medium text-foreground break-words flex-1 min-w-0">{network.name}</span>
           {isActive && (
-            <span className="text-[9px] uppercase tracking-wide text-primary flex-shrink-0 whitespace-nowrap">Active</span>
+            <span className="text-xs uppercase tracking-wide text-primary flex-shrink-0 whitespace-nowrap">Active</span>
           )}
         </div>
         {createdLabel && (
-          <div className="mt-0.5 text-[10px] text-muted-foreground">Created {createdLabel}</div>
+          <div className="mt-0.5 text-xs text-muted-foreground">Created {createdLabel}</div>
         )}
       </button>
     );
@@ -1320,11 +1301,11 @@ function ProjectVisualizationPage() {
       </div>
 
       {isLoading ? (
-        <div className="rounded-lg border border-dashed border-muted-foreground/30 p-2 text-[10px] text-muted-foreground">
+        <div className="rounded-lg border border-dashed border-muted-foreground/30 p-2 text-xs text-muted-foreground">
           Loading networks...
         </div>
       ) : sidebarRecentNetworks.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-muted-foreground/30 p-2 text-[10px] text-muted-foreground">
+        <div className="rounded-lg border border-dashed border-muted-foreground/30 p-2 text-xs text-muted-foreground">
           No networks linked to this project yet.
         </div>
       ) : (
@@ -1333,12 +1314,12 @@ function ProjectVisualizationPage() {
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <h3 className="text-xs font-semibold text-muted-foreground">Rule-Based Networks</h3>
-              <Badge variant="secondary" className="text-[9px] px-1.5 py-0.5">
+              <Badge variant="secondary" className="text-xs px-1.5 py-0.5">
                 {ruleBasedNetworks.length}
               </Badge>
             </div>
             {ruleBasedNetworks.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-muted-foreground/20 p-2 text-[10px] text-muted-foreground/70 italic">
+              <div className="rounded-lg border border-dashed border-muted-foreground/20 p-2 text-xs text-muted-foreground/70 italic">
                 No rule-based networks
               </div>
             ) : (
@@ -1347,8 +1328,7 @@ function ProjectVisualizationPage() {
                 style={ruleBasedNetworks.length > 3 ? {
                   maxHeight: '240px',
                   overflowY: 'scroll',
-                  scrollbarWidth: 'thin',
-                  scrollbarColor: '#cbd5e1 #f1f5f9'
+                  scrollbarWidth: 'thin'
                 } : undefined}
               >
                 {ruleBasedNetworks.map(renderNetworkItem)}
@@ -1362,12 +1342,12 @@ function ProjectVisualizationPage() {
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <h3 className="text-xs font-semibold text-muted-foreground">Weight-Based Networks</h3>
-              <Badge variant="secondary" className="text-[9px] px-1.5 py-0.5">
+              <Badge variant="secondary" className="text-xs px-1.5 py-0.5">
                 {weightBasedNetworks.length}
               </Badge>
             </div>
             {weightBasedNetworks.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-muted-foreground/20 p-2 text-[10px] text-muted-foreground/70 italic">
+              <div className="rounded-lg border border-dashed border-muted-foreground/20 p-2 text-xs text-muted-foreground/70 italic">
                 No weight-based networks
               </div>
             ) : (
@@ -1376,8 +1356,7 @@ function ProjectVisualizationPage() {
                 style={weightBasedNetworks.length > 3 ? {
                   maxHeight: '240px',
                   overflowY: 'scroll',
-                  scrollbarWidth: 'thin',
-                  scrollbarColor: '#cbd5e1 #f1f5f9'
+                  scrollbarWidth: 'thin'
                 } : undefined}
               >
                 {weightBasedNetworks.map(renderNetworkItem)}
@@ -1427,7 +1406,7 @@ function ProjectVisualizationPage() {
               </button>
             </div>
             {!selectedIsRuleBased && (
-              <p className="text-[10px] text-muted-foreground italic">
+              <p className="text-xs text-muted-foreground italic">
                 Rules editing is only available for rule-based networks
               </p>
             )}
@@ -1541,7 +1520,7 @@ function ProjectVisualizationPage() {
                         setActiveTab('therapeutics');
                       }}
                     >
-                      <Badge variant="outline" className="mr-2 text-[10px]">
+                      <Badge variant="outline" className="mr-2 text-xs">
                         {net.data?.nodes?.length || 0}
                       </Badge>
                       {net.name}
@@ -1608,7 +1587,7 @@ function ProjectVisualizationPage() {
                     selectNetwork(net.id);
                   }}
                 >
-                  <Badge variant="outline" className="mr-2 text-[10px]">
+                  <Badge variant="outline" className="mr-2 text-xs">
                     {net.data?.nodes?.length || 0}
                   </Badge>
                   <span className={cn("truncate", net.id === selectedNetworkId && "font-medium")}>
@@ -1757,15 +1736,15 @@ function ProjectVisualizationPage() {
                   <>
                     <Badge 
                       variant={selectedIsRuleBased ? "default" : "secondary"} 
-                      className="text-[10px] px-2 py-0.5"
+                      className="text-xs px-2 py-0.5"
                     >
                       {selectedIsRuleBased ? 'Rule-based' : 'Weight-based'}
                     </Badge>
                     <div className="hidden sm:flex items-center gap-1.5">
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5">
+                      <Badge variant="outline" className="text-xs px-1.5 py-0 h-5">
                         {selectedNetwork.data.nodes?.length ?? 0} nodes
                       </Badge>
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5">
+                      <Badge variant="outline" className="text-xs px-1.5 py-0 h-5">
                         {selectedNetwork.data.edges?.length ?? 0} edges
                       </Badge>
                     </div>
@@ -1903,10 +1882,10 @@ function ProjectVisualizationPage() {
                 {ruleBasedResult ? (
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-[10px] uppercase tracking-wide text-muted-foreground">Nodes</span><span className="text-sm font-semibold">{ruleBasedResult.nodeOrder.length}</span></div>
-                      <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-[10px] uppercase tracking-wide text-muted-foreground">Explored States</span><span className="text-sm font-semibold">{ruleBasedResult.exploredStateCount}</span></div>
-                      <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-[10px] uppercase tracking-wide text-muted-foreground">State Space</span><span className="text-sm font-semibold">{ruleBasedResult.totalStateSpace}</span></div>
-                      <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-[10px] uppercase tracking-wide text-muted-foreground">Attractors</span><span className="text-sm font-semibold">{ruleBasedResult.attractors.length}</span></div>
+                      <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-xs uppercase tracking-wide text-muted-foreground">Nodes</span><span className="text-sm font-semibold">{ruleBasedResult.nodeOrder.length}</span></div>
+                      <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-xs uppercase tracking-wide text-muted-foreground">Explored States</span><span className="text-sm font-semibold">{ruleBasedResult.exploredStateCount}</span></div>
+                      <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-xs uppercase tracking-wide text-muted-foreground">State Space</span><span className="text-sm font-semibold">{ruleBasedResult.totalStateSpace}</span></div>
+                      <div className="flex flex-col p-2 rounded-md bg-muted/40"><span className="text-xs uppercase tracking-wide text-muted-foreground">Attractors</span><span className="text-sm font-semibold">{ruleBasedResult.attractors.length}</span></div>
                     </div>
 
                     {/* Attractor Landscape Button */}
@@ -1978,24 +1957,22 @@ function ProjectVisualizationPage() {
                 {weightedResult && !isWeightedAnalyzing && (
                   <div className="space-y-4">
                     {/* Weighted Analysis Section Header */}
-                    <div className="flex items-center gap-2 pb-2 border-b-2 border-blue-500">
-                      <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center">
-                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                        </svg>
+                    <div className="flex items-center gap-2 pb-2 border-b-2 border-primary">
+                      <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                        <BarChart3 className="w-4 h-4 text-primary-foreground" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-base text-blue-900">Weighted Deterministic Analysis</h3>
+                        <h3 className="font-semibold text-base text-foreground">Weighted Deterministic Analysis</h3>
                         <p className="text-xs text-muted-foreground">Matrix-based Boolean dynamics with threshold tie-breaking</p>
                       </div>
                     </div>
                     
-                    <div className="border rounded-lg p-4 space-y-4 bg-blue-50/50">
+                    <div className="border rounded-lg p-4 space-y-4 bg-primary/5">
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div className="flex flex-col p-2 rounded-md bg-white shadow-sm"><span className="text-[10px] uppercase tracking-wide text-muted-foreground">Nodes</span><span className="text-sm font-semibold">{weightedResult.nodeOrder.length}</span></div>
-                        <div className="flex flex-col p-2 rounded-md bg-white shadow-sm"><span className="text-[10px] uppercase tracking-wide text-muted-foreground">Explored States</span><span className="text-sm font-semibold">{weightedResult.exploredStateCount}</span></div>
-                        <div className="flex flex-col p-2 rounded-md bg-white shadow-sm"><span className="text-[10px] uppercase tracking-wide text-muted-foreground">State Space</span><span className="text-sm font-semibold">{weightedResult.totalStateSpace}</span></div>
-                        <div className="flex flex-col p-2 rounded-md bg-white shadow-sm"><span className="text-[10px] uppercase tracking-wide text-muted-foreground">Attractors</span><span className="text-sm font-semibold">{weightedResult.attractors.length}</span></div>
+                        <div className="flex flex-col p-2 rounded-md bg-card shadow-sm"><span className="text-xs uppercase tracking-wide text-muted-foreground">Nodes</span><span className="text-sm font-semibold">{weightedResult.nodeOrder.length}</span></div>
+                        <div className="flex flex-col p-2 rounded-md bg-card shadow-sm"><span className="text-xs uppercase tracking-wide text-muted-foreground">Explored States</span><span className="text-sm font-semibold">{weightedResult.exploredStateCount}</span></div>
+                        <div className="flex flex-col p-2 rounded-md bg-card shadow-sm"><span className="text-xs uppercase tracking-wide text-muted-foreground">State Space</span><span className="text-sm font-semibold">{weightedResult.totalStateSpace}</span></div>
+                        <div className="flex flex-col p-2 rounded-md bg-card shadow-sm"><span className="text-xs uppercase tracking-wide text-muted-foreground">Attractors</span><span className="text-sm font-semibold">{weightedResult.attractors.length}</span></div>
                       </div>
                       {weightedResult.warnings.length > 0 && (
                         <div className="text-xs text-amber-600 space-y-1 p-2 bg-amber-50 rounded-md border border-amber-200">
@@ -2006,7 +1983,7 @@ function ProjectVisualizationPage() {
                       {weightedResult.attractors.length > 0 && (
                         <Button
                           variant="outline"
-                          className="w-full border-blue-300 hover:bg-blue-100"
+                          className="w-full border-primary/30 hover:bg-primary/10"
                           onClick={() => {
                             setAttractorLandscapeData(weightedResult.attractors);
                             setAttractorLandscapeOpen(true);
@@ -2016,10 +1993,10 @@ function ProjectVisualizationPage() {
                         </Button>
                       )}
                       {weightedResult.attractors.map((attr: DeterministicAttractor) => (
-                        <div key={attr.id} className="border rounded-md p-3 bg-white shadow-sm">
+                        <div key={attr.id} className="border rounded-md p-3 bg-card shadow-sm">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
-                              <h3 className="font-medium text-sm text-blue-800">Attractor #{attr.id + 1} ({attr.type})</h3>
+                              <h3 className="font-medium text-sm text-primary">Attractor #{attr.id + 1} ({attr.type})</h3>
                               {cellFates[String(attr.id)] && (
                                 <AttractorFateBadge
                                   fate={cellFates[String(attr.id)]}
@@ -2071,24 +2048,22 @@ function ProjectVisualizationPage() {
                 {probabilisticResult && !isProbabilisticAnalyzing && (
                   <div className="space-y-4">
                     {/* Probabilistic Analysis Section Header */}
-                    <div className="flex items-center gap-2 pb-2 border-b-2 border-purple-500">
-                      <div className="w-8 h-8 rounded-lg bg-purple-500 flex items-center justify-center">
-                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-                        </svg>
+                    <div className="flex items-center gap-2 pb-2 border-b-2 border-purple-500 dark:border-purple-400">
+                      <div className="w-8 h-8 rounded-lg bg-purple-500 dark:bg-purple-600 flex items-center justify-center">
+                        <BarChart3 className="w-4 h-4 text-white" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-base text-purple-900">Probabilistic Analysis</h3>
+                        <h3 className="font-semibold text-base text-foreground">Probabilistic Analysis</h3>
                         <p className="text-xs text-muted-foreground">Markovian dynamics with noise and self-degradation</p>
                       </div>
                     </div>
                     
-                    <div className="border rounded-lg p-4 space-y-4 bg-purple-50/50">
+                    <div className="border rounded-lg p-4 space-y-4 bg-purple-50/50 dark:bg-purple-950/20">
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div className="flex flex-col p-2 rounded-md bg-white shadow-sm"><span className="text-[10px] uppercase tracking-wide text-muted-foreground">Nodes</span><span className="text-sm font-semibold">{probabilisticResult.nodeOrder.length}</span></div>
-                        <div className="flex flex-col p-2 rounded-md bg-white shadow-sm"><span className="text-[10px] uppercase tracking-wide text-muted-foreground">Converged</span><span className="text-sm font-semibold">{probabilisticResult.converged ? 'Yes' : 'No'}</span></div>
-                        <div className="flex flex-col p-2 rounded-md bg-white shadow-sm"><span className="text-[10px] uppercase tracking-wide text-muted-foreground">Iterations</span><span className="text-sm font-semibold">{probabilisticResult.iterations}</span></div>
-                        <div className="flex flex-col p-2 rounded-md bg-white shadow-sm"><span className="text-[10px] uppercase tracking-wide text-muted-foreground">Avg P</span><span className="text-sm font-semibold">{(Object.values(probabilisticResult.probabilities).reduce((a, b) => a + b, 0) / probabilisticResult.nodeOrder.length * 100).toFixed(1)}%</span></div>
+                        <div className="flex flex-col p-2 rounded-md bg-card shadow-sm"><span className="text-xs uppercase tracking-wide text-muted-foreground">Nodes</span><span className="text-sm font-semibold">{probabilisticResult.nodeOrder.length}</span></div>
+                        <div className="flex flex-col p-2 rounded-md bg-card shadow-sm"><span className="text-xs uppercase tracking-wide text-muted-foreground">Converged</span><span className="text-sm font-semibold">{probabilisticResult.converged ? 'Yes' : 'No'}</span></div>
+                        <div className="flex flex-col p-2 rounded-md bg-card shadow-sm"><span className="text-xs uppercase tracking-wide text-muted-foreground">Iterations</span><span className="text-sm font-semibold">{probabilisticResult.iterations}</span></div>
+                        <div className="flex flex-col p-2 rounded-md bg-card shadow-sm"><span className="text-xs uppercase tracking-wide text-muted-foreground">Avg P</span><span className="text-sm font-semibold">{(Object.values(probabilisticResult.probabilities).reduce((a, b) => a + b, 0) / probabilisticResult.nodeOrder.length * 100).toFixed(1)}%</span></div>
                       </div>
 
                       {/* Landscape Buttons */}
@@ -2135,8 +2110,8 @@ function ProjectVisualizationPage() {
                       {/* Node probabilities table - hidden by default */}
                       {showProbabilityTables && (
                         <>
-                          <div className="border rounded-md p-3 bg-white shadow-sm">
-                            <h4 className="font-medium text-sm mb-2 text-purple-800">Node Steady-State Probabilities</h4>
+                          <div className="border rounded-md p-3 bg-card shadow-sm">
+                            <h4 className="font-medium text-sm mb-2 text-purple-800 dark:text-purple-300">Node Steady-State Probabilities</h4>
                             <div className="text-xs text-muted-foreground mb-2">Each value is the probability that node is ON (0–1). These are independent per-node probabilities, not a distribution.</div>
                             <div className="overflow-auto max-h-60">
                               <table className="w-full text-xs border-collapse">
@@ -2160,8 +2135,8 @@ function ProjectVisualizationPage() {
 
                           {/* Potential energies table */}
                           {Object.keys(probabilisticResult.potentialEnergies).length > 0 && (
-                            <div className="border rounded-md p-3 bg-white shadow-sm">
-                              <h4 className="font-medium text-sm mb-2 text-purple-800">Potential Energies</h4>
+                            <div className="border rounded-md p-3 bg-card shadow-sm">
+                              <h4 className="font-medium text-sm mb-2 text-purple-800 dark:text-purple-300">Potential Energies</h4>
                               <div className="overflow-auto max-h-60">
                                 <table className="w-full text-xs border-collapse">
                                   <thead>
@@ -2283,7 +2258,7 @@ function ProjectVisualizationPage() {
                     <TabsTrigger value="attractors" className="text-xs px-3 h-7" disabled={!hasAttractorResults}>
                       Attractors
                       {hasAttractorResults && (
-                        <Badge variant="secondary" className="ml-1.5 text-[10px] px-1 py-0 h-4">
+                        <Badge variant="secondary" className="ml-1.5 text-xs px-1 py-0 h-4">
                           {(therapeuticsWeightedResult?.attractors?.length || therapeuticsRuleBasedResult?.attractors?.length || 0)}
                         </Badge>
                       )}
@@ -2325,7 +2300,7 @@ function ProjectVisualizationPage() {
             {/* Tab Content */}
             <div className="flex-1 min-h-0">
               {therapeuticsSubTab === 'preview' && (
-                <div className="h-full border rounded-lg bg-white">
+                <div className="h-full border rounded-lg bg-card">
                   <NetworkGraph 
                     ref={therapeuticsGraphRef}
                     key={`therapeutics-${selectedNetworkId}-${interventionsToApply.length}`}
@@ -2369,7 +2344,7 @@ function ProjectVisualizationPage() {
                               <div className="text-xs text-muted-foreground mb-1">States:</div>
                               <div className="flex flex-wrap gap-1">
                                 {attractor.states.map((state, stateIdx) => (
-                                  <code key={stateIdx} className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono">
+                                  <code key={stateIdx} className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">
                                     {state.binary}
                                   </code>
                                 ))}
@@ -2465,19 +2440,19 @@ function ProjectVisualizationPage() {
                       {/* Summary Cards */}
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <div className="border rounded-lg p-3 bg-card">
-                          <div className="text-[10px] uppercase text-muted-foreground mb-1">Original Attractors</div>
+                          <div className="text-xs uppercase text-muted-foreground mb-1">Original Attractors</div>
                           <div className="text-xl font-bold">{comparisonData.originalAttractorCount}</div>
                         </div>
                         <div className="border rounded-lg p-3 bg-card">
-                          <div className="text-[10px] uppercase text-muted-foreground mb-1">Modified Attractors</div>
+                          <div className="text-xs uppercase text-muted-foreground mb-1">Modified Attractors</div>
                           <div className="text-xl font-bold">{comparisonData.modifiedAttractorCount}</div>
                         </div>
                         <div className="border rounded-lg p-3 bg-card">
-                          <div className="text-[10px] uppercase text-muted-foreground mb-1">Eliminated</div>
+                          <div className="text-xs uppercase text-muted-foreground mb-1">Eliminated</div>
                           <div className="text-xl font-bold text-red-600">{comparisonData.eliminatedAttractors.length}</div>
                         </div>
                         <div className="border rounded-lg p-3 bg-card">
-                          <div className="text-[10px] uppercase text-muted-foreground mb-1">New</div>
+                          <div className="text-xs uppercase text-muted-foreground mb-1">New</div>
                           <div className="text-xl font-bold text-green-600">{comparisonData.newAttractors.length}</div>
                         </div>
                       </div>
@@ -2499,7 +2474,7 @@ function ProjectVisualizationPage() {
                                 </div>
                                 <div className="flex flex-wrap gap-1">
                                   {attractor.states.map((state: StateSnapshot, stateIdx: number) => (
-                                    <code key={stateIdx} className="text-[10px] bg-red-100 px-1.5 py-0.5 rounded font-mono">
+                                    <code key={stateIdx} className="text-xs bg-red-100 px-1.5 py-0.5 rounded font-mono">
                                       {state.binary}
                                     </code>
                                   ))}
@@ -2527,7 +2502,7 @@ function ProjectVisualizationPage() {
                                 </div>
                                 <div className="flex flex-wrap gap-1">
                                   {attractor.states.map((state: StateSnapshot, stateIdx: number) => (
-                                    <code key={stateIdx} className="text-[10px] bg-green-100 px-1.5 py-0.5 rounded font-mono">
+                                    <code key={stateIdx} className="text-xs bg-green-100 px-1.5 py-0.5 rounded font-mono">
                                       {state.binary}
                                     </code>
                                   ))}
@@ -2555,7 +2530,7 @@ function ProjectVisualizationPage() {
                                 </div>
                                 <div className="flex flex-wrap gap-1">
                                   {attractor.states.map((state: StateSnapshot, stateIdx: number) => (
-                                    <code key={stateIdx} className="text-[10px] bg-blue-100 px-1.5 py-0.5 rounded font-mono">
+                                    <code key={stateIdx} className="text-xs bg-blue-100 px-1.5 py-0.5 rounded font-mono">
                                       {state.binary}
                                     </code>
                                   ))}
@@ -2635,17 +2610,8 @@ function ProjectVisualizationPage() {
                 title="AutoNetCan - Automated Network Construction"
                 allow="clipboard-write"
                 referrerPolicy="no-referrer-when-downgrade"
-                onLoad={(e) => {
-                  const iframe = e.target as HTMLIFrameElement;
-                  console.log('[AutoNetCan iframe] ✓ onLoad fired - iframe element loaded', {
-                    src: iframe.src,
-                    width: iframe.offsetWidth,
-                    height: iframe.offsetHeight,
-                  });
-                }}
-                onError={(e) => {
-                  console.error('[AutoNetCan iframe] ✗ onError - network/load error', e);
-                }}
+                onLoad={() => {}}
+                onError={() => {}}
               />
             </div>
           </div>
@@ -2813,7 +2779,7 @@ function ProjectVisualizationPage() {
                         <div className="text-xs text-muted-foreground">{format.description}</div>
                       </div>
                     </div>
-                    <Badge variant="secondary" className="text-[10px]">{format.extension}</Badge>
+                    <Badge variant="secondary" className="text-xs">{format.extension}</Badge>
                   </div>
                 </button>
               ))}

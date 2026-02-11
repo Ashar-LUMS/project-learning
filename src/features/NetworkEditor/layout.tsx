@@ -15,10 +15,7 @@ import {
   Waypoints,
   Pill,
   Container,
-  CircuitBoard,
-  LineSquiggle,
   Cpu,
-  LineChart,
   Upload,
   Download,
   Play,
@@ -29,7 +26,6 @@ import {
   PanelLeftClose,
   PanelLeft,
   ChevronDown,
-  Save,
   FileText
 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
@@ -159,24 +155,15 @@ export default function NetworkEditorLayout({
   const enabledTabs = [
     { id: 'projects' as TabType, label: 'Projects', icon: Folder, color: 'text-blue-600' },
     { id: 'seq-data-analysis' as TabType, label: 'Seq Analysis', icon: BarChart3, color: 'text-sky-600' },
-    { id: 'network' as TabType, label: 'Manual Network Construction', icon: Network, color: 'text-green-600' },
+    { id: 'network' as TabType, label: 'Network Editor', icon: Network, color: 'text-green-600' },
     { id: 'autonetcan' as TabType, label: 'AutoNetCan', icon: Cpu, color: 'text-teal-600' },
     { id: 'network-inference' as TabType, label: 'Network Analysis', icon: Waypoints, color: 'text-purple-600' },
     { id: 'therapeutics' as TabType, label: 'Therapeutics', icon: Pill, color: 'text-red-600' },
   ];
 
-  // Future tabs (kept for reference but not displayed in main nav)
-  const _futureTabs = [
-    { id: 'env' as TabType, label: 'Environment', icon: Container, color: 'text-amber-600', disabled: true },
-    { id: 'cell-circuits' as TabType, label: 'Circuits', icon: CircuitBoard, color: 'text-indigo-600', disabled: true },
-    { id: 'cell-lines' as TabType, label: 'Cell Lines', icon: LineSquiggle, color: 'text-pink-600', disabled: true },
-    { id: 'simulation' as TabType, label: 'Simulation', icon: Cpu, color: 'text-cyan-600', disabled: true },
-    { id: 'analysis' as TabType, label: 'Analysis', icon: LineChart, color: 'text-orange-600', disabled: true },
-    { id: 'results' as TabType, label: 'Results', icon: Download, color: 'text-emerald-600', disabled: true },
-  ];
-
-  // Combined for sidebar rendering (maintains backward compatibility)
-  const allTabs = [...enabledTabs, ..._futureTabs];
+  // Combined for rendering (future tabs kept as comments for reference)
+  // Future: env, cell-circuits, cell-lines, simulation, analysis, results
+  const allTabs = enabledTabs;
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -459,28 +446,7 @@ function NetworkSidebar() {
 
       <Separator />
 
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium">Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="space-y-1">
-            <Button variant="ghost" className="w-full justify-start gap-3 h-11 px-4">
-              <Save className="w-4 h-4" />
-              Save Network
-            </Button>
-            <Button variant="ghost" className="w-full justify-start gap-3 h-11 px-4">
-              <Upload className="w-4 h-4" />
-              Import Data
-            </Button>
-            <Button variant="ghost" className="w-full justify-start gap-3 h-11 px-4">
-              <Download className="w-4 h-4" />
-              Export Network
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Quick Actions removed — use toolbar buttons on the canvas */}
 
       {/* Display Settings */}
       <Card>

@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
-import { MousePointer2, Circle, Link, X, Trash2, Download, Network, Maximize, User } from 'lucide-react';
+import { MousePointer2, CirclePlus, Circle, Link, X, Trash2, Download, Network, Maximize, User } from 'lucide-react';
 import type { NetworkData } from '@/types/network';
 import { exportAndDownloadNetwork } from '@/lib/networkIO';
 import { NetworkPersonalizationDialog } from './NetworkPersonalizationDialog';
@@ -1453,10 +1453,10 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
   }
 
   return (
-    <div className="w-full h-full flex flex-col bg-white rounded-xl border shadow-sm overflow-hidden min-h-[800px]">
+    <div className="w-full h-full flex flex-col bg-card rounded-xl border shadow-sm overflow-hidden min-h-[800px]">
       {/* Minimal header with unsaved changes badge */}
       {!hideHeaderActions && hasModifications && (
-        <div className="flex-shrink-0 border-b bg-white z-30 px-3 py-1">
+        <div className="flex-shrink-0 border-b bg-card z-30 px-3 py-1">
           <Badge variant="outline" className="text-orange-600 border-orange-300">
             Unsaved Changes
           </Badge>
@@ -1467,13 +1467,13 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
       <div className="flex-1 flex relative min-h-0">
         {/* Left Sidebar - Toolbar */}
         {!hideControls && (
-          <div className="w-16 bg-gradient-to-b from-slate-50 to-white/95 backdrop-blur-sm border-r border-slate-200 flex flex-col items-center py-2 gap-0.5 z-20 shadow-sm overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 #f1f5f9' }}>
+          <div className="w-16 bg-gradient-to-b from-muted to-card/95 backdrop-blur-sm border-r border-border flex flex-col items-center py-2 gap-0.5 z-20 shadow-sm overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
             <Button
               size="sm"
               variant={tool === 'select' ? 'default' : 'ghost'}
               onClick={() => setTool('select')}
-              className={`h-9 w-9 rounded-md transition-all ${tool === 'select' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-200 text-slate-600'}`}
-              title="Select"
+              className={`h-9 w-9 rounded-md transition-all ${tool === 'select' ? 'bg-primary text-primary-foreground shadow-md' : 'hover:bg-accent text-muted-foreground'}`}
+              title="Select (S)"
           >
             <MousePointer2 size={20} />
           </Button>
@@ -1481,7 +1481,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
           <Button
             size="sm"
             variant="ghost"
-            className="h-9 w-9 rounded-md hover:bg-slate-200 disabled:opacity-40 text-slate-600"
+            className="h-9 w-9 rounded-md hover:bg-accent disabled:opacity-40 text-muted-foreground"
             onClick={() => {
               const newId = `n-${Date.now()}`;
               const newNode = {
@@ -1517,17 +1517,17 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                 }
               }, 50);
             }}
-            title="Add Node"
+            title="Add Node (N)"
           >
-            <Circle size={20} />
+            <CirclePlus size={20} />
           </Button>
 
-          <div className="w-6 border-t border-slate-300 my-1" />
+          <div className="w-6 border-t border-border my-1" />
 
           <Button
             size="sm"
             variant={tool === 'add-edge' ? 'default' : 'ghost'}
-            className={`h-9 w-9 rounded-md transition-all ${tool === 'add-edge' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-200 text-slate-600'} disabled:opacity-40`}
+            className={`h-9 w-9 rounded-md transition-all ${tool === 'add-edge' ? 'bg-primary text-primary-foreground shadow-md' : 'hover:bg-accent text-muted-foreground'} disabled:opacity-40`}
             onClick={() => {
               if (isRuleBased) return;
               setTool('add-edge');
@@ -1538,25 +1538,25 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
               }
             }}
             disabled={isRuleBased}
-            title="Add Edge"
+            title="Add Edge (E)"
           >
             <Link size={20} />
           </Button>
 
-          <div className="w-6 border-t border-slate-300 my-1" />
+          <div className="w-6 border-t border-border my-1" />
 
           <Button
             size="sm"
             variant={tool === 'delete' ? 'destructive' : 'ghost'}
             onClick={() => setTool('delete')}
             disabled={isRuleBased}
-            className={`h-9 w-9 rounded-md transition-all ${tool === 'delete' ? 'bg-red-600 text-white shadow-md' : 'hover:bg-slate-200 text-slate-600'} disabled:opacity-40`}
-            title="Delete"
+            className={`h-9 w-9 rounded-md transition-all ${tool === 'delete' ? 'bg-destructive text-destructive-foreground shadow-md' : 'hover:bg-accent text-muted-foreground'} disabled:opacity-40`}
+            title="Delete (D)"
           >
             <Trash2 size={20} />
           </Button>
 
-          <div className="w-6 border-t border-slate-300 my-1" />
+          <div className="w-6 border-t border-border my-1" />
 
           {/* Layout Controls */}
           <Button
@@ -1579,8 +1579,8 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                 cyRef.current.layout({ name: 'circle', animate: true, fit: true, padding: 50 }).run();
               }
             }}
-            className="h-9 w-9 rounded-md hover:bg-slate-200 text-slate-600"
-            title="Force-Directed Layout (recommended for biological networks)"
+            className="h-9 w-9 rounded-md hover:bg-accent text-muted-foreground"
+            title="Force-Directed Layout"
           >
             <Network size={20} />
           </Button>
@@ -1592,7 +1592,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
               if (!cyRef.current) return;
               cyRef.current.layout({ name: 'circle', animate: true, animationDuration: 300, fit: true, padding: 50 }).run();
             }}
-            className="h-9 w-9 rounded-md hover:bg-slate-200 text-slate-600"
+            className="h-9 w-9 rounded-md hover:bg-accent text-muted-foreground"
             title="Circular Layout"
           >
             <Circle size={20} />
@@ -1605,13 +1605,13 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
               if (!cyRef.current) return;
               cyRef.current.fit(undefined, 50);
             }}
-            className="h-9 w-9 rounded-md hover:bg-slate-200 text-slate-600"
+            className="h-9 w-9 rounded-md hover:bg-accent text-muted-foreground"
             title="Fit to View"
           >
             <Maximize size={20} />
           </Button>
 
-          <div className="w-6 border-t border-slate-300 my-1" />
+          <div className="w-6 border-t border-border my-1" />
 
           <Button
             size="sm"
@@ -1660,19 +1660,19 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                 variant: 'default'
               });
             }}
-            className="h-9 w-9 rounded-md hover:bg-slate-200 text-slate-600"
+            className="h-9 w-9 rounded-md hover:bg-accent text-muted-foreground"
             title="Export Network"
           >
             <Download size={20} />
           </Button>
 
-          <div className="w-6 border-t border-slate-300 my-1" />
+          <div className="w-6 border-t border-border my-1" />
 
           <Button
             size="sm"
             variant="ghost"
             onClick={() => setIsNetworkPersonalizationOpen(true)}
-            className="h-9 w-9 rounded-md hover:bg-slate-200 text-slate-600"
+            className="h-9 w-9 rounded-md hover:bg-accent text-muted-foreground"
             title="Network Personalization"
           >
             <User size={20} />
@@ -1685,14 +1685,12 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
           {/* Cytoscape container - Professional biological network canvas */}
           <div
             ref={containerRef}
-            className="w-full h-full transition-opacity duration-200"
+            className="w-full h-full transition-opacity duration-200 bg-muted"
             style={{ 
-              background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%)',
               backgroundImage: `
-                radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.3) 1px, transparent 0),
-                linear-gradient(135deg, rgba(255,255,255,0.8) 0%, rgba(241,245,249,0.6) 100%)
+                radial-gradient(circle at 1px 1px, hsl(var(--border) / 0.4) 1px, transparent 0)
               `,
-              backgroundSize: '20px 20px, 100% 100%',
+              backgroundSize: '20px 20px',
               opacity: graphReady ? 1 : 0,
             }}
             aria-label="Project network visualization"
@@ -1702,17 +1700,17 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
 
         {/* Right Sidebar - Node/Edge Properties */}
         {!hideControls && (selectedNode || selectedEdge) && (
-          <div className="w-80 bg-white/95 backdrop-blur-sm border-l border-slate-200 flex-shrink-0 z-20 shadow-lg">
+          <div className="w-80 bg-card/95 backdrop-blur-sm border-l border-border flex-shrink-0 z-20 shadow-lg">
             <Card className="h-full border-0 rounded-none bg-transparent">
-              <CardHeader className="pb-3 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
+              <CardHeader className="pb-3 border-b border-border bg-gradient-to-r from-muted to-card">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base font-semibold text-slate-800">
+                  <CardTitle className="text-base font-semibold text-foreground">
                     {selectedNode ? 'Node Properties' : 'Edge Properties'}
                   </CardTitle>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 rounded-lg hover:bg-slate-100"
+                    className="h-8 w-8 rounded-lg hover:bg-accent"
                     onClick={() => {
                       setSelectedNode(null);
                       setSelectedEdge(null);
@@ -1731,10 +1729,10 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                 {selectedNode && (
                   <>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-slate-600 uppercase tracking-wide">Label</label>
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Label</label>
                       <Input
                         value={selectedNode.label}
-                        className="h-9 text-sm border-slate-200 focus:border-blue-400 focus:ring-blue-400"
+                        className="h-9 text-sm border-border focus:border-primary focus:ring-primary"
                         onChange={(e) => {
                           const newLabel = e.target.value;
                           setSelectedNode(prev => prev ? { ...prev, label: newLabel } : null);
@@ -1754,7 +1752,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-slate-600 uppercase tracking-wide">Type</label>
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Type</label>
                       <div className="flex items-center gap-2">
                         <Badge
                           className="text-xs px-2.5 py-1 font-medium shadow-sm"
@@ -1771,7 +1769,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                     {!isRuleBased && (
                       <>
                         <div className="space-y-1.5">
-                          <label className="text-xs font-medium text-slate-600 uppercase tracking-wide">Basal Value</label>
+                          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Basal Value</label>
                           <Input
                             type="number"
                             value={Number((selectedNode.properties?.bias ?? 0))}
@@ -1798,16 +1796,16 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                               }
                             }}
                             step="0.1"
-                            className="h-9 text-sm border-slate-200 focus:border-blue-400 focus:ring-blue-400"
+                            className="h-9 text-sm border-border focus:border-primary focus:ring-primary"
                           />
-                          <p className="text-[10px] text-slate-500">The node's intrinsic activation level (positive = tends ON, negative = tends OFF).</p>
+                          <p className="text-xs text-muted-foreground">The node's intrinsic activation level (positive = tends ON, negative = tends OFF).</p>
                         </div>
                       </>
                     )}
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-slate-600 uppercase tracking-wide">ID</label>
-                      <div className="text-xs text-slate-600 font-mono bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">ID</label>
+                      <div className="text-xs text-muted-foreground font-mono bg-muted px-3 py-2 rounded-lg border border-border">
                         {selectedNode.id}
                       </div>
                     </div>
@@ -1822,7 +1820,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                             cyRef.current.getElementById(selectedNode.id)?.addClass('edge-source');
                           }
                         }}
-                        className="flex-1 h-9 text-xs border-slate-200 hover:bg-slate-50"
+                        className="flex-1 h-9 text-xs border-border hover:bg-muted"
                       >
                         Set as Source
                       </Button>
@@ -1856,14 +1854,14 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                             }
                             setEdgeSourceId(null);
                           }}
-                          className="flex-1 h-9 text-xs bg-blue-600 hover:bg-blue-700"
+                          className="flex-1 h-9 text-xs bg-primary hover:bg-primary/90"
                         >
                           Connect
                         </Button>
                       )}
                     </div>
 
-                    <div className="pt-4 border-t border-slate-100">
+                    <div className="pt-4 border-t border-border">
                       <Button
                         variant="destructive"
                         size="sm"
@@ -1873,7 +1871,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                             () => deleteNode(selectedNode.id)
                           );
                         }}
-                        className="w-full h-9 text-xs bg-red-600 hover:bg-red-700"
+                        className="w-full h-9 text-xs bg-destructive hover:bg-destructive/90"
                       >
                         <Trash2 size={20} />
                         Delete Node
@@ -1885,29 +1883,29 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                 {selectedEdge && (
                   <>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-slate-600 uppercase tracking-wide">Connection</label>
-                      <div className="flex items-center gap-2 text-sm text-slate-700 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Connection</label>
+                      <div className="flex items-center gap-2 text-sm text-foreground bg-muted px-3 py-2 rounded-lg border border-border">
                         <span className="font-medium">{selectedEdge.source}</span>
-                        <span className="text-slate-400">→</span>
+                        <span className="text-muted-foreground">→</span>
                         <span className="font-medium">{selectedEdge.target}</span>
                       </div>
                     </div>
 
                     {selectedEdge.interaction && (
                       <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-slate-600 uppercase tracking-wide">Interaction</label>
-                        <div className="text-sm text-slate-600 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
+                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Interaction</label>
+                        <div className="text-sm text-muted-foreground bg-muted px-3 py-2 rounded-lg border border-border">
                           {selectedEdge.interaction}
                         </div>
                       </div>
                     )}
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-slate-600 uppercase tracking-wide">Weight</label>
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Weight</label>
                       <Input
                         type="number"
                         value={selectedEdge.weight ?? defaultEdgeWeight}
-                        className="h-9 text-sm border-slate-200 focus:border-blue-400 focus:ring-blue-400"
+                        className="h-9 text-sm border-border focus:border-primary focus:ring-primary"
                         onChange={(e) => {
                           const newWeight = parseFloat(e.target.value) || defaultEdgeWeight;
                           setSelectedEdge(prev => prev ? { ...prev, weight: newWeight } : null);
