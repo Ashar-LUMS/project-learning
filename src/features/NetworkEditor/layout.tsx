@@ -159,6 +159,13 @@ export default function NetworkEditorLayout({
     { id: 'autonetcan' as TabType, label: 'AutoNetCan', icon: Cpu, color: 'text-teal-600' },
     { id: 'network-inference' as TabType, label: 'Network Analysis', icon: Waypoints, color: 'text-purple-600' },
     { id: 'therapeutics' as TabType, label: 'Therapeutics', icon: Pill, color: 'text-red-600' },
+    // Previously hidden/future tabs — re-enabled
+    { id: 'env' as TabType, label: 'Environment', icon: Container, color: 'text-amber-600' },
+    { id: 'cell-circuits' as TabType, label: 'Cell Circuits', icon: Pill, color: 'text-indigo-600' },
+    { id: 'cell-lines' as TabType, label: 'Cell Lines', icon: Users, color: 'text-emerald-600' },
+    { id: 'simulation' as TabType, label: 'Simulation', icon: Play, color: 'text-orange-600' },
+    { id: 'analysis' as TabType, label: 'Analysis', icon: BarChart3, color: 'text-sky-600' },
+    { id: 'results' as TabType, label: 'Results', icon: FileText, color: 'text-violet-600' },
   ];
 
   // Combined for rendering (future tabs kept as comments for reference)
