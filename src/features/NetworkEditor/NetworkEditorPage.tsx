@@ -73,18 +73,6 @@ function NetworkEditorPage() {
     downloadResults: _downloadDeterministicResults,
   } = useDeterministicAnalysis();
 
-  // Results view toggles
-  const [showDeterministicResults, setShowDeterministicResults] = useState(false);
-  const [showProbabilisticResults, setShowProbabilisticResults] = useState(false);
-
-  // Reset view toggles on new results
-  useEffect(() => {
-    setShowDeterministicResults(false);
-  }, [weightedResult]);
-  useEffect(() => {
-    setShowProbabilisticResults(false);
-  }, [probabilisticResult]);
-
   // Log deterministic state for debugging
   useEffect(() => {
     if (deterministicResult || deterministicError) {
@@ -926,208 +914,178 @@ function NetworkEditorPage() {
                   )}
                   {weightedResult && (
                     <div className="space-y-4">
-                      {!showDeterministicResults ? (
-                        <Button
-                          variant="outline"
-                          className="w-full"
-                          onClick={() => setShowDeterministicResults(true)}
-                        >
-                          View Rule/Weight based Results
-                        </Button>
-                      ) : (
-                        <>
-                          {/* Weighted Analysis Section Header */}
-                          <div className="flex items-center gap-2 pb-2 border-b-2 border-blue-500">
-                            <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center">
-                              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                              </svg>
-                            </div>
-                            <div>
-                              <h3 className="font-semibold text-base text-blue-900">Weighted Deterministic Analysis</h3>
-                              <p className="text-xs text-muted-foreground">Matrix-based Boolean dynamics with threshold tie-breaking</p>
-                            </div>
-                            <div className="ml-auto">
-                              <Button variant="ghost" size="sm" onClick={() => setShowDeterministicResults(false)}>Hide</Button>
-                            </div>
+                      {/* Weighted Analysis Section Header */}
+                      <div className="flex items-center gap-2 pb-2 border-b-2 border-blue-500">
+                        <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center">
+                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-base text-blue-900">Weighted Deterministic Analysis</h3>
+                          <p className="text-xs text-muted-foreground">Matrix-based Boolean dynamics with threshold tie-breaking</p>
+                        </div>
+                      </div>
+                      
+                      <div className="border rounded-lg p-4 space-y-4 bg-blue-50/50">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                          <Stat label="Nodes" value={weightedResult.nodeOrder.length} />
+                          <Stat label="Explored States" value={weightedResult.exploredStateCount} />
+                          <Stat label="State Space" value={weightedResult.totalStateSpace} />
+                          <Stat label="Attractors" value={weightedResult.attractors.length} />
+                        </div>
+                        {weightedResult.warnings.length > 0 && (
+                          <div className="text-xs text-amber-600 space-y-1 p-2 bg-amber-50 rounded-md border border-amber-200">
+                            {weightedResult.warnings.map((w: string, i: number) => <p key={i}>• {w}</p>)}
                           </div>
-                          
-                          <div className="border rounded-lg p-4 space-y-4 bg-blue-50/50">
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                              <Stat label="Nodes" value={weightedResult.nodeOrder.length} />
-                              <Stat label="Explored States" value={weightedResult.exploredStateCount} />
-                              <Stat label="State Space" value={weightedResult.totalStateSpace} />
-                              <Stat label="Attractors" value={weightedResult.attractors.length} />
-                            </div>
-                            {weightedResult.warnings.length > 0 && (
-                              <div className="text-xs text-amber-600 space-y-1 p-2 bg-amber-50 rounded-md border border-amber-200">
-                                {weightedResult.warnings.map((w: string, i: number) => <p key={i}>• {w}</p>)}
+                        )}
+                        {/* Attractor Landscape Button */}
+                        {weightedResult.attractors.length > 0 && (
+                          <Button
+                            variant="outline"
+                            className="w-full border-blue-300 hover:bg-blue-100"
+                            onClick={() => {
+                              setAttractorLandscapeData(weightedResult.attractors);
+                              setAttractorLandscapeOpen(true);
+                            }}
+                          >
+                            View Attractor Landscape
+                          </Button>
+                        )}
+                        <div className="space-y-3">
+                          {weightedResult.attractors.map((attr: any) => (
+                            <div key={attr.id} className="border rounded-md p-3 bg-white shadow-sm">
+                              <div className="flex items-center justify-between mb-2">
+                                <h3 className="font-medium text-sm text-blue-800">Attractor #{attr.id + 1} ({attr.type})</h3>
+                                <span className="text-xs text-muted-foreground">Period {attr.period} • Basin { (attr.basinShare*100).toFixed(1) }%</span>
                               </div>
-                            )}
-                            {/* Attractor Landscape Button */}
-                            {weightedResult.attractors.length > 0 && (
-                              <Button
-                                variant="outline"
-                                className="w-full border-blue-300 hover:bg-blue-100"
-                                onClick={() => {
-                                  setAttractorLandscapeData(weightedResult.attractors);
-                                  setAttractorLandscapeOpen(true);
-                                }}
-                              >
-                                View Attractor Landscape
-                              </Button>
-                            )}
-                            <div className="space-y-3">
-                              {weightedResult.attractors.map((attr: any) => (
-                                <div key={attr.id} className="border rounded-md p-3 bg-white shadow-sm">
-                                  <div className="flex items-center justify-between mb-2">
-                                    <h3 className="font-medium text-sm text-blue-800">Attractor #{attr.id + 1} ({attr.type})</h3>
-                                    <span className="text-xs text-muted-foreground">Period {attr.period} • Basin { (attr.basinShare*100).toFixed(1) }%</span>
-                                  </div>
-                                  <div className="overflow-auto">
-                                    <table className="w-full text-xs border-collapse">
-                                      <thead>
-                                        <tr>
-                                          <th className="text-left p-1 font-semibold">State</th>
-                                          {weightedResult.nodeOrder.map((n: string) => (
-                                            <th key={n} className="p-1 font-medium">{weightedResult.nodeLabels[n]}</th>
-                                          ))}
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        {attr.states.map((s: any, si: number) => (
-                                          <tr key={si} className="odd:bg-muted/40">
-                                            <td className="p-1 font-mono">{s.binary}</td>
-                                            {weightedResult.nodeOrder.map((n: string) => (
-                                              <td key={n} className="p-1 text-center">{s.values[n]}</td>
-                                            ))}
-                                          </tr>
+                              <div className="overflow-auto">
+                                <table className="w-full text-xs border-collapse">
+                                  <thead>
+                                    <tr>
+                                      <th className="text-left p-1 font-semibold">State</th>
+                                      {weightedResult.nodeOrder.map((n: string) => (
+                                        <th key={n} className="p-1 font-medium">{weightedResult.nodeLabels[n]}</th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {attr.states.map((s: any, si: number) => (
+                                      <tr key={si} className="odd:bg-muted/40">
+                                        <td className="p-1 font-mono">{s.binary}</td>
+                                        {weightedResult.nodeOrder.map((n: string) => (
+                                          <td key={n} className="p-1 text-center">{s.values[n]}</td>
                                         ))}
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                </div>
-                              ))}
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
                             </div>
-                          </div>
-                        </>
-                      )}
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   )}
                   
                   {probabilisticResult && (
                     <div className="space-y-4">
-                      {!showProbabilisticResults ? (
-                        <Button
-                          variant="outline"
-                          className="w-full"
-                          onClick={() => setShowProbabilisticResults(true)}
-                        >
-                          View Probabilistic Results
-                        </Button>
-                      ) : (
-                        <>
-                          {/* Probabilistic Analysis Section Header */}
-                          <div className="flex items-center gap-2 pb-2 border-b-2 border-purple-500">
-                            <div className="w-8 h-8 rounded-lg bg-purple-500 flex items-center justify-center">
-                              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-                              </svg>
+                      {/* Probabilistic Analysis Section Header */}
+                      <div className="flex items-center gap-2 pb-2 border-b-2 border-purple-500">
+                        <div className="w-8 h-8 rounded-lg bg-purple-500 flex items-center justify-center">
+                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-base text-purple-900">Probabilistic Analysis</h3>
+                          <p className="text-xs text-muted-foreground">Markovian dynamics with noise and self-degradation</p>
+                        </div>
+                      </div>
+                      
+                      <div className="border rounded-lg p-4 space-y-4 bg-purple-50/50">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                          <Stat label="Nodes" value={probabilisticResult.nodeOrder.length} />
+                          <Stat label="Converged" value={probabilisticResult.converged ? 'Yes' : 'No'} />
+                          <Stat label="Iterations" value={probabilisticResult.iterations} />
+                          <Stat label="Avg P" value={probabilisticAverageProbability.toFixed(3)} />
+                        </div>
+                        {probabilisticResult.warnings.length > 0 && (
+                          <div className="text-xs text-amber-600 space-y-1 p-2 bg-amber-50 rounded-md border border-amber-200">
+                            {probabilisticResult.warnings.map((w: string, i: number) => <p key={i}>• {w}</p>)}
+                          </div>
+                        )}
+                        {/* Landscape Buttons */}
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            variant="outline"
+                            className="border-purple-300 hover:bg-purple-100"
+                            onClick={() => setProbabilityLandscapeOpen(true)}
+                          >
+                            View Probability Landscape
+                          </Button>
+                          {Object.keys(probabilisticResult.potentialEnergies).length > 0 && (
+                            <Button
+                              variant="outline"
+                              className="border-purple-300 hover:bg-purple-100"
+                              onClick={() => setEnergyLandscapeOpen(true)}
+                            >
+                              View Potential Energy Landscape
+                            </Button>
+                          )}
+                          <Button
+                            variant="outline"
+                            className="border-purple-300 hover:bg-purple-100"
+                            onClick={() => setShowProbabilityTables(!showProbabilityTables)}
+                          >
+                            {showProbabilityTables ? 'Hide' : 'Show'} Probability Tables
+                          </Button>
+                        </div>
+                        {showProbabilityTables && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div className="space-y-2">
+                              <div className="font-semibold text-sm text-purple-800">Node Steady-State Probabilities</div>
+                              <div className="text-xs text-muted-foreground">Each value is the probability that node is ON (0–1). These are independent per-node probabilities, not a distribution.</div>
+                              <table className="w-full text-xs border-collapse bg-white rounded shadow-sm">
+                                <thead>
+                                  <tr>
+                                    <th className="text-left p-1 font-semibold">Node</th>
+                                    <th className="text-left p-1 font-semibold">Probability</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {probabilisticEntries.map(([nodeId, prob]: [string, number]) => (
+                                    <tr key={nodeId} className="odd:bg-muted/40">
+                                      <td className="p-1">{nodeIdToLabel[nodeId] || nodeId}</td>
+                                      <td className="p-1">{prob.toFixed(4)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
                             </div>
-                            <div>
-                              <h3 className="font-semibold text-base text-purple-900">Probabilistic Analysis</h3>
-                              <p className="text-xs text-muted-foreground">Markovian dynamics with noise and self-degradation</p>
-                            </div>
-                            <div className="ml-auto">
-                              <Button variant="ghost" size="sm" onClick={() => setShowProbabilisticResults(false)}>Hide</Button>
+                            <div className="space-y-2">
+                              <div className="font-semibold text-sm text-purple-800">Potential energies (−ln P)</div>
+                              <table className="w-full text-xs border-collapse bg-white rounded shadow-sm">
+                                <thead>
+                                  <tr>
+                                    <th className="text-left p-1 font-semibold">Node</th>
+                                    <th className="text-left p-1 font-semibold">PE</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {probabilisticEntries.map(([nodeId]: [string, number]) => (
+                                    <tr key={nodeId} className="odd:bg-muted/40">
+                                      <td className="p-1">{nodeIdToLabel[nodeId] || nodeId}</td>
+                                      <td className="p-1">{probabilisticResult.potentialEnergies[nodeId].toFixed(4)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                              <div className="text-xs text-muted-foreground">Min P = {probabilisticMinProbability.toFixed(4)} · Max PE = {probabilisticMaxPotentialEnergy.toFixed(4)}</div>
                             </div>
                           </div>
-                          
-                          <div className="border rounded-lg p-4 space-y-4 bg-purple-50/50">
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                              <Stat label="Nodes" value={probabilisticResult.nodeOrder.length} />
-                              <Stat label="Converged" value={probabilisticResult.converged ? 'Yes' : 'No'} />
-                              <Stat label="Iterations" value={probabilisticResult.iterations} />
-                              <Stat label="Avg P" value={probabilisticAverageProbability.toFixed(3)} />
-                            </div>
-                            {probabilisticResult.warnings.length > 0 && (
-                              <div className="text-xs text-amber-600 space-y-1 p-2 bg-amber-50 rounded-md border border-amber-200">
-                                {probabilisticResult.warnings.map((w: string, i: number) => <p key={i}>• {w}</p>)}
-                              </div>
-                            )}
-                            {/* Landscape Buttons */}
-                            <div className="flex flex-wrap gap-2">
-                              <Button
-                                variant="outline"
-                                className="border-purple-300 hover:bg-purple-100"
-                                onClick={() => setProbabilityLandscapeOpen(true)}
-                              >
-                                View Probability Landscape
-                              </Button>
-                              {Object.keys(probabilisticResult.potentialEnergies).length > 0 && (
-                                <Button
-                                  variant="outline"
-                                  className="border-purple-300 hover:bg-purple-100"
-                                  onClick={() => setEnergyLandscapeOpen(true)}
-                                >
-                                  View Potential Energy Landscape
-                                </Button>
-                              )}
-                              <Button
-                                variant="outline"
-                                className="border-purple-300 hover:bg-purple-100"
-                                onClick={() => setShowProbabilityTables(!showProbabilityTables)}
-                              >
-                                {showProbabilityTables ? 'Hide' : 'Show'} Probability Tables
-                              </Button>
-                            </div>
-                            {showProbabilityTables && (
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                                <div className="space-y-2">
-                                  <div className="font-semibold text-sm text-purple-800">Node Steady-State Probabilities</div>
-                                  <div className="text-xs text-muted-foreground">Each value is the probability that node is ON (0–1). These are independent per-node probabilities, not a distribution.</div>
-                                  <table className="w-full text-xs border-collapse bg-white rounded shadow-sm">
-                                    <thead>
-                                      <tr>
-                                        <th className="text-left p-1 font-semibold">Node</th>
-                                        <th className="text-left p-1 font-semibold">Probability</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {probabilisticEntries.map(([nodeId, prob]: [string, number]) => (
-                                        <tr key={nodeId} className="odd:bg-muted/40">
-                                          <td className="p-1">{nodeIdToLabel[nodeId] || nodeId}</td>
-                                          <td className="p-1">{prob.toFixed(4)}</td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                </div>
-                                <div className="space-y-2">
-                                  <div className="font-semibold text-sm text-purple-800">Potential energies (−ln P)</div>
-                                  <table className="w-full text-xs border-collapse bg-white rounded shadow-sm">
-                                    <thead>
-                                      <tr>
-                                        <th className="text-left p-1 font-semibold">Node</th>
-                                        <th className="text-left p-1 font-semibold">PE</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {probabilisticEntries.map(([nodeId]: [string, number]) => (
-                                        <tr key={nodeId} className="odd:bg-muted/40">
-                                          <td className="p-1">{nodeIdToLabel[nodeId] || nodeId}</td>
-                                          <td className="p-1">{probabilisticResult.potentialEnergies[nodeId].toFixed(4)}</td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                  <div className="text-xs text-muted-foreground">Min P = {probabilisticMinProbability.toFixed(4)} · Max PE = {probabilisticMaxPotentialEnergy.toFixed(4)}</div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </>
-                      )}
+                        )}
+                      </div>
                     </div>
                   )}
                   </div>
