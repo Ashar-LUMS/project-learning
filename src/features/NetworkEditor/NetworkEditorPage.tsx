@@ -3,7 +3,7 @@ import { useToast } from '@/components/ui/toast';
 import NetworkEditorLayout from './layout';
 import type { NetworkEditorLayoutProps, TabType } from './layout';
 import ProjectTabComponent from './tabs/ProjectTab';
-import { SeqAnalysisTab } from './tabs/SeqAnalysisTab';
+import { SeqAnalysisTabs } from './tabs/SeqAnalysisTabs';
 
 import NetworkGraph, { type NetworkGraphHandle } from './NetworkGraph';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -483,7 +483,7 @@ function NetworkEditorPage() {
     switch (activeTab) {
       case 'seq-data-analysis':
         return (
-          <SeqAnalysisTab
+          <SeqAnalysisTabs
             networkNodes={selectedNetwork?.data?.nodes || []}
             networks={networks}
             onNetworkSelect={selectNetwork}

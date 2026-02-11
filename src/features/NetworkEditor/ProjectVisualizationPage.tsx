@@ -30,7 +30,7 @@ import ProbabilisticLandscape from './ProbabilisticLandscape';
 import { FateClassificationDialog, AttractorFateBadge } from './FateClassification';
 import { TherapeuticsPanel } from './TherapeuticsPanel';
 import { applyTherapiesToNetwork } from '@/lib/applyTherapies';
-import { SeqAnalysisTab } from './tabs/SeqAnalysisTab';
+import { SeqAnalysisTabs } from './tabs/SeqAnalysisTabs';
 import { PatientDrugScoresDialog } from './PatientDrugScoresDialog';
 import { Network, FileText, BarChart3 } from 'lucide-react';
 
@@ -2177,7 +2177,7 @@ function ProjectVisualizationPage() {
 
       case 'seq-data-analysis':
         return (
-          <SeqAnalysisTab
+          <SeqAnalysisTabs
             networkNodes={selectedNetwork?.data?.nodes || []}
             networks={networks}
             onNetworkSelect={selectNetwork}
@@ -2629,6 +2629,7 @@ function ProjectVisualizationPage() {
       networkSidebar={networkSidebarContent}
       therapeuticsSidebar={therapeuticsSidebarContent}
       seqAnalysisSidebar={seqAnalysisSidebarContent}
+      disableAfterTherapeutics
       inferenceActions={{
         run: handleRunRuleBasedDA,
         runWeighted: handleRunWeighted,

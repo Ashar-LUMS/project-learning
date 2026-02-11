@@ -42,6 +42,8 @@ export interface NetworkEditorLayoutProps {
   inferenceSidebar?: React.ReactNode;
   therapeuticsSidebar?: React.ReactNode;
   seqAnalysisSidebar?: React.ReactNode;
+  /** When true, disables tabs appearing after 'therapeutics' in the header */
+  disableAfterTherapeutics?: boolean;
   inferenceActions?: {
     run?: () => void;
     runWeighted?: () => void;
@@ -79,6 +81,7 @@ export default function NetworkEditorLayout({
   inferenceSidebar,
   therapeuticsSidebar,
   seqAnalysisSidebar,
+  disableAfterTherapeutics,
   inferenceActions,
 }: NetworkEditorLayoutProps) {
   // Sidebar collapse state
@@ -168,9 +171,13 @@ export default function NetworkEditorLayout({
     { id: 'results' as TabType, label: 'Results', icon: FileText, color: 'text-violet-600' },
   ];
 
-  // Combined for rendering (future tabs kept as comments for reference)
-  // Future: env, cell-circuits, cell-lines, simulation, analysis, results
-  const allTabs = enabledTabs;
+  // Optionally disable tabs that come after 'therapeutics' when viewing a project
+  const allTabs = React.useMemo(() => {
+    if (!disableAfterTherapeutics) return enabledTabs;
+    const idx = enabledTabs.findIndex(t => t.id === 'therapeutics');
+    if (idx < 0) return enabledTabs;
+    return enabledTabs.map((t, i) => (i > idx ? { ...t, disabled: true } : t));
+  }, [disableAfterTherapeutics, enabledTabs]);
 
   return (
     <div className="flex flex-col h-screen bg-background">
