@@ -46,7 +46,6 @@ export interface NetworkEditorLayoutProps {
   inferenceSidebar?: React.ReactNode;
   therapeuticsSidebar?: React.ReactNode;
   seqAnalysisSidebar?: React.ReactNode;
-  weightedResult?: DeterministicAnalysisResult | null;
   inferenceActions?: {
     run?: () => void;
     runWeighted?: () => void;
@@ -84,45 +83,8 @@ export default function NetworkEditorLayout({
   inferenceSidebar,
   therapeuticsSidebar,
   seqAnalysisSidebar,
-  weightedResult,
   inferenceActions,
 }: NetworkEditorLayoutProps) {
-  // EARLY DEBUG: Check what we received
-  console.log('[NetworkEditorLayout] RECEIVED inferenceActions on props:', {
-    keys: Object.keys(inferenceActions || {}),
-    hasRunProbabilistic: 'runProbabilistic' in (inferenceActions || {}),
-    hasIsProbabilisticRunning: 'isProbabilisticRunning' in (inferenceActions || {}),
-  });
-
-  // WORKAROUND: If runProbabilistic is missing, add it
-  if (inferenceActions && !inferenceActions.runProbabilistic) {
-    console.log('[NetworkEditorLayout] WARNING: runProbabilistic is missing! Adding stub.');
-    inferenceActions.runProbabilistic = () => console.log('[NetworkEditorLayout] runProbabilistic stub called - this should not happen!');
-  }
-  if (inferenceActions && inferenceActions.isProbabilisticRunning === undefined) {
-    console.log('[NetworkEditorLayout] WARNING: isProbabilisticRunning is missing! Adding false.');
-    inferenceActions.isProbabilisticRunning = false;
-  }
-
-  // Debug: log inference actions when weighted result changes
-  useEffect(() => {
-    if (!inferenceActions) return;
-    // eslint-disable-next-line no-console
-    console.log('[NetworkEditorLayout] actions update', {
-      hasWeightedResult: !!inferenceActions.weightedResult,
-      attractorCount: inferenceActions.weightedResult?.attractors?.length ?? 0,
-    });
-  }, [inferenceActions?.weightedResult]);
-
-  // Debug: log weightedResult prop
-  useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log('[NetworkEditorLayout] weightedResult prop', {
-      hasWeightedResultProp: !!weightedResult,
-      attractorCount: weightedResult?.attractors?.length ?? 0,
-    });
-  }, [weightedResult]);
-
   // Sidebar collapse state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -400,7 +362,7 @@ function ProjectsSidebar({ projects, isLoading, error }: ProjectsSidebarProps) {
             Recent Projects
           </p>
           {!isLoading && projects.length > 0 && (
-            <Badge variant="secondary" className="px-2 py-0.5 text-[10px] font-medium">
+            <Badge variant="secondary" className="px-2 py-0.5 text-xs font-medium">
               {projects.length}
             </Badge>
           )}
@@ -444,14 +406,14 @@ function ProjectsSidebar({ projects, isLoading, error }: ProjectsSidebarProps) {
                     <h3 className="font-semibold text-sm truncate group-hover:text-primary transition-colors flex-1">
                       {project.name || 'Untitled Project'}
                     </h3>
-                    <Badge variant="outline" className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 border-primary/20 bg-primary/5 text-primary">
+                    <Badge variant="outline" className="shrink-0 text-xs font-medium px-1.5 py-0.5 border-primary/20 bg-primary/5 text-primary">
                       <Users className="w-2.5 h-2.5 mr-1" />
                       {(project.assignees || []).length}
                     </Badge>
                   </div>
                   
                   {/* Metadata */}
-                  <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Network className="w-3 h-3" />
                       {Array.isArray(project.networks) ? project.networks.length : 0}
@@ -464,7 +426,7 @@ function ProjectsSidebar({ projects, isLoading, error }: ProjectsSidebarProps) {
                   
                   {/* Owner */}
                   {project.creator_email && (
-                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <User className="w-3 h-3" />
                       <span className="truncate">{project.creator_email}</span>
                     </div>
@@ -545,26 +507,8 @@ function NetworkSidebar() {
         </CardContent>
       </Card>
 
-      {/* Network Statistics */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium">Network Stats</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Nodes</span>
-            <span className="font-medium">24</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Edges</span>
-            <span className="font-medium">48</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Density</span>
-            <span className="font-medium">0.083</span>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Network Statistics - placeholder until live data is wired */}
+      {/* Stats will be populated from NetworkGraph's live data */}
     </div>
   );
 }
@@ -608,7 +552,7 @@ function NetworkAnalysisSidebar({ actions }: { actions?: NetworkEditorLayoutProp
               <div className="space-y-1 px-3 pb-2">
                 {/* Rule-based */}
                 <div>
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Rule-based</p>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Rule-based</p>
                   <Button
                     className="w-full justify-start gap-2 h-8 px-2 text-xs"
                     onClick={() => actions?.run?.()}
@@ -624,16 +568,10 @@ function NetworkAnalysisSidebar({ actions }: { actions?: NetworkEditorLayoutProp
 
                 {/* Weight-based */}
                 <div className="pt-1 border-t border-border/40">
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1 pt-1">Weight-based</p>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1 pt-1">Weight-based</p>
                   <Button
                     className="w-full justify-start gap-2 h-8 px-2 text-xs"
                     onClick={() => {
-                      console.log('[NetworkAnalysisSidebar] Weighted DA button clicked', {
-                        hasRunWeighted: !!actions?.runWeighted,
-                        isWeightedRunning: actions?.isWeightedRunning,
-                        isRuleBased: actions?.isRuleBased,
-                        actions
-                      });
                       if (actions?.isRuleBased) return;
                       actions?.runWeighted?.();
                     }}
@@ -667,19 +605,11 @@ function NetworkAnalysisSidebar({ actions }: { actions?: NetworkEditorLayoutProp
               <div className="space-y-1 px-3 pb-2">
                 {/* Rules-based Network Analysis */}
                 <div>
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Rules-based Network</p>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Rules-based Network</p>
                   <Button
                     className="w-full justify-start gap-2 h-8 px-2 text-xs"
                     onClick={() => {
-                      if (!actions) {
-                        console.error('[layout.tsx] actions is null/undefined!');
-                        return;
-                      }
-                      console.log('[layout.tsx] === BUTTON CLICK DEBUG ===');
-                      console.log('[layout.tsx] actions object keys:', Object.keys(actions));
-                      console.log('[layout.tsx] Has runProbabilistic?', typeof actions.runProbabilistic);
-                      console.log('[layout.tsx] Has isProbabilisticRunning?', typeof actions.isProbabilisticRunning);
-                      console.log('[layout.tsx] Calling actions.runProbabilistic...');
+                      if (!actions) return;
                       actions?.runProbabilistic?.();
                     }}
                     disabled={Boolean(actions?.isProbabilisticRunning)}
@@ -693,7 +623,7 @@ function NetworkAnalysisSidebar({ actions }: { actions?: NetworkEditorLayoutProp
 
                 {/* Weight-based Network Analysis */}
                 <div className="pt-1 border-t border-border/40">
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1 pt-1">Weight-based Network</p>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1 pt-1">Weight-based Network</p>
                   <Button
                     className="w-full justify-start gap-2 h-8 px-2 text-xs"
                     variant="secondary"

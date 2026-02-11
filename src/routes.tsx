@@ -20,6 +20,7 @@ import NetworkEditorPage from "./features/NetworkEditor/NetworkEditorPage";
 import NetworkGraph from "./features/NetworkEditor/NetworkGraph";
 import ProjectVisualizationPage from "./features/NetworkEditor/ProjectVisualizationPage";
 import AdminProjectManagement from "./features/admin/AdminProjectManagement";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 
 const router = createHashRouter([
@@ -53,11 +54,11 @@ const router = createHashRouter([
       },
       {
         path: "projects/:projectId",
-        element: <ProjectVisualizationPage />,
+        element: <ErrorBoundary><ProjectVisualizationPage /></ErrorBoundary>,
       },
       {
         path: "network-editor",
-        element: <NetworkEditorPage />,
+        element: <ErrorBoundary><NetworkEditorPage /></ErrorBoundary>,
         children: [
           {
             path: "graph",

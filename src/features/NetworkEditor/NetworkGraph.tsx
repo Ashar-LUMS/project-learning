@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
+import { MousePointer2, Circle, Link, X, Trash2, Download, Network, Maximize, User } from 'lucide-react';
 import type { NetworkData } from '@/types/network';
 import { exportAndDownloadNetwork } from '@/lib/networkIO';
 import { NetworkPersonalizationDialog } from './NetworkPersonalizationDialog';
@@ -1474,7 +1475,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
               className={`h-9 w-9 rounded-md transition-all ${tool === 'select' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-200 text-slate-600'}`}
               title="Select"
           >
-            <CursorIcon />
+            <MousePointer2 size={20} />
           </Button>
 
           <Button
@@ -1518,7 +1519,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
             }}
             title="Add Node"
           >
-            <CircleIcon />
+            <Circle size={20} />
           </Button>
 
           <div className="w-6 border-t border-slate-300 my-1" />
@@ -1539,7 +1540,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
             disabled={isRuleBased}
             title="Add Edge"
           >
-            <LinkIcon />
+            <Link size={20} />
           </Button>
 
           <div className="w-6 border-t border-slate-300 my-1" />
@@ -1552,7 +1553,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
             className={`h-9 w-9 rounded-md transition-all ${tool === 'delete' ? 'bg-red-600 text-white shadow-md' : 'hover:bg-slate-200 text-slate-600'} disabled:opacity-40`}
             title="Delete"
           >
-            <TrashIcon />
+            <Trash2 size={20} />
           </Button>
 
           <div className="w-6 border-t border-slate-300 my-1" />
@@ -1581,7 +1582,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
             className="h-9 w-9 rounded-md hover:bg-slate-200 text-slate-600"
             title="Force-Directed Layout (recommended for biological networks)"
           >
-            <LayoutIcon />
+            <Network size={20} />
           </Button>
 
           <Button
@@ -1594,7 +1595,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
             className="h-9 w-9 rounded-md hover:bg-slate-200 text-slate-600"
             title="Circular Layout"
           >
-            <CircleIcon />
+            <Circle size={20} />
           </Button>
 
           <Button
@@ -1607,7 +1608,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
             className="h-9 w-9 rounded-md hover:bg-slate-200 text-slate-600"
             title="Fit to View"
           >
-            <MaximizeIcon />
+            <Maximize size={20} />
           </Button>
 
           <div className="w-6 border-t border-slate-300 my-1" />
@@ -1662,7 +1663,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
             className="h-9 w-9 rounded-md hover:bg-slate-200 text-slate-600"
             title="Export Network"
           >
-            <DownloadIcon />
+            <Download size={20} />
           </Button>
 
           <div className="w-6 border-t border-slate-300 my-1" />
@@ -1674,7 +1675,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
             className="h-9 w-9 rounded-md hover:bg-slate-200 text-slate-600"
             title="Network Personalization"
           >
-            <PersonIcon />
+            <User size={20} />
           </Button>
         </div>
         )}
@@ -1721,7 +1722,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                       }
                     }}
                   >
-                    <XIcon />
+                    <X size={20} />
                   </Button>
                 </div>
               </CardHeader>
@@ -1874,7 +1875,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                         }}
                         className="w-full h-9 text-xs bg-red-600 hover:bg-red-700"
                       >
-                        <TrashIcon />
+                        <Trash2 size={20} />
                         Delete Node
                       </Button>
                     </div>
@@ -1970,7 +1971,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                         }}
                         className="w-full"
                       >
-                        <TrashIcon />
+                        <Trash2 size={20} />
                         Delete Edge
                       </Button>
                     </div>
@@ -2081,71 +2082,6 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
     </div>
   );
 });
-
-// Icon components
-const CursorIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M4 4l7.07 17 2.51-7.39L21 11.07z" />
-  </svg>
-);
-
-
-const CircleIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <circle cx="12" cy="12" r="10" />
-  </svg>
-);
-
-const LinkIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-  </svg>
-);
-
-const XIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M18 6L6 18M6 6l12 12" />
-  </svg>
-);
-
-const TrashIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-  </svg>
-);
-
-const DownloadIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-    <polyline points="7 10 12 15 17 10" />
-    <line x1="12" y1="15" x2="12" y2="3" />
-  </svg>
-);
-
-const LayoutIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <circle cx="12" cy="12" r="2" />
-    <circle cx="6" cy="6" r="2" />
-    <circle cx="18" cy="6" r="2" />
-    <circle cx="6" cy="18" r="2" />
-    <circle cx="18" cy="18" r="2" />
-    <path d="M12 10V8M12 16v-2M10 12H8M16 12h-2M7.5 7.5l2.5 2.5M14 14l2.5 2.5M7.5 16.5l2.5-2.5M14 10l2.5-2.5" />
-  </svg>
-);
-
-const MaximizeIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
-  </svg>
-);
-
-const PersonIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-    <circle cx="12" cy="7" r="4" />
-  </svg>
-);
 
 NetworkGraph.displayName = 'NetworkGraph';
 

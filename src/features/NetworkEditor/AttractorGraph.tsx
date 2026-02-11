@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import cytoscape, { type Core } from 'cytoscape';
+import { ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 
 export type AttractorState = {
   binary: string;
@@ -169,12 +170,12 @@ const AttractorGraph: React.FC<Props> = ({ states, className, nodeLabels }) => {
 
   return (
     <div className={`relative ${className || "w-full h-48"}`}>
-      <div ref={containerRef} className="w-full h-full rounded-md border bg-white" />
+      <div ref={containerRef} className="w-full h-full rounded-md border bg-background" />
       
       {/* Tooltip */}
       {tooltip && (
         <div 
-          className="absolute z-10 px-2 py-1 text-xs bg-gray-900 text-white rounded shadow-lg pointer-events-none whitespace-pre-line"
+          className="absolute z-10 px-2 py-1 text-xs bg-popover text-popover-foreground rounded shadow-lg pointer-events-none whitespace-pre-line border"
           style={{ left: tooltip.x + 10, top: tooltip.y - 30 }}
         >
           {tooltip.text}
@@ -185,30 +186,33 @@ const AttractorGraph: React.FC<Props> = ({ states, className, nodeLabels }) => {
       <div className="absolute bottom-2 right-2 flex gap-1 z-10">
         <button 
           onClick={handleZoomIn}
-          className="w-6 h-6 flex items-center justify-center bg-white/90 hover:bg-white border rounded text-xs font-medium shadow-sm"
+          className="w-6 h-6 flex items-center justify-center bg-background/90 hover:bg-background border rounded text-xs font-medium shadow-sm"
           title="Zoom in"
+          aria-label="Zoom in"
         >
-          +
+          <ZoomIn className="w-3.5 h-3.5" />
         </button>
         <button 
           onClick={handleZoomOut}
-          className="w-6 h-6 flex items-center justify-center bg-white/90 hover:bg-white border rounded text-xs font-medium shadow-sm"
+          className="w-6 h-6 flex items-center justify-center bg-background/90 hover:bg-background border rounded text-xs font-medium shadow-sm"
           title="Zoom out"
+          aria-label="Zoom out"
         >
-          −
+          <ZoomOut className="w-3.5 h-3.5" />
         </button>
         <button 
           onClick={handleFit}
-          className="w-6 h-6 flex items-center justify-center bg-white/90 hover:bg-white border rounded text-xs font-medium shadow-sm"
+          className="w-6 h-6 flex items-center justify-center bg-background/90 hover:bg-background border rounded text-xs font-medium shadow-sm"
           title="Fit to view"
+          aria-label="Fit to view"
         >
-          ⊡
+          <Maximize2 className="w-3.5 h-3.5" />
         </button>
       </div>
       
       {/* Selected state info */}
       {selectedState && (
-        <div className="absolute top-2 left-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded border border-green-200">
+        <div className="absolute top-2 left-2 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 text-xs rounded border border-green-200 dark:border-green-800">
           Selected: {selectedState.replace('s-', 'S')}
         </div>
       )}

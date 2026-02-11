@@ -428,12 +428,12 @@ const HomePage: React.FC = () => {
       {/* Header Section */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-2 h-8 bg-gradient-to-b from-[#2f5597] to-[#3b6bc9] rounded-full"></div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+          <div className="w-2 h-8 bg-gradient-to-b from-primary to-primary/70 rounded-full"></div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
             Project Dashboard
           </h1>
         </div>
-        <p className="text-[#4b5563] text-lg">Manage and organize your projects with your team</p>
+        <p className="text-muted-foreground text-lg">Manage and organize your projects with your team</p>
 
       </div>
 
@@ -441,12 +441,12 @@ const HomePage: React.FC = () => {
       {banner && (
         <div
           className={`mb-8 rounded-2xl border p-4 flex items-start justify-between backdrop-blur-sm animate-fade-in ${banner.type === 'success'
-            ? 'bg-green-50/80 border-green-200 text-green-800'
-            : 'bg-[#fee2e2]/80 border-[#fecaca] text-[#b91c1c]'
+            ? 'bg-green-50/80 border-green-200 text-green-800 dark:bg-green-950/80 dark:border-green-800 dark:text-green-200'
+            : 'bg-red-50/80 border-red-200 text-red-800 dark:bg-red-950/80 dark:border-red-800 dark:text-red-200'
             }`}
         >
           <div className="flex items-start gap-3">
-            <div className={`mt-0.5 rounded-full p-2 ${banner.type === 'success' ? 'bg-green-100' : 'bg-[#fee2e2]'
+            <div className={`mt-0.5 rounded-full p-2 ${banner.type === 'success' ? 'bg-green-100 dark:bg-green-900' : 'bg-red-100 dark:bg-red-900'
               }`}>
               {banner.type === 'success' ? <UserCheck size={16} /> : <AlertCircle size={16} />}
             </div>
@@ -465,22 +465,22 @@ const HomePage: React.FC = () => {
       <section className="mb-8">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="flex rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
+            <div className="flex rounded-xl border border-border bg-background overflow-hidden shadow-sm">
               <button
-                className={`px-4 py-2 text-sm font-medium transition-all ${projectTab === 'all' ? 'bg-[#2f5597] text-white shadow-md' : 'text-[#4b5563] hover:text-gray-900'}`}
+                className={`px-4 py-2 text-sm font-medium transition-all ${projectTab === 'all' ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:text-foreground'}`}
                 onClick={() => setProjectTab('all')}
               >
                 <Filter className="inline mr-2" size={14} />
                 All
               </button>
               <button
-                className={`px-4 py-2 text-sm font-medium transition-all border-l ${projectTab === 'mine' ? 'bg-[#2f5597] text-white shadow-md' : 'text-[#4b5563] hover:text-gray-900'}`}
+                className={`px-4 py-2 text-sm font-medium transition-all border-l border-border ${projectTab === 'mine' ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:text-foreground'}`}
                 onClick={() => setProjectTab('mine')}
               >
                 My Projects
               </button>
               <button
-                className={`px-4 py-2 text-sm font-medium transition-all border-l ${projectTab === 'other' ? 'bg-[#2f5597] text-white shadow-md' : 'text-[#4b5563] hover:text-gray-900'}`}
+                className={`px-4 py-2 text-sm font-medium transition-all border-l border-border ${projectTab === 'other' ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:text-foreground'}`}
                 onClick={() => setProjectTab('other')}
               >
                 Shared With Me
@@ -501,10 +501,7 @@ const HomePage: React.FC = () => {
 
           <Button
             onClick={() => { if (!(policyAttrs.onlyAdminsCreate && !isAdmin)) setIsCreateOpen(true); }}
-            className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
-            style={{
-              background: 'linear-gradient(135deg, #2f5597 0%, #3b6bc9 100%)',
-            }}
+            className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-primary-foreground transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl bg-primary"
             disabled={policyAttrs.onlyAdminsCreate && !isAdmin}
           >
             <Plus size={20} />
@@ -518,7 +515,7 @@ const HomePage: React.FC = () => {
         {isProjectsLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {[1, 2, 3, 4, 5, 6].map(i => (
-              <Card key={i} className="rounded-2xl border-0 bg-white/80 backdrop-blur-sm overflow-hidden shadow-lg">
+              <Card key={i} className="rounded-2xl border-0 bg-card/80 backdrop-blur-sm overflow-hidden shadow-lg">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-4 mb-4">
                     <Skeleton className="h-12 w-12 rounded-xl bg-gradient-to-br from-gray-200 to-gray-300" />
@@ -554,21 +551,21 @@ const HomePage: React.FC = () => {
             {displayedProjects.map(project => (
               <Card
                 key={project.id}
-                className="group rounded-2xl border border-gray-200/60 bg-white/80 backdrop-blur-sm overflow-hidden transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 hover:border-blue-200/60 shadow-lg"
+                className="group rounded-2xl border border-border/60 bg-card/80 backdrop-blur-sm overflow-hidden transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 hover:border-primary/30 shadow-lg"
               >
                 <CardContent className="p-6">
                   {/* Header */}
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#b1ceff] to-[#003db6] flex items-center justify-center text-white shadow-lg">
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/30 to-primary flex items-center justify-center text-primary-foreground shadow-lg">
                         <Folder size={24} />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h3 className="text-lg font-semibold text-gray-900 truncate">
+                        <h3 className="text-lg font-semibold text-foreground truncate">
                           {project.name || 'Untitled Project'}
                         </h3>
                         {project.created_at && (
-                          <div className="flex items-center text-[#6b7280] text-sm mt-1">
+                          <div className="flex items-center text-muted-foreground text-sm mt-1">
                             <Calendar size={14} className="mr-1.5" />
                             {formatDate(project.created_at)}
                           </div>
@@ -579,13 +576,13 @@ const HomePage: React.FC = () => {
                     {(isAdmin || project.created_by === currentUserId || (project.creator_email && project.creator_email === currentUserEmail)) && (
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
-                          className="p-2 text-gray-400 hover:text-[#2f5597] hover:bg-blue-50 rounded-lg transition-all"
+                          className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
                           onClick={() => openEditDialog(project)}
                         >
                           <Edit size={16} />
                         </button>
                         <button
-                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                          className="p-2 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950 rounded-lg transition-all"
                           onClick={() => setDeleteCandidate(project)}
                         >
                           <Trash2 size={16} />
@@ -595,12 +592,12 @@ const HomePage: React.FC = () => {
                   </div>
                   {/* Creator Info */}
                   {(project.created_by || project.creator_email) && (
-                    <div className="mb-4 text-sm text-[#6b7280]">
+                    <div className="mb-4 text-sm text-muted-foreground">
                       Created by: {(() => {
                         const creator = project.created_by ? userIdToUser[project.created_by] : users.find(u => u.email === project.creator_email);
                         const label = creator?.name || creator?.email || (project.creator_email ? emailToName[project.creator_email] : '') || project.creator_email || 'Unknown';
                         return (
-                          <span className="font-medium text-gray-700" title={creator?.email || project.creator_email || undefined}>
+                          <span className="font-medium text-foreground" title={creator?.email || project.creator_email || undefined}>
                             {label}
                           </span>
                         );
@@ -644,21 +641,21 @@ const HomePage: React.FC = () => {
                             );
                           })}
                           {project.assignees.length > 4 && (
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-500 to-gray-600 border-2 border-white flex items-center justify-center text-xs font-semibold text-white shadow-lg">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-500 to-gray-600 border-2 border-background flex items-center justify-center text-xs font-semibold text-white shadow-lg">
                               +{project.assignees.length - 4}
                             </div>
                           )}
                         </button>
                         <Badge
                           variant="secondary"
-                          className="bg-blue-50 text-[#2f5597] border-blue-200 rounded-lg"
+                          className="bg-primary/10 text-primary border-primary/20 rounded-lg"
                         >
                           <UserCheck size={12} className="mr-1" />
                           {project.assignees.length}
                         </Badge>
                       </div>
                     ) : (
-                      <div className="text-sm text-[#6b7280] flex items-center justify-center py-2">
+                      <div className="text-sm text-muted-foreground flex items-center justify-center py-2">
                         <Users size={16} className="mr-2" />
                         No assignees yet
                       </div>
@@ -667,10 +664,7 @@ const HomePage: React.FC = () => {
                   {/* Action Button */}
                   <Button
                     onClick={() => navigate(`/app/projects/${project.id}`)}
-                    className="w-full rounded-xl py-3 font-semibold transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
-                    style={{
-                      background: 'linear-gradient(135deg, #2f5597 0%, #3b6bc9 100%)',
-                    }}
+                    className="w-full rounded-xl py-3 font-semibold transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl bg-primary text-primary-foreground"
                   >
                     <Eye size={18} className="mr-2" />
                     Open Project
@@ -680,21 +674,18 @@ const HomePage: React.FC = () => {
             ))}
           </div>
         ) : (
-          <Card className="rounded-2xl border-0 bg-gradient-to-br from-gray-50 to-blue-50/30 backdrop-blur-sm text-center shadow-lg">
+          <Card className="rounded-2xl border-0 bg-gradient-to-br from-muted to-primary/5 backdrop-blur-sm text-center shadow-lg">
             <CardContent className="p-12">
-              <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-blue-200 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <FileText size={32} className="text-[#2f5597]" />
+              <div className="w-20 h-20 bg-gradient-to-br from-primary/20 to-primary/40 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <FileText size={32} className="text-primary" />
               </div>
-              <h3 className="text-2xl font-semibold text-gray-900 mb-3">No projects found</h3>
-              <p className="text-[#6b7280] mb-8 max-w-md mx-auto">
+              <h3 className="text-2xl font-semibold text-foreground mb-3">No projects found</h3>
+              <p className="text-muted-foreground mb-8 max-w-md mx-auto">
                 Create your first project to start collaborating with your team and organizing your work.
               </p>
               <Button
                 onClick={() => { if (!(policyAttrs.onlyAdminsCreate && !isAdmin)) setIsCreateOpen(true); }}
-                className="px-8 py-3 rounded-xl font-semibold text-white transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
-                style={{
-                  background: 'linear-gradient(135deg, #2f5597 0%, #3b6bc9 100%)',
-                }}
+                className="px-8 py-3 rounded-xl font-semibold text-primary-foreground transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl bg-primary"
                 disabled={policyAttrs.onlyAdminsCreate && !isAdmin}
               >
                 <Plus size={20} className="mr-2" />
@@ -707,85 +698,85 @@ const HomePage: React.FC = () => {
 
       {/* Create Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={(open) => { setIsCreateOpen(open); if (!open) { resetCreateForm(); setCreateTeamSearch(""); } }}>
-        <DialogContent className="sm:max-w-xl rounded-2xl border-0 bg-white/95 backdrop-blur-sm shadow-2xl">
+        <DialogContent className="sm:max-w-xl rounded-2xl border-0 bg-card/95 backdrop-blur-sm shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-xl flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-[#2f5597] to-[#3b6bc9] rounded-xl flex items-center justify-center">
-                <Folder size={20} className="text-white" />
+              <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/80 rounded-xl flex items-center justify-center">
+                <Folder size={20} className="text-primary-foreground" />
               </div>
               Create New Project
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-5 py-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Project Name</label>
+              <label className="block text-sm font-medium text-foreground mb-2">Project Name</label>
               <Input
                 value={newProjectName}
                 onChange={(e) => setNewProjectName(e.target.value)}
                 maxLength={80}
                 placeholder="e.g. Test Network"
-                className="rounded-xl border-2 focus:border-[#2f5597] focus:ring-2 focus:ring-blue-100"
+                className="rounded-xl border-2 focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
-              <div className="text-xs text-gray-400 mt-1">{newProjectName.length}/80</div>
+              <div className="text-xs text-muted-foreground mt-1">{newProjectName.length}/80</div>
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium text-gray-700">Assign Team Members</label>
-                <span className="text-xs text-gray-500">{selectedAssigneeIds.size} selected</span>
+                <label className="block text-sm font-medium text-foreground">Assign Team Members</label>
+                <span className="text-xs text-muted-foreground">{selectedAssigneeIds.size} selected</span>
               </div>
               {isUsersLoading ? (
-                <div className="flex items-center justify-center h-20 border rounded-xl bg-gray-50">Loading team members...</div>
+                <div className="flex items-center justify-center h-20 border rounded-xl bg-muted">Loading team members...</div>
               ) : (
                 <>
                   <div className="mb-3 relative">
-                    <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
                     <Input
                       placeholder="Search team members"
-                      className="pl-9 rounded-xl border-2 focus:border-[#2f5597] focus:ring-2 focus:ring-blue-100"
+                      className="pl-9 rounded-xl border-2 focus:border-primary focus:ring-2 focus:ring-primary/20"
                       value={createTeamSearch}
                       onChange={(e) => setCreateTeamSearch(e.target.value)}
                     />
                   </div>
                   {usersError ? (
-                    <div className="p-4 text-sm text-gray-600 border rounded-xl bg-gray-50">
+                    <div className="p-4 text-sm text-muted-foreground border rounded-xl bg-muted">
                       Unable to load other users. You can still create the project; you will be the sole assignee.
                     </div>
                   ) : hasCreateSearch ? (
                     filteredUsersForCreate.length > 0 ? (
                       <div className="max-h-60 overflow-auto border rounded-xl divide-y">
                         {filteredUsersForCreate.map(u => (
-                          <label key={u.id} className="flex items-center gap-3 py-3 px-4 hover:bg-gray-50 cursor-pointer">
+                          <label key={u.id} className="flex items-center gap-3 py-3 px-4 hover:bg-muted cursor-pointer">
                             <input
                               type="checkbox"
                               checked={selectedAssigneeIds.has(u.id)}
                               onChange={() => toggleAssignee(u.id, setSelectedAssigneeIds)}
-                              className="rounded border-gray-300 text-[#2f5597] focus:ring-[#2f5597]"
+                              className="rounded border-border text-primary focus:ring-primary"
                             />
-                            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#2f5597] to-[#3b6bc9] flex items-center justify-center text-white text-sm font-medium">
+                            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-primary-foreground text-sm font-medium">
                               {(u.name || u.email || '?').charAt(0).toUpperCase()}
                             </div>
                             <div className="flex flex-col">
-                              <span className="text-sm font-medium text-gray-900">{u.name || 'Unnamed User'}</span>
-                              {/*<span className="text-xs text-gray-500">{u.email || 'No email'}</span>*/}
+                              <span className="text-sm font-medium text-foreground">{u.name || 'Unnamed User'}</span>
+                              {/*<span className="text-xs text-muted-foreground">{u.email || 'No email'}</span>*/}
                             </div>
                           </label>
                         ))}
                       </div>
                     ) : (
-                      <div className="p-4 text-sm text-gray-600 border rounded-xl bg-gray-50">
+                      <div className="p-4 text-sm text-muted-foreground border rounded-xl bg-muted">
                         No users found for "{createTeamSearch.trim()}".
                       </div>
                     )
                   ) : (
-                    <div className="p-4 text-sm text-gray-600 border rounded-xl bg-gray-50">
+                    <div className="p-4 text-sm text-muted-foreground border rounded-xl bg-muted">
                       Start typing a name or email to search for team members.
                     </div>
                   )}
                 </>
               )}
               {usersError && <div className="text-xs text-red-600 mt-2 flex items-center"><AlertCircle size={14} className="mr-1" />{usersError}</div>}
-              {currentUserId && <p className="text-xs text-gray-500 mt-3 flex items-center"><UserCheck size={14} className="mr-1" />You will be added as Project Creator by default.</p>}
+              {currentUserId && <p className="text-xs text-muted-foreground mt-3 flex items-center"><UserCheck size={14} className="mr-1" />You will be added as Project Creator by default.</p>}
             </div>
           </div>
 
@@ -794,17 +785,14 @@ const HomePage: React.FC = () => {
               variant="outline"
               onClick={() => { setIsCreateOpen(false); resetCreateForm(); }}
               disabled={isCreateLoading}
-              className="rounded-xl border-gray-300"
+              className="rounded-xl border-border"
             >
               Cancel
             </Button>
             <Button
               onClick={handleCreateProject}
               disabled={!newProjectName.trim() || isCreateLoading}
-              className="rounded-xl text-white transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
-              style={{
-                background: 'linear-gradient(135deg, #2f5597 0%, #3b6bc9 100%)',
-              }}
+              className="rounded-xl text-primary-foreground transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl bg-primary"
             >
               {isCreateLoading ? (<><Loader2 className="animate-spin mr-2" size={16} /> Creating...</>) : 'Create Project'}
             </Button>
@@ -813,11 +801,11 @@ const HomePage: React.FC = () => {
       </Dialog>
       {/* Assignees Dialog */}
       <Dialog open={isAssigneesOpen} onOpenChange={(open) => { setIsAssigneesOpen(open); if (!open) setAssigneesProject(null); }}>
-        <DialogContent className="sm:max-w-md rounded-2xl border-0 bg-white/95 backdrop-blur-sm shadow-2xl">
+        <DialogContent className="sm:max-w-md rounded-2xl border-0 bg-card/95 backdrop-blur-sm shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-xl flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-[#2f5597] to-[#3b6bc9] rounded-xl flex items-center justify-center">
-                <Users size={20} className="text-white" />
+              <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/80 rounded-xl flex items-center justify-center">
+                <Users size={20} className="text-primary-foreground" />
               </div>
               Project Assignees {assigneesProject && `: ${assigneesProject.name || 'Untitled Project'}`}
             </DialogTitle>
@@ -831,21 +819,21 @@ const HomePage: React.FC = () => {
                   const label = isUnknown ? 'Deleted user' : (u.name || u.email || id);
                   const initials = isUnknown ? '?' : ((label || "").split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase()).join("") || "?");
                   return (
-                    <div key={id} className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium ${isUnknown ? 'bg-gradient-to-br from-gray-400 to-gray-600' : 'bg-gradient-to-br from-[#2f5597] to-[#3b6bc9]'}`}>
+                    <div key={id} className="flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-muted transition-colors">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium ${isUnknown ? 'bg-gradient-to-br from-gray-400 to-gray-600' : 'bg-gradient-to-br from-primary to-primary/80'}`}>
                         {initials}
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-sm font-medium text-gray-900">{isUnknown ? 'Deleted user' : (u?.name || 'Unnamed User')}</span>
-                        <span className="text-xs text-gray-500">{isUnknown ? '(email unavailable)' : (u?.email || 'No email')}</span>
+                        <span className="text-sm font-medium text-foreground">{isUnknown ? 'Deleted user' : (u?.name || 'Unnamed User')}</span>
+                        <span className="text-xs text-muted-foreground">{isUnknown ? '(email unavailable)' : (u?.email || 'No email')}</span>
                       </div>
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-500">
-                <Users size={40} className="mx-auto mb-3 text-gray-400" />
+              <div className="text-center py-8 text-muted-foreground">
+                <Users size={40} className="mx-auto mb-3 text-muted-foreground" />
                 <p>No assignees for this project</p>
               </div>
             )}
@@ -853,10 +841,7 @@ const HomePage: React.FC = () => {
           <DialogFooter>
             <Button
               onClick={() => setIsAssigneesOpen(false)}
-              className="rounded-xl text-white transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
-              style={{
-                background: 'linear-gradient(135deg, #2f5597 0%, #3b6bc9 100%)',
-              }}
+              className="rounded-xl text-primary-foreground transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl bg-primary"
             >
               Close
             </Button>
@@ -866,41 +851,41 @@ const HomePage: React.FC = () => {
 
       {/* Edit Dialog */}
       <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) { setEditingProject(null); setEditTeamSearch(""); } }}>
-        <DialogContent className="sm:max-w-xl rounded-2xl border-0 bg-white/95 backdrop-blur-sm shadow-2xl">
+        <DialogContent className="sm:max-w-xl rounded-2xl border-0 bg-card/95 backdrop-blur-sm shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-xl flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-[#2f5597] to-[#3b6bc9] rounded-xl flex items-center justify-center">
-                <Edit size={20} className="text-white" />
+              <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/80 rounded-xl flex items-center justify-center">
+                <Edit size={20} className="text-primary-foreground" />
               </div>
               Edit Project
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-5 py-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Project Name</label>
+              <label className="block text-sm font-medium text-foreground mb-2">Project Name</label>
               <Input
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 placeholder="Enter project name"
                 maxLength={80}
-                className="rounded-xl border-2 focus:border-[#2f5597] focus:ring-2 focus:ring-blue-100"
+                className="rounded-xl border-2 focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
-              <div className="text-xs text-gray-400 mt-1">{editName.length}/80</div>
+              <div className="text-xs text-muted-foreground mt-1">{editName.length}/80</div>
             </div>
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium text-gray-700">Assign Team Members</label>
-                <span className="text-xs text-gray-500">{editSelectedAssigneeIds.size} selected</span>
+                <label className="block text-sm font-medium text-foreground">Assign Team Members</label>
+                <span className="text-xs text-muted-foreground">{editSelectedAssigneeIds.size} selected</span>
               </div>
               {isUsersLoading ? (
-                <div className="flex items-center justify-center h-20 border rounded-xl bg-gray-50">Loading team members...</div>
+                <div className="flex items-center justify-center h-20 border rounded-xl bg-muted">Loading team members...</div>
               ) : (
                 <>
                   <div className="mb-3 relative">
-                    <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
                     <Input
                       placeholder="Search team members"
-                      className="pl-9 rounded-xl border-2 focus:border-[#2f5597] focus:ring-2 focus:ring-blue-100"
+                      className="pl-9 rounded-xl border-2 focus:border-primary focus:ring-2 focus:ring-primary/20"
                       value={editTeamSearch}
                       onChange={(e) => setEditTeamSearch(e.target.value)}
                     />
@@ -911,24 +896,24 @@ const HomePage: React.FC = () => {
                         const isCreator = editingProject && editingProject.creator_email === u.email;
                         const assigneeEditDisabled = policyAttrs.onlyAdminsEditAssignees && !isAdmin;
                         return (
-                          <label key={u.id} className={`flex items-center gap-3 py-3 px-4 ${isCreator ? 'bg-gray-50 cursor-default' : assigneeEditDisabled ? 'bg-gray-50 cursor-not-allowed opacity-60' : 'hover:bg-gray-50 cursor-pointer'}`}>
+                          <label key={u.id} className={`flex items-center gap-3 py-3 px-4 ${isCreator ? 'bg-muted cursor-default' : assigneeEditDisabled ? 'bg-muted cursor-not-allowed opacity-60' : 'hover:bg-muted cursor-pointer'}`}>
                             <input
                               type="checkbox"
                               checked={editSelectedAssigneeIds.has(u.id)}
                               onChange={() => toggleAssignee(u.id, setEditSelectedAssigneeIds)}
                               disabled={!!isCreator || assigneeEditDisabled}
-                              className="rounded border-gray-300 text-[#2f5597] focus:ring-[#2f5597]"
+                              className="rounded border-border text-primary focus:ring-primary"
                             />
-                            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#2f5597] to-[#3b6bc9] flex items-center justify-center text-white text-sm font-medium">
+                            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-primary-foreground text-sm font-medium">
                               {(u.name || u.email || '?').charAt(0).toUpperCase()}
                             </div>
                             <div className="flex flex-col">
-                              <span className="text-sm font-medium text-gray-900">{u.name || 'Unnamed User'}</span>
-                              {/*<span className="text-xs text-gray-500">{u.email || 'No email'}</span>*/}
+                              <span className="text-sm font-medium text-foreground">{u.name || 'Unnamed User'}</span>
+                              {/*<span className="text-xs text-muted-foreground">{u.email || 'No email'}</span>*/}
                             </div>
                             {isCreator && (
                               <div className="ml-auto">
-                                <span className="inline-block bg-blue-100 text-[#2f5597] text-xs px-2 py-0.5 rounded-full">Creator</span>
+                                <span className="inline-block bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-full">Creator</span>
                               </div>
                             )}
                           </label>
@@ -936,7 +921,7 @@ const HomePage: React.FC = () => {
                       })}
                     </div>
                   ) : (
-                    <div className="p-4 text-sm text-gray-600 border rounded-xl bg-gray-50">
+                    <div className="p-4 text-sm text-muted-foreground border rounded-xl bg-muted">
                       {usersError ? 'Unable to load other users. You can still update the project.' : 'No other users available.'}
                     </div>
                   )}
@@ -985,17 +970,14 @@ const HomePage: React.FC = () => {
               variant="outline"
               onClick={() => { setIsEditOpen(false); setEditingProject(null); }}
               disabled={isUpdateLoading}
-              className="rounded-xl border-gray-300"
+              className="rounded-xl border-border"
             >
               Cancel
             </Button>
             <Button
               onClick={handleUpdateProject}
               disabled={!editName.trim() || isUpdateLoading}
-              className="rounded-xl text-white transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
-              style={{
-                background: 'linear-gradient(135deg, #2f5597 0%, #3b6bc9 100%)',
-              }}
+              className="rounded-xl text-primary-foreground transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl bg-primary"
             >
               {isUpdateLoading ? (<><Loader2 className="animate-spin mr-2" size={16} /> Saving...</>) : 'Save Changes'}
             </Button>
@@ -1005,7 +987,7 @@ const HomePage: React.FC = () => {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={!!deleteCandidate} onOpenChange={(open) => { if (!open) setDeleteCandidate(null); }}>
-        <DialogContent className="sm:max-w-md rounded-2xl border-0 bg-white/95 backdrop-blur-sm shadow-2xl">
+        <DialogContent className="sm:max-w-md rounded-2xl border-0 bg-card/95 backdrop-blur-sm shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-xl flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-red-600 rounded-xl flex items-center justify-center">
@@ -1015,8 +997,8 @@ const HomePage: React.FC = () => {
             </DialogTitle>
           </DialogHeader>
           <div className="py-4">
-            <p className="text-gray-700">
-              Are you sure you want to delete <strong className="text-gray-900">{deleteCandidate?.name ?? 'this project'}</strong>? This action cannot be undone.
+            <p className="text-muted-foreground">
+              Are you sure you want to delete <strong className="text-foreground">{deleteCandidate?.name ?? 'this project'}</strong>? This action cannot be undone.
             </p>
           </div>
           <DialogFooter>
@@ -1024,7 +1006,7 @@ const HomePage: React.FC = () => {
               variant="outline"
               onClick={() => setDeleteCandidate(null)}
               disabled={isDeleteLoading}
-              className="rounded-xl border-gray-300"
+              className="rounded-xl border-border"
             >
               Cancel
             </Button>
@@ -1039,15 +1021,6 @@ const HomePage: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(-10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in {
-          animation: fadeIn 0.3s ease-out;
-        }
-      `}</style>
       </div>
     </main>
   );

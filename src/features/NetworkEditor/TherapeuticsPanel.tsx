@@ -423,12 +423,12 @@ export function TherapeuticsPanel({
                   >
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-1.5">
-                        <Badge className={`${isKnockOut ? 'bg-red-600' : 'bg-blue-600'} text-[10px] px-1.5 py-0 h-4`}>
+                        <Badge className={`${isKnockOut ? 'bg-red-600' : 'bg-blue-600'} text-xs px-1.5 py-0 h-4`}>
                           #{index + 1}
                         </Badge>
                         {isKnockOut && <Power className="w-3 h-3 text-red-500" />}
                         <span className="font-semibold">{intervention.nodeName}</span>
-                        <Badge variant="outline" className={`text-[9px] px-1 py-0 ${isKnockOut ? 'text-red-600 border-red-300' : 'text-blue-600 border-blue-300'}`}>
+                        <Badge variant="outline" className={`text-xs px-1 py-0 ${isKnockOut ? 'text-red-600 border-red-300' : 'text-blue-600 border-blue-300'}`}>
                           {isKnockOut ? 'Knock-Out' : 'Knock-In'}
                         </Badge>
                       </div>
@@ -441,7 +441,7 @@ export function TherapeuticsPanel({
                     </div>
                     
                     {/* Rule or Fixed Value */}
-                    <div className={`${isKnockOut ? 'bg-red-50 dark:bg-red-900/20' : 'bg-muted/50'} rounded px-2 py-1.5 font-mono text-[10px] ${isKnockOut ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'} mb-1.5`}>
+                    <div className={`${isKnockOut ? 'bg-red-50 dark:bg-red-900/20' : 'bg-muted/50'} rounded px-2 py-1.5 font-mono text-xs ${isKnockOut ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'} mb-1.5`}>
                       {isKnockOut
                         ? `${intervention.nodeName} = 0 (FORCED OFF)`
                         : intervention.nodeRule 
@@ -452,7 +452,7 @@ export function TherapeuticsPanel({
 
                     {/* Outward Regulations Count */}
                     {intervention.outwardRegulations.length > 0 && (
-                      <div className="text-[10px] text-muted-foreground">
+                      <div className="text-xs text-muted-foreground">
                         → Affects {intervention.outwardRegulations.length} node(s)
                       </div>
                     )}
@@ -480,7 +480,7 @@ export function TherapeuticsPanel({
 
       {/* Collapsible Sidebar - Right Side */}
       <div 
-        className={`fixed right-0 top-46 bottom-0 border-l bg-background flex flex-col z-40 transition-all duration-300 ease-in-out shadow-lg overflow-hidden ${
+        className={`fixed right-0 top-44 bottom-0 border-l bg-background flex flex-col z-40 transition-all duration-300 ease-in-out shadow-lg overflow-hidden ${
           isSidebarCollapsed ? 'w-10' : 'w-72'
         }`}
       >
@@ -545,14 +545,14 @@ export function TherapeuticsPanel({
                         <span className="truncate text-left">{therapy}</span>
                       </Button>
                     </CollapsibleTrigger>
-                    <Badge variant="outline" className="text-[10px]">
+                    <Badge variant="outline" className="text-xs">
                       {properties.length}
                     </Badge>
                   </div>
 
                   <CollapsibleContent className="px-2 py-1 border-t space-y-1">
                     {properties.length === 0 ? (
-                      <p className="text-[9px] text-muted-foreground italic">No properties</p>
+                      <p className="text-xs text-muted-foreground italic">No properties</p>
                     ) : (
                       <div className="space-y-1">
                         {properties.map((prop, idx) => (
@@ -561,12 +561,13 @@ export function TherapeuticsPanel({
                             className="border rounded p-1 bg-background group"
                           >
                             <div className="flex items-center justify-between mb-0.5">
-                              <span className="text-[9px] font-medium text-muted-foreground truncate">
+                              <span className="text-xs font-medium text-muted-foreground truncate">
                                 {prop.name}
                               </span>
                               <button
                                 onClick={() => handleRemoveProperty(therapy, idx)}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-red-500 hover:text-red-700 flex-shrink-0"
+                                className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-0.5 text-red-500 hover:text-red-700 flex-shrink-0 focus-visible:ring-1 focus-visible:ring-red-400 rounded"
+                                aria-label={`Remove ${prop.name} property`}
                               >
                                 <Trash2 className="size-2.5" />
                               </button>
@@ -582,12 +583,12 @@ export function TherapeuticsPanel({
                                 value={prop.extension}
                                 onValueChange={(value) => handleUpdatePropertyExtension(therapy, idx, value)}
                               >
-                                <SelectTrigger className="h-5 w-16 text-[10px] px-1">
+                                <SelectTrigger className="h-5 w-16 text-xs px-1">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
                                   {availableExtensions.map((ext) => (
-                                    <SelectItem key={ext} value={ext} className="text-[11px]">
+                                    <SelectItem key={ext} value={ext} className="text-xs">
                                       {ext}
                                     </SelectItem>
                                   ))}
@@ -605,7 +606,7 @@ export function TherapeuticsPanel({
                           placeholder="Name"
                           value={newPropertyName}
                           onChange={(e) => setNewPropertyName(e.target.value)}
-                          onKeyPress={(e) => {
+                          onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               handleAddProperty(therapy);
                             }
@@ -653,7 +654,7 @@ export function TherapeuticsPanel({
 
                 <CollapsibleContent className="px-2 py-1 border-t space-y-1">
                   {targetedTherapyNodes.length === 0 ? (
-                    <p className="text-[9px] text-muted-foreground italic">No target nodes</p>
+                    <p className="text-xs text-muted-foreground italic">No target nodes</p>
                   ) : (
                     <div className="space-y-1">
                       {targetedTherapyNodes.map((targetNode) => (
@@ -709,12 +710,12 @@ export function TherapeuticsPanel({
                               value={targetNode.extension}
                               onValueChange={(value) => handleUpdateTargetedNode(targetNode.id, 'extension', value)}
                             >
-                              <SelectTrigger className="h-5 text-[10px] w-full px-1 py-0.5">
+                              <SelectTrigger className="h-5 text-xs w-full px-1 py-0.5">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
                                 {availableExtensions.map((ext) => (
-                                  <SelectItem key={ext} value={ext} className="text-[11px]">
+                                  <SelectItem key={ext} value={ext} className="text-xs">
                                     {ext}
                                   </SelectItem>
                                 ))}
@@ -725,7 +726,8 @@ export function TherapeuticsPanel({
                             <div className="flex justify-end">
                               <button
                                 onClick={() => handleRemoveTargetedNode(targetNode.id)}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-red-500 hover:text-red-700 flex-shrink-0"
+                                className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-0.5 text-red-500 hover:text-red-700 flex-shrink-0 focus-visible:ring-1 focus-visible:ring-red-400 rounded"
+                                aria-label="Remove targeted node"
                               >
                                 <Trash2 className="size-2.5" />
                               </button>
@@ -828,12 +830,12 @@ export function TherapeuticsPanel({
                               value={g.extension}
                               onValueChange={(value) => handleUpdateGroupTherapy(g.id, 'extension', value)}
                             >
-                              <SelectTrigger className="h-5 text-[10px] w-full px-1 py-0.5">
+                              <SelectTrigger className="h-5 text-xs w-full px-1 py-0.5">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
                                 {availableExtensions.map((ext) => (
-                                  <SelectItem key={ext} value={ext} className="text-[11px]">
+                                  <SelectItem key={ext} value={ext} className="text-xs">
                                     {ext}
                                   </SelectItem>
                                 ))}

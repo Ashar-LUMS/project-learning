@@ -33,11 +33,6 @@ import { TherapeuticsPanel } from './TherapeuticsPanel';
 // Last updated: 2025-12-05 - Added weighted analysis support
 
 function NetworkEditorPage() {
-  // Development logging
-  if (import.meta.env.DEV) {
-    (window as any).__networkEditorPageRenderCount = ((window as any).__networkEditorPageRenderCount || 0) + 1;
-    console.log('[NetworkEditorPage] Render #' + (window as any).__networkEditorPageRenderCount);
-  }
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<TabType>('projects');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
@@ -81,7 +76,7 @@ function NetworkEditorPage() {
   // Log deterministic state for debugging
   useEffect(() => {
     if (deterministicResult || deterministicError) {
-      console.log('[NetworkEditorPage] Deterministic analysis state:', { hasResult: !!deterministicResult, error: deterministicError });
+      // Deterministic analysis state available
     }
   }, [deterministicResult, deterministicError]);
 
@@ -243,12 +238,6 @@ function NetworkEditorPage() {
 
   // Legacy handler that now opens the dialog
   const handleRunWeighted = async () => {
-    console.log('[NetworkEditorPage] handleRunWeighted called', {
-      hasGraphRef: !!graphRef.current,
-      hasSelectedNetwork: !!selectedNetwork,
-      selectedNetworkKeys: selectedNetwork ? Object.keys(selectedNetwork) : [],
-    });
-
     // Open dialog instead of running directly
     handleOpenWeightedDialog();
   };
@@ -348,21 +337,12 @@ function NetworkEditorPage() {
   };
 
   const handleOpenProbabilisticDialog = () => {
-    console.log('[DEBUG-BUTTON] Perform Probabilistic Analysis button CLICKED');
-    console.log('[DEBUG-BUTTON] Current state before opening dialog:', {
-      isProbabilisticDialogOpen,
-      isProbabilisticAnalyzing,
-      probabilisticResult: !!probabilisticResult,
-    });
     setProbabilisticFormError(null);
     setIsProbabilisticDialogOpen(true);
-    console.log('[DEBUG] Dialog open state changed to true');
   };
 
   const handleProbabilisticSubmit = async () => {
-    console.log('[DEBUG-SUBMIT] Submit clicked, form:', probabilisticForm);
     const noise = Number(probabilisticForm.noise);
-    console.log('[DEBUG-SUBMIT] Noise:', noise);
     if (!Number.isFinite(noise) || noise <= 0) {
       setProbabilisticFormError('Noise (µ) must be a positive number.');
       return;
@@ -404,8 +384,6 @@ function NetworkEditorPage() {
         tolerance,
         initialProbability,
       });
-
-      console.log('[handleProbabilisticSubmit] Analysis completed');
 
       // Check if analysis completed successfully before closing
       // Wait a tick to let error state update
@@ -1146,17 +1124,8 @@ function NetworkEditorPage() {
                 title="AutoNetCan - Automated Network Construction"
                 allow="clipboard-write"
                 referrerPolicy="no-referrer-when-downgrade"
-                onLoad={(e) => {
-                  const iframe = e.target as HTMLIFrameElement;
-                  console.log('[AutoNetCan iframe] ✓ onLoad fired - iframe element loaded', {
-                    src: iframe.src,
-                    width: iframe.offsetWidth,
-                    height: iframe.offsetHeight,
-                  });
-                }}
-                onError={(e) => {
-                  console.error('[AutoNetCan iframe] ✗ onError - network/load error', e);
-                }}
+                onLoad={() => {}}
+                onError={() => {}}
               />
             </div>
           </div>
@@ -1182,52 +1151,6 @@ function NetworkEditorPage() {
   inferenceActionsObj.weightedResult = weightedResult;
   inferenceActionsObj.hasResult = Boolean(analysisResult || weightedResult || probabilisticResult);
   inferenceActionsObj.isRuleBased = selectedIsRuleBased;
-
-  console.log('[NetworkEditorPage] CREATED ACTIONS OBJECT - PROPERTIES ADDED ONE BY ONE:', {
-    keys: Object.keys(inferenceActionsObj),
-    hasRunProbabilistic: 'runProbabilistic' in inferenceActionsObj,
-    hasIsProbabilisticRunning: 'isProbabilisticRunning' in inferenceActionsObj,
-    hasWeightedResult: 'weightedResult' in inferenceActionsObj,
-  });
-
-  useEffect(() => {
-    console.log('[NetworkEditorPage] inferenceActionsObj updated:', {
-      hasRunProbabilistic: !!inferenceActionsObj.runProbabilistic,
-      runProbabilisticName: inferenceActionsObj.runProbabilistic?.name,
-      isProbabilisticRunning: inferenceActionsObj.isProbabilisticRunning,
-    });
-  }, [inferenceActionsObj]);
-
-  useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log('[NetworkEditorPage] weightedResult updated', {
-      hasWeightedResult: !!weightedResult,
-      attractors: weightedResult?.attractors?.length ?? 0,
-    });
-  }, [weightedResult]);
-
-  useEffect(() => {
-    if (!probabilisticResult) return;
-    // eslint-disable-next-line no-console
-    console.log('[NetworkEditorPage] probabilisticResult updated', {
-      converged: probabilisticResult.converged,
-      iterations: probabilisticResult.iterations,
-      nodeCount: probabilisticResult.nodeOrder.length,
-    });
-  }, [probabilisticResult]);
-
-  useEffect(() => {
-    console.log('[NetworkEditorPage] isProbabilisticAnalyzing changed:', isProbabilisticAnalyzing);
-  }, [isProbabilisticAnalyzing]);
-
-  console.log('[NetworkEditorPage] Rendering with inferenceActions keys:', Object.keys(inferenceActionsObj));
-  console.log('[NetworkEditorPage] Has runProbabilistic?', typeof inferenceActionsObj.runProbabilistic);
-  console.log('[NetworkEditorPage] Has isProbabilisticRunning?', typeof inferenceActionsObj.isProbabilisticRunning);
-  console.log('[NetworkEditorPage] FINAL CHECK BEFORE RETURN:', {
-    runProbabilistic: inferenceActionsObj.runProbabilistic?.name || 'MISSING',
-    isProbabilisticRunning: inferenceActionsObj.isProbabilisticRunning,
-    keysCount: Object.keys(inferenceActionsObj).length,
-  });
 
   // Seq Analysis Sidebar with network selector
   const seqAnalysisSidebarContent = (
@@ -1573,7 +1496,7 @@ function NetworkEditorPage() {
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="flex flex-col p-2 rounded-md bg-muted/40">
-      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className="text-xs uppercase tracking-wide text-muted-foreground">{label}</span>
       <span className="text-sm font-semibold">{value}</span>
     </div>
   );

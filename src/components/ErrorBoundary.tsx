@@ -65,13 +65,13 @@ export class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
+        <div className="min-h-screen flex items-center justify-center p-4 bg-background">
           <Card className="max-w-2xl w-full">
             <CardHeader>
               <CardTitle className="text-red-600">Something Went Wrong</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-gray-700">
+              <p className="text-muted-foreground">
                 An unexpected error occurred. Please try refreshing the page or contact support if the problem persists.
               </p>
               
@@ -84,7 +84,7 @@ export class ErrorBoundary extends Component<Props, State> {
               )}
 
               {import.meta.env.DEV && this.state.errorInfo && (
-                <details className="bg-gray-100 rounded p-4">
+                <details className="bg-muted rounded p-4">
                   <summary className="cursor-pointer font-semibold mb-2">
                     Error Stack (Development Only)
                   </summary>

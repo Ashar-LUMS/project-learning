@@ -283,7 +283,7 @@ const AppLayout = () => {
 
   if (checkingLock) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-gray-600">Checking account status...</div>
+      <div className="flex min-h-screen items-center justify-center text-muted-foreground">Checking account status...</div>
     );
   }
 
@@ -294,22 +294,22 @@ const AppLayout = () => {
   }
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-gray-50 text-gray-800 font-sans antialiased">
+    <div className="flex flex-col h-screen overflow-hidden bg-background text-foreground font-sans antialiased">
       {/* Global Banner from Admin Settings */}
       {adminSettings?.banner?.enabled && adminSettings?.banner?.text ? (
         <div role="status" className="w-full border-b">
           <div className={`container mx-auto px-6 py-2 text-sm text-center ${
-            adminSettings.banner.type === 'success' ? 'bg-green-50 text-green-800' :
-            adminSettings.banner.type === 'warn' ? 'bg-amber-50 text-amber-800' :
-            adminSettings.banner.type === 'error' ? 'bg-red-50 text-red-800' :
-            'bg-blue-50 text-blue-800'
+            adminSettings.banner.type === 'success' ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200' :
+            adminSettings.banner.type === 'warn' ? 'bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-200' :
+            adminSettings.banner.type === 'error' ? 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200' :
+            'bg-blue-50 text-blue-800 dark:bg-blue-950 dark:text-blue-200'
           }`}>
             {adminSettings.banner.text}
           </div>
         </div>
       ) : null}
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100">
+      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-border">
         <div className="container px-4 sm:px-6 h-14 flex items-center justify-between">
           {/* Logo Section */}
           <Link to="/app" className="flex items-center shrink-0">
@@ -327,7 +327,7 @@ const AppLayout = () => {
           <nav className="hidden md:flex items-center gap-2">
             <Link
               to="/app"
-              className="text-gray-600 hover:text-[#2f5597] transition-colors duration-200 font-medium text-sm px-3 py-2 rounded-lg hover:bg-blue-50"
+              className="text-muted-foreground hover:text-primary transition-colors duration-200 font-medium text-sm px-3 py-2 rounded-lg hover:bg-primary/10"
             >
               Projects
             </Link>
@@ -335,7 +335,7 @@ const AppLayout = () => {
             {/* User Avatar Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-9 w-9 rounded-full hover:bg-gray-200 transition-all duration-200 border border-gray-200 p-0">
+                <Button variant="ghost" className="relative h-9 w-9 rounded-full hover:bg-accent transition-all duration-200 border border-border p-0">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={user?.user_metadata?.avatar_url} alt={user?.user_metadata?.name} />
                     <AvatarFallback className="bg-gradient-to-br from-blue-100 to-blue-200 text-blue-700 text-sm font-medium">
@@ -344,39 +344,39 @@ const AppLayout = () => {
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56 mt-2 rounded-xl shadow-lg border border-gray-100" align="end" forceMount>
+              <DropdownMenuContent className="w-56 mt-2 rounded-xl shadow-lg border border-border" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal p-4">
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-semibold leading-none text-gray-900">{user?.user_metadata?.name || 'User'}</p>
-                    <p className="text-xs leading-none text-gray-500">
+                    <p className="text-sm font-semibold leading-none text-foreground">{user?.user_metadata?.name || 'User'}</p>
+                    <p className="text-xs leading-none text-muted-foreground">
                       {user?.email}
                     </p>
                   </div>
                 </DropdownMenuLabel>
-                <DropdownMenuSeparator className="bg-gray-100" />
+                <DropdownMenuSeparator />
 
                 {/* Admin Panel Link */}
                 {activeRole === "Admin" && userRolesArray?.includes("Admin") && (
                   <>
-                    <DropdownMenuItem asChild className="p-2 cursor-pointer rounded-lg m-1 focus:bg-blue-50">
-                      <Link to="/app/admin" className="flex items-center gap-3 w-full text-gray-700">
-                        <Shield size={16} className="text-blue-600" />
+                    <DropdownMenuItem asChild className="p-2 cursor-pointer rounded-lg m-1 focus:bg-primary/10">
+                      <Link to="/app/admin" className="flex items-center gap-3 w-full text-foreground">
+                        <Shield size={16} className="text-primary" />
                         <span className="text-sm">Admin Panel</span>
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator className="bg-gray-100" />
+                    <DropdownMenuSeparator />
                   </>
                 )}
 
-                <DropdownMenuItem asChild className="p-2 cursor-pointer rounded-lg m-1 focus:bg-blue-50">
-                  <Link to="/app/user-profile" className="flex items-center gap-3 w-full text-gray-700">
-                    <UserRoundPen size={16} className="text-gray-600" />
+                <DropdownMenuItem asChild className="p-2 cursor-pointer rounded-lg m-1 focus:bg-primary/10">
+                  <Link to="/app/user-profile" className="flex items-center gap-3 w-full text-foreground">
+                    <UserRoundPen size={16} className="text-muted-foreground" />
                     <span className="text-sm">Profile</span>
                   </Link>
                 </DropdownMenuItem>
 
 
-                <DropdownMenuSeparator className="bg-gray-100" />
+                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={handleLogout}
                   className="p-2 cursor-pointer rounded-lg m-1 text-red-600 focus:bg-red-50 focus:text-red-600 w-full"
@@ -395,7 +395,7 @@ const AppLayout = () => {
             {/* Mobile Avatar */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full border border-gray-200 p-0">
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full border border-border p-0">
                   <Avatar className="h-7 w-7">
                     <AvatarImage src={user?.user_metadata?.avatar_url} alt={user?.user_metadata?.name} />
                     <AvatarFallback className="bg-gradient-to-br from-blue-100 to-blue-200 text-blue-700 text-xs font-medium">
@@ -404,37 +404,37 @@ const AppLayout = () => {
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56 rounded-xl shadow-lg border border-gray-100" align="end" forceMount>
+              <DropdownMenuContent className="w-56 rounded-xl shadow-lg border border-border" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal p-4">
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-semibold leading-none text-gray-900">{user?.user_metadata?.name || 'User'}</p>
-                    <p className="text-xs leading-none text-gray-500">
+                    <p className="text-sm font-semibold leading-none text-foreground">{user?.user_metadata?.name || 'User'}</p>
+                    <p className="text-xs leading-none text-muted-foreground">
                       {user?.email}
                     </p>
                   </div>
                 </DropdownMenuLabel>
-                <DropdownMenuSeparator className="bg-gray-100" />
+                <DropdownMenuSeparator />
 
                 {activeRole === "Admin" && userRolesArray?.includes("Admin") && (
                   <>
-                    <DropdownMenuItem asChild className="p-2 cursor-pointer rounded-lg m-1 focus:bg-blue-50">
-                      <Link to="/app/admin" className="flex items-center gap-3 w-full text-gray-700">
-                        <Shield size={16} className="text-blue-600" />
+                    <DropdownMenuItem asChild className="p-2 cursor-pointer rounded-lg m-1 focus:bg-primary/10">
+                      <Link to="/app/admin" className="flex items-center gap-3 w-full text-foreground">
+                        <Shield size={16} className="text-primary" />
                         <span className="text-sm">Admin Panel</span>
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator className="bg-gray-100" />
+                    <DropdownMenuSeparator />
                   </>
                 )}
 
-                <DropdownMenuItem asChild className="p-2 cursor-pointer rounded-lg m-1 focus:bg-blue-50">
-                  <Link to="/app/user-profile" className="flex items-center gap-3 w-full text-gray-700">
-                    <UserRoundPen size={16} className="text-gray-600" />
+                <DropdownMenuItem asChild className="p-2 cursor-pointer rounded-lg m-1 focus:bg-primary/10">
+                  <Link to="/app/user-profile" className="flex items-center gap-3 w-full text-foreground">
+                    <UserRoundPen size={16} className="text-muted-foreground" />
                     <span className="text-sm">Profile</span>
                   </Link>
                 </DropdownMenuItem>
 
-                <DropdownMenuSeparator className="bg-gray-100" />
+                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={handleLogout}
                   className="p-2 cursor-pointer rounded-lg m-1 text-red-600 focus:bg-red-50 focus:text-red-600 w-full"
@@ -447,7 +447,7 @@ const AppLayout = () => {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(!isMenuOpen)} aria-label="Toggle navigation menu" className="h-8 w-8 rounded-lg border border-gray-200 hover:bg-gray-50 p-0">
+            <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(!isMenuOpen)} aria-label="Toggle navigation menu" className="h-8 w-8 rounded-lg border border-border hover:bg-accent p-0">
               <Menu className="h-4 w-4" />
             </Button>
           </div>
@@ -455,30 +455,30 @@ const AppLayout = () => {
 
         {/* Mobile Navigation */}
         {isMenuOpen && (
-          <nav className="md:hidden bg-white/95 backdrop-blur-md border-t border-gray-100 shadow-lg">
+          <nav className="md:hidden bg-background/95 backdrop-blur-md border-t border-border shadow-lg">
             <div className="flex flex-col p-4 space-y-2">
               <Link
                 to="/app"
-                className="flex items-center gap-3 text-gray-700 hover:bg-blue-50 p-3 rounded-lg transition-colors font-medium"
+                className="flex items-center gap-3 text-foreground hover:bg-primary/10 p-3 rounded-lg transition-colors font-medium"
                 onClick={() => setIsMenuOpen(false)}
               >
-                <Home size={18} className="text-[#2f5597]" />
+                <Home size={18} className="text-primary" />
                 Projects
               </Link>
 
               {activeRole === "Admin" && userRolesArray?.includes("Admin") && (
                 <Link
                   to="/app/admin"
-                  className="flex items-center gap-3 text-gray-700 hover:bg-blue-50 p-3 rounded-lg transition-colors font-medium"
+                  className="flex items-center gap-3 text-foreground hover:bg-primary/10 p-3 rounded-lg transition-colors font-medium"
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  <Shield size={18} className="text-blue-600" />
+                  <Shield size={18} className="text-primary" />
                   Admin Panel
                 </Link>
               )}
 
               <Button
-                className="w-full rounded-lg mt-2 flex items-center gap-3 h-11 bg-white border border-gray-200 text-red-600 hover:bg-red-50 hover:text-red-700 font-medium"
+                className="w-full rounded-lg mt-2 flex items-center gap-3 h-11 bg-background border border-border text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950 font-medium"
                 onClick={() => {
                   setIsMenuOpen(false);
                   handleLogout();
