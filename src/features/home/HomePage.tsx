@@ -633,7 +633,7 @@ const HomePage: React.FC = () => {
                             return (
                               <div
                                 key={id}
-                                className={`w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-xs font-semibold shadow-lg transition-transform group-hover/avatars:translate-y-[-2px] ${isUnknown ? 'bg-gradient-to-br from-gray-400 to-gray-600 text-white' : 'bg-gradient-to-br from-[#2f5597] to-[#3b6bc9] text-white'}`}
+                                className={`w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-xs font-semibold shadow-lg transition-transform group-hover/avatars:translate-y-[-2px] ${isUnknown ? 'bg-gradient-to-br from-gray-400 to-gray-600 text-white' : 'bg-muted text-muted-foreground'}`}
                                 title={label}
                               >
                                 {initials}
@@ -641,7 +641,7 @@ const HomePage: React.FC = () => {
                             );
                           })}
                           {project.assignees.length > 4 && (
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-500 to-gray-600 border-2 border-background flex items-center justify-center text-xs font-semibold text-white shadow-lg">
+                            <div className="w-8 h-8 rounded-full bg-muted border-2 border-background flex items-center justify-center text-xs font-semibold text-muted-foreground shadow-lg">
                               +{project.assignees.length - 4}
                             </div>
                           )}
@@ -753,7 +753,7 @@ const HomePage: React.FC = () => {
                               onChange={() => toggleAssignee(u.id, setSelectedAssigneeIds)}
                               className="rounded border-border text-primary focus:ring-primary"
                             />
-                            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-primary-foreground text-sm font-medium">
+                            <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-sm font-medium">
                               {(u.name || u.email || '?').charAt(0).toUpperCase()}
                             </div>
                             <div className="flex flex-col">
@@ -820,7 +820,7 @@ const HomePage: React.FC = () => {
                   const initials = isUnknown ? '?' : ((label || "").split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase()).join("") || "?");
                   return (
                     <div key={id} className="flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-muted transition-colors">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium ${isUnknown ? 'bg-gradient-to-br from-gray-400 to-gray-600' : 'bg-gradient-to-br from-primary to-primary/80'}`}>
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium ${isUnknown ? 'bg-gradient-to-br from-gray-400 to-gray-600 text-white' : 'bg-muted text-muted-foreground'}`}>
                         {initials}
                       </div>
                       <div className="flex flex-col">
@@ -904,7 +904,7 @@ const HomePage: React.FC = () => {
                               disabled={!!isCreator || assigneeEditDisabled}
                               className="rounded border-border text-primary focus:ring-primary"
                             />
-                            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-primary-foreground text-sm font-medium">
+                            <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-sm font-medium">
                               {(u.name || u.email || '?').charAt(0).toUpperCase()}
                             </div>
                             <div className="flex flex-col">
