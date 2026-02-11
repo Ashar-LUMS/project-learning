@@ -33,6 +33,7 @@ import {
   type NormalizedGene,
   RNASeqApiError,
 } from "@/lib/rnaseqApi";
+import { downloadTextAsFile } from "@/lib/download";
 import type { ProjectNetworkRecord } from '@/hooks/useProjectNetworks';
 import type { NetworkNode } from "@/types/network";
 
@@ -201,41 +202,28 @@ export function SeqAnalysisTab({
     [handleFileChange]
   );
 
-  // Sample file download helpers
-  const downloadTextFile = useCallback((filename: string, text: string) => {
-    const blob = new Blob([text], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, []);
-
   const downloadFastqSample = useCallback((r: 'R1'|'R2') => {
     const content = [
       '@SEQ_ID',
       'GATTTGGGGTTCAAAGCAGTATCGATCAAATAGTAA',
       '+',
       'IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII',
-    ].join('\n');
-    downloadTextFile(`sample_${r.toLowerCase()}.fastq.gz`, content);
-  }, [downloadTextFile]);
+    ].join('\n') + '\n';
+    downloadTextAsFile(`sample_${r.toLowerCase()}.fastq.gz`, content);
+  }, []);
 
   const downloadFastaSample = useCallback(() => {
-    const content = ['>chr1', 'ACGTACGTACGTACGTACGTACGTACGT'].join('\n');
-    downloadTextFile('sample_reference.fa.gz', content);
-  }, [downloadTextFile]);
+    const content = ['>chr1', 'ACGTACGTACGTACGTACGTACGTACGT'].join('\n') + '\n';
+    downloadTextAsFile('sample_reference.fa.gz', content);
+  }, []);
 
   const downloadGff3Sample = useCallback(() => {
     const content = [
       '##gff-version 3',
       'chr1\tsource\tgene\t1000\t2000\t.\t+\t.\tID=gene1;Name=GENE1',
-    ].join('\n');
-    downloadTextFile('sample_annotation.gff3.gz', content);
-  }, [downloadTextFile]);
+    ].join('\n') + '\n';
+    downloadTextAsFile('sample_annotation.gff3.gz', content);
+  }, []);
 
   // Validate all files
   const validateForm = useCallback(() => {

@@ -130,6 +130,8 @@ function ProjectVisualizationPage() {
   // Minimal inference wiring so sidebar actions work here too
   const [rulesText, setRulesText] = useState('');
 
+  const [ruleBasedNodeLimitWarning, setRuleBasedNodeLimitWarning] = useState<string | null>(null);
+
   // Map of node ID to label for display purposes
   const nodeIdToLabel = useMemo(() => {
     const map: Record<string, string> = {};
@@ -151,6 +153,10 @@ function ProjectVisualizationPage() {
       return false;
     }
   }, [selectedNetwork]);
+
+  useEffect(() => {
+    setRuleBasedNodeLimitWarning(null);
+  }, [selectedNetworkId]);
 
   // Reset networkSubTab to 'editor' when switching to a weight-based network
   useEffect(() => {
@@ -435,6 +441,18 @@ function ProjectVisualizationPage() {
     }
 
     const networkData = (selectedNetwork as any).data || selectedNetwork;
+    const nodeCount = Array.isArray(networkData?.nodes) ? networkData.nodes.length : 0;
+
+    if (nodeCount > 16) {
+      const msg = 'Analysis Feature currently in development for larger netowkrs (>16 nodes)';
+      setRuleBasedNodeLimitWarning(msg);
+      showToast({
+        title: 'Warning',
+        description: msg,
+      });
+      return;
+    }
+
     const rules = networkData?.rules || [];
 
     if (!Array.isArray(rules) || rules.length === 0) {
@@ -468,6 +486,8 @@ function ProjectVisualizationPage() {
       title: 'Running Rule-Based Analysis',
       description: `Analyzing network "${selectedNetwork.name}" with ${ruleStrings.length} rules...`,
     });
+
+    setRuleBasedNodeLimitWarning(null);
 
     try {
       await runRuleBasedAnalysis(ruleStrings);
@@ -1943,6 +1963,11 @@ function ProjectVisualizationPage() {
               {selectedNetworkId && !selectedNetwork?.data?.nodes?.length && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
                   ⚠️ Selected network has no nodes. Please add nodes in the Network tab first.
+                </div>
+              )}
+              {ruleBasedNodeLimitWarning && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                  {ruleBasedNodeLimitWarning}
                 </div>
               )}
             </div>
