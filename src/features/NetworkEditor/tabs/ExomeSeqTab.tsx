@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
   Upload,
   FileUp,
@@ -51,25 +50,10 @@ export function ExomeSeqTab({
   void networks;
 
   // Form state
-  const [sampleName, setSampleName] = useState("");
-  const [hasMatchedNormal, setHasMatchedNormal] = useState(false);
-
   const [tumorFastq1, setTumorFastq1] = useState<FileInputState>({ file: null, error: null });
   const [tumorFastq2, setTumorFastq2] = useState<FileInputState>({ file: null, error: null });
-  const [normalFastq1, setNormalFastq1] = useState<FileInputState>({ file: null, error: null });
-  const [normalFastq2, setNormalFastq2] = useState<FileInputState>({ file: null, error: null });
   const [reference, setReference] = useState<FileInputState>({ file: null, error: null });
   const [targetsBed, setTargetsBed] = useState<FileInputState>({ file: null, error: null });
-  const [captureManifest, setCaptureManifest] = useState<FileInputState>({ file: null, error: null });
-  const [dbsnpVcf, setDbsnpVcf] = useState<FileInputState>({ file: null, error: null });
-  const [knownIndelsVcf, setKnownIndelsVcf] = useState<FileInputState>({ file: null, error: null });
-  const [panelOfNormalsVcf, setPanelOfNormalsVcf] = useState<FileInputState>({ file: null, error: null });
-
-  const [minCoverage, setMinCoverage] = useState<string>("30");
-  const [minBaseQual, setMinBaseQual] = useState<string>("20");
-  const [minMapQual, setMinMapQual] = useState<string>("30");
-  const [platform, setPlatform] = useState<string>("Illumina");
-  const [captureKit, setCaptureKit] = useState<string>("Agilent SureSelect");
 
   const [analysisState, setAnalysisState] = useState<'idle'|'uploading'|'running'|'failed'>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -102,36 +86,12 @@ export function ExomeSeqTab({
     handleFileChange(setTumorFastq2, /(fastq|fq)\.gz$/i, "Must be a .fastq.gz or .fq.gz file"),
     [handleFileChange]
   );
-  const handleNormalFastq1Change = useCallback(
-    handleFileChange(setNormalFastq1, /(fastq|fq)\.gz$/i, "Must be a .fastq.gz or .fq.gz file"),
-    [handleFileChange]
-  );
-  const handleNormalFastq2Change = useCallback(
-    handleFileChange(setNormalFastq2, /(fastq|fq)\.gz$/i, "Must be a .fastq.gz or .fq.gz file"),
-    [handleFileChange]
-  );
-  const handleReferenceChange = useCallback(
-    handleFileChange(setReference, /(fa|fasta)\.gz$/i, "Must be a .fa.gz or .fasta.gz file"),
-    [handleFileChange]
-  );
   const handleTargetsBedChange = useCallback(
     handleFileChange(setTargetsBed, /(bed|bed\.gz)$/i, "Must be a .bed or .bed.gz file"),
     [handleFileChange]
   );
-  const handleCaptureManifestChange = useCallback(
-    handleFileChange(setCaptureManifest, /(bed|bed\.gz)$/i, "Must be a .bed or .bed.gz file"),
-    [handleFileChange]
-  );
-  const handleDbsnpVcfChange = useCallback(
-    handleFileChange(setDbsnpVcf, /(vcf|vcf\.gz)$/i, "Must be a .vcf or .vcf.gz file"),
-    [handleFileChange]
-  );
-  const handleKnownIndelsVcfChange = useCallback(
-    handleFileChange(setKnownIndelsVcf, /(vcf|vcf\.gz)$/i, "Must be a .vcf or .vcf.gz file"),
-    [handleFileChange]
-  );
-  const handlePanelOfNormalsChange = useCallback(
-    handleFileChange(setPanelOfNormalsVcf, /(vcf|vcf\.gz)$/i, "Must be a .vcf or .vcf.gz file"),
+  const handleReferenceChange = useCallback(
+    handleFileChange(setReference, /(fa|fasta)\.gz$/i, "Must be a .fa.gz or .fasta.gz file"),
     [handleFileChange]
   );
 
@@ -168,34 +128,25 @@ export function ExomeSeqTab({
     downloadTextFile('sample_targets.bed.gz', content);
   }, [downloadTextFile]);
 
-  const downloadManifestSample = useCallback(() => {
-    const content = ['chr1\t20000\t20100\tCAPTURE1'].join('\n');
-    downloadTextFile('sample_capture_manifest.bed.gz', content);
-  }, [downloadTextFile]);
-
-  const downloadVcfSample = useCallback((name: string) => {
-    const header = ['##fileformat=VCFv4.2', '#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO'].join('\n');
-    const record = ['chr1','10100','.','A','G','60','PASS','.'].join('\t');
-    downloadTextFile(`${name}.vcf.gz`, `${header}\n${record}`);
-  }, [downloadTextFile]);
-
   const totalFileSize = useMemo(() => {
     const sizes = [
       tumorFastq1.file?.size || 0,
       tumorFastq2.file?.size || 0,
-      hasMatchedNormal ? (normalFastq1.file?.size || 0) : 0,
-      hasMatchedNormal ? (normalFastq2.file?.size || 0) : 0,
       reference.file?.size || 0,
       targetsBed.file?.size || 0,
-      captureManifest.file?.size || 0,
-      dbsnpVcf.file?.size || 0,
-      knownIndelsVcf.file?.size || 0,
-      panelOfNormalsVcf.file?.size || 0,
     ];
     return sizes.reduce((a, b) => a + b, 0);
-  }, [tumorFastq1.file, tumorFastq2.file, normalFastq1.file, normalFastq2.file, hasMatchedNormal, reference.file, targetsBed.file, captureManifest.file, dbsnpVcf.file, knownIndelsVcf.file, panelOfNormalsVcf.file]);
+  }, [tumorFastq1.file, tumorFastq2.file, reference.file, targetsBed.file]);
 
-  const isFormValid = tumorFastq1.file && tumorFastq2.file && reference.file && targetsBed.file && !tumorFastq1.error && !tumorFastq2.error && !reference.error && !targetsBed.error && (!hasMatchedNormal || (!normalFastq1.error && !normalFastq2.error));
+  const isFormValid =
+    !!tumorFastq1.file &&
+    !!tumorFastq2.file &&
+    !!reference.file &&
+    !!targetsBed.file &&
+    !tumorFastq1.error &&
+    !tumorFastq2.error &&
+    !reference.error &&
+    !targetsBed.error;
 
   const handleSubmit = useCallback(async () => {
     if (!isFormValid) {
@@ -222,23 +173,10 @@ export function ExomeSeqTab({
       clearInterval(pollIntervalRef.current);
       pollIntervalRef.current = null;
     }
-    setSampleName("");
-    setHasMatchedNormal(false);
     setTumorFastq1({ file: null, error: null });
     setTumorFastq2({ file: null, error: null });
-    setNormalFastq1({ file: null, error: null });
-    setNormalFastq2({ file: null, error: null });
     setReference({ file: null, error: null });
     setTargetsBed({ file: null, error: null });
-    setCaptureManifest({ file: null, error: null });
-    setDbsnpVcf({ file: null, error: null });
-    setKnownIndelsVcf({ file: null, error: null });
-    setPanelOfNormalsVcf({ file: null, error: null });
-    setMinCoverage("30");
-    setMinBaseQual("20");
-    setMinMapQual("30");
-    setPlatform("Illumina");
-    setCaptureKit("Agilent SureSelect");
     setAnalysisState('idle');
     setError(null);
     setUploadProgress(0);
@@ -281,26 +219,10 @@ export function ExomeSeqTab({
                 Upload Exome Sequencing Data
               </CardTitle>
               <CardDescription>
-                Provide tumor FASTQ pairs, optional matched-normal pairs, reference genome and target regions for variant calling.
+                Provide tumor FASTQ pairs, reference genome and target regions for variant calling.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Sample Name */}
-              <div className="space-y-2">
-                <Label htmlFor="exome_sample_name" className="text-sm font-medium">
-                  Sample Name <span className="text-muted-foreground">(optional)</span>
-                </Label>
-                <Input
-                  id="exome_sample_name"
-                  placeholder="e.g., patient_001_tumor"
-                  value={sampleName}
-                  onChange={(e) => setSampleName(e.target.value)}
-                  disabled={isRunning}
-                />
-              </div>
-
-              <Separator />
-
               {/* Tumor FASTQ R1/R2 */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">
@@ -345,57 +267,6 @@ export function ExomeSeqTab({
                 )}
               </div>
 
-              {/* Matched normal toggle + inputs */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Matched Normal</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="checkbox"
-                    checked={hasMatchedNormal}
-                    onChange={(e) => setHasMatchedNormal(e.target.checked)}
-                  />
-                  <span className="text-sm text-muted-foreground">Provide matched-normal FASTQ pairs (optional)</span>
-                </div>
-                {hasMatchedNormal && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
-                    <div>
-                      <Input
-                        type="file"
-                        accept=".fastq.gz,.fq.gz"
-                        onChange={handleNormalFastq1Change}
-                        disabled={isRunning}
-                        className={cn(normalFastq1.error && "border-red-500")}
-                      />
-                      <Button variant="outline" size="sm" className="mt-2" onClick={() => downloadFastqSample('normal_R1')}>Sample</Button>
-                      {normalFastq1.file && (
-                        <Badge variant="secondary" className="mt-2">
-                          {formatFileSize(normalFastq1.file.size)}
-                        </Badge>
-                      )}
-                      <p className="text-xs text-muted-foreground mt-1">Normal paired-end forward reads (R1)</p>
-                    </div>
-                    <div>
-                      <Input
-                        type="file"
-                        accept=".fastq.gz,.fq.gz"
-                        onChange={handleNormalFastq2Change}
-                        disabled={isRunning}
-                        className={cn(normalFastq2.error && "border-red-500")}
-                      />
-                      <Button variant="outline" size="sm" className="mt-2" onClick={() => downloadFastqSample('normal_R2')}>Sample</Button>
-                      {normalFastq2.file && (
-                        <Badge variant="secondary" className="mt-2">
-                          {formatFileSize(normalFastq2.file.size)}
-                        </Badge>
-                      )}
-                      <p className="text-xs text-muted-foreground mt-1">Normal paired-end reverse reads (R2)</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <Separator />
-
               {/* Reference Genome */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Reference Genome <span className="text-red-500">*</span></Label>
@@ -432,83 +303,6 @@ export function ExomeSeqTab({
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">Target regions for capture (.bed)</p>
-              </div>
-
-              {/* Capture Manifest (optional) */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Capture Manifest (optional)</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="file"
-                    accept=".bed,.bed.gz"
-                    onChange={handleCaptureManifestChange}
-                    disabled={isRunning}
-                  />
-                  <Button variant="outline" size="sm" onClick={downloadManifestSample}>Sample</Button>
-                  {captureManifest.file && (
-                    <Badge variant="secondary" className="shrink-0">{formatFileSize(captureManifest.file.size)}</Badge>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">Vendor-specific manifest (e.g., Agilent/Illumina)</p>
-              </div>
-
-              <Separator />
-
-              {/* Known variants (VCF) */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Known SNPs (dbSNP VCF)</Label>
-                <div className="flex items-center gap-2">
-                  <Input type="file" accept=".vcf,.vcf.gz" onChange={handleDbsnpVcfChange} disabled={isRunning} />
-                  <Button variant="outline" size="sm" onClick={() => downloadVcfSample('sample_dbsnp')}>Sample</Button>
-                </div>
-                <p className="text-xs text-muted-foreground">Optional: known SNPs for annotation</p>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Known Indels (VCF)</Label>
-                <div className="flex items-center gap-2">
-                  <Input type="file" accept=".vcf,.vcf.gz" onChange={handleKnownIndelsVcfChange} disabled={isRunning} />
-                  <Button variant="outline" size="sm" onClick={() => downloadVcfSample('sample_indels')}>Sample</Button>
-                </div>
-                <p className="text-xs text-muted-foreground">Optional: known indels for annotation</p>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Panel of Normals (VCF)</Label>
-                <div className="flex items-center gap-2">
-                  <Input type="file" accept=".vcf,.vcf.gz" onChange={handlePanelOfNormalsChange} disabled={isRunning} />
-                  <Button variant="outline" size="sm" onClick={() => downloadVcfSample('sample_pon')}>Sample</Button>
-                </div>
-                <p className="text-xs text-muted-foreground">Optional: reduce false positives in tumor-only mode</p>
-              </div>
-
-              <Separator />
-
-              {/* Quality/capture params */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-sm font-medium">Min Coverage (X)</Label>
-                  <Input value={minCoverage} onChange={(e) => setMinCoverage(e.target.value)} placeholder="e.g., 30" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-sm font-medium">Min Base Quality</Label>
-                  <Input value={minBaseQual} onChange={(e) => setMinBaseQual(e.target.value)} placeholder="e.g., 20" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-sm font-medium">Min Mapping Quality</Label>
-                  <Input value={minMapQual} onChange={(e) => setMinMapQual(e.target.value)} placeholder="e.g., 30" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-sm font-medium">Platform</Label>
-                  <Input value={platform} onChange={(e) => setPlatform(e.target.value)} placeholder="Illumina / MGI / ..." />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-sm font-medium">Capture Kit</Label>
-                  <Input value={captureKit} onChange={(e) => setCaptureKit(e.target.value)} placeholder="e.g., Agilent SureSelect" />
-                </div>
               </div>
 
               {/* Submit */}

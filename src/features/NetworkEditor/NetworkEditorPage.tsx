@@ -3,7 +3,8 @@ import { useToast } from '@/components/ui/toast';
 import NetworkEditorLayout from './layout';
 import type { NetworkEditorLayoutProps, TabType } from './layout';
 import ProjectTabComponent from './tabs/ProjectTab';
-import { SeqAnalysisTabs } from './tabs/SeqAnalysisTabs';
+import SeqAnalysisTab from './tabs/SeqAnalysisTab';
+import ExomeSeqTab from './tabs/ExomeSeqTab';
 
 import NetworkGraph, { type NetworkGraphHandle } from './NetworkGraph';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -481,9 +482,22 @@ function NetworkEditorPage() {
 
   const renderMainContent = () => {
     switch (activeTab) {
-      case 'seq-data-analysis':
+      case 'rna-seq':
         return (
-          <SeqAnalysisTabs
+          <SeqAnalysisTab
+            networkNodes={selectedNetwork?.data?.nodes || []}
+            networks={networks}
+            onNetworkSelect={selectNetwork}
+            selectedNetworkId={selectedNetworkId}
+            projectId={selectedProjectId}
+            networkId={selectedNetworkId}
+            networkName={selectedNetwork?.name}
+          />
+        );
+
+      case 'exome-seq':
+        return (
+          <ExomeSeqTab
             networkNodes={selectedNetwork?.data?.nodes || []}
             networks={networks}
             onNetworkSelect={selectNetwork}

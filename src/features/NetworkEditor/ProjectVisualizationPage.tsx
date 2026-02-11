@@ -10,7 +10,7 @@ import { importNetwork, exportAndDownloadNetworkAs, SUPPORTED_EXPORT_FORMATS, ty
 import { MergeNetworkDialog, type NetworkOption } from './MergeNetworkDialog';
 import NetworkGraph, { type NetworkGraphHandle } from "./NetworkGraph";
 import { supabase } from "../../supabaseClient";
-import NetworkEditorLayout from "./layout";
+import NetworkEditorLayout, { type TabType } from "./layout";
 import { useWeightedAnalysis } from '@/hooks/useWeightedAnalysis';
 import { useProbabilisticAnalysis } from '@/hooks/useProbabilisticAnalysis';
 import { useDeterministicAnalysis } from '@/hooks/useDeterministicAnalysis';
@@ -30,7 +30,8 @@ import ProbabilisticLandscape from './ProbabilisticLandscape';
 import { FateClassificationDialog, AttractorFateBadge } from './FateClassification';
 import { TherapeuticsPanel } from './TherapeuticsPanel';
 import { applyTherapiesToNetwork } from '@/lib/applyTherapies';
-import { SeqAnalysisTabs } from './tabs/SeqAnalysisTabs';
+import SeqAnalysisTab from './tabs/SeqAnalysisTab';
+import ExomeSeqTab from './tabs/ExomeSeqTab';
 import { PatientDrugScoresDialog } from './PatientDrugScoresDialog';
 import { Network, FileText, BarChart3 } from 'lucide-react';
 
@@ -43,8 +44,6 @@ type ProjectRecord = {
 };
 
 // network records provided by useProjectNetworks
-
-type TabType = 'projects' | 'seq-data-analysis' | 'network' | 'therapeutics' | 'analysis' | 'results' | 'network-inference' | 'env' | 'cell-circuits' | 'cell-lines' | 'simulation' | 'autonetcan';
 
 const MAX_RECENT_NETWORKS = 10;
 
@@ -2256,9 +2255,22 @@ function ProjectVisualizationPage() {
         );
       }
 
-      case 'seq-data-analysis':
+      case 'rna-seq':
         return (
-          <SeqAnalysisTabs
+          <SeqAnalysisTab
+            networkNodes={selectedNetwork?.data?.nodes || []}
+            networks={networks}
+            onNetworkSelect={selectNetwork}
+            selectedNetworkId={selectedNetworkId}
+            projectId={projectId}
+            networkId={selectedNetworkId}
+            networkName={selectedNetwork?.name}
+          />
+        );
+
+      case 'exome-seq':
+        return (
+          <ExomeSeqTab
             networkNodes={selectedNetwork?.data?.nodes || []}
             networks={networks}
             onNetworkSelect={selectNetwork}
