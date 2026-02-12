@@ -3381,14 +3381,14 @@ function ProjectVisualizationPage() {
 
       {/* Attractor Landscape Full-Screen Dialog */}
       <Dialog open={attractorLandscapeOpen} onOpenChange={setAttractorLandscapeOpen}>
-        <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] max-h-[90vh] p-0 overflow-hidden flex flex-col">
+        <DialogContent className="max-w-[100vw] w-[100vw] h-[100vh] max-h-[100vh] p-0 overflow-hidden flex flex-col">
           <DialogHeader className="p-4 pb-0 shrink-0">
             <DialogTitle>Attractor Landscape</DialogTitle>
             <DialogDescription>
               3D visualization of the attractor landscape. Valleys represent stable attractors (deeper = larger basin), peaks represent transient states.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex-1 min-h-0 p-4" style={{ height: 'calc(90vh - 80px)' }}>
+          <div className="flex-1 min-h-0 p-4" style={{ height: 'calc(100vh - 80px)' }}>
             {attractorLandscapeData && attractorLandscapeData.length > 0 && (
               <AttractorLandscape attractors={attractorLandscapeData} mappingType="naive-grid" className="h-full" />
             )}
