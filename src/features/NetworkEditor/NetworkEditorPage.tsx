@@ -1132,7 +1132,7 @@ function NetworkEditorPage() {
 
       case 'autonetcan':
         return (
-          <div className="h-full w-full flex flex-col" style={{ minHeight: '100%' }}>
+          <div className="h-full w-full flex flex-col overflow-hidden">
             {/* Header with fallback options */}
             <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30 shrink-0">
               <div className="space-y-0.5">
@@ -1157,12 +1157,10 @@ function NetworkEditorPage() {
               </div>
             </div>
             {/* Iframe container */}
-            <div className="flex-1 w-full" style={{ minHeight: 'calc(100vh - 200px)' }}>
+            <div className="flex-1 w-full overflow-hidden">
               <iframe
-                // src="https://autonetcan.lums.edu.pk/createNetwork"
                 src="https://autonetcan.lums.edu.pk/createNetwork"
                 className="w-full h-full border-0"
-                style={{ minHeight: 'calc(100vh - 200px)' }}
                 title="AutoNetCan - Automated Network Construction"
                 allow="clipboard-write"
                 referrerPolicy="no-referrer-when-downgrade"
@@ -1216,10 +1214,10 @@ function NetworkEditorPage() {
       <Separator />
 
       {/* Network Context Selector */}
-      {networks.length > 0 && (
+      {networks.length > 0 && ( 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Network Context</CardTitle>
+            <CardTitle className="text-sm font-medium">Select a Network</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             <select

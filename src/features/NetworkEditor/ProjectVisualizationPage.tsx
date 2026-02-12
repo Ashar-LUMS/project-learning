@@ -24,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { inferRulesFromBiomolecules } from "@/lib/openRouter";
 import { useProjectNetworks, type ProjectNetworkRecord } from '@/hooks/useProjectNetworks';
 import ProbabilisticLandscape from './ProbabilisticLandscape';
@@ -1515,7 +1516,7 @@ function ProjectVisualizationPage() {
       {/* Network Context Selector */}
       {networks.length > 0 && (
         <div className="space-y-2">
-          <label className="text-sm font-medium">Network Context</label>
+          <label className="text-sm font-medium">Select a Network</label>
           <select
             value={selectedNetworkId ?? ''}
             onChange={(e) => {
@@ -1576,7 +1577,7 @@ function ProjectVisualizationPage() {
       {/* Network Context Selector */}
       {networks.length > 0 && (
         <div className="space-y-2">
-          <label className="text-sm font-medium">Network Context</label>
+          <label className="text-sm font-medium">Select a Network</label>
           <select
             value={selectedNetworkId ?? ''}
             onChange={(e) => {
@@ -1664,25 +1665,30 @@ function ProjectVisualizationPage() {
             <div className="space-y-3">
               <Separator />
               <div>
-                <h3 className="text-sm font-semibold mb-2">Available Networks</h3>
-                <div className="space-y-1">
-                  {networks.map((net) => (
-                    <Button
-                      key={net.id}
-                      variant="ghost"
-                      className="w-full justify-start h-8 text-xs font-normal"
-                      onClick={() => {
-                        selectNetwork(net.id);
-                        setActiveTab('therapeutics');
-                      }}
-                    >
-                      <Badge variant="outline" className="mr-2 text-xs">
-                        {net.data?.nodes?.length || 0}
-                      </Badge>
-                      {net.name}
-                    </Button>
-                  ))}
-                </div>
+                <h3 className="text-sm font-semibold mb-2">Select Network</h3>
+                <Select
+                  value=""
+                  onValueChange={(networkId) => {
+                    selectNetwork(networkId);
+                    setActiveTab('therapeutics');
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Choose a network..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {networks.map((net) => (
+                      <SelectItem key={net.id} value={net.id}>
+                        <span className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {net.data?.nodes?.length || 0}
+                          </Badge>
+                          {net.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           )}
@@ -1732,26 +1738,29 @@ function ProjectVisualizationPage() {
         {/* Show available networks when one is selected */}
         {networks && networks.length > 1 && (
           <div className="space-y-2">
-            <h3 className="text-xs font-semibold text-muted-foreground">Networks in Project</h3>
-            <div className="space-y-1 max-h-32 overflow-y-auto">
-              {networks.map((net) => (
-                <Button
-                  key={net.id}
-                  variant={net.id === selectedNetworkId ? "secondary" : "ghost"}
-                  className="w-full justify-start h-7 text-xs font-normal"
-                  onClick={() => {
-                    selectNetwork(net.id);
-                  }}
-                >
-                  <Badge variant="outline" className="mr-2 text-xs">
-                    {net.data?.nodes?.length || 0}
-                  </Badge>
-                  <span className={cn("truncate", net.id === selectedNetworkId && "font-medium")}>
-                    {net.name}
-                  </span>
-                </Button>
-              ))}
-            </div>
+            <h3 className="text-xs font-semibold text-muted-foreground">Select Network</h3>
+            <Select
+              value={selectedNetworkId || ""}
+              onValueChange={(networkId) => {
+                selectNetwork(networkId);
+              }}
+            >
+              <SelectTrigger className="w-full h-9">
+                <SelectValue placeholder="Choose a network..." />
+              </SelectTrigger>
+              <SelectContent>
+                {networks.map((net) => (
+                  <SelectItem key={net.id} value={net.id}>
+                    <span className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">
+                        {net.data?.nodes?.length || 0}
+                      </Badge>
+                      <span className="truncate">{net.name}</span>
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
 
@@ -2774,13 +2783,12 @@ function ProjectVisualizationPage() {
 
       case 'autonetcan':
         return (
-          <div className="h-full w-full flex flex-col" style={{ minHeight: '100%' }}>
+          <div className="h-full w-full flex flex-col overflow-hidden">
             {/* Iframe container */}
-            <div className="flex-1 w-full" style={{ minHeight: 'calc(100vh - 200px)' }}>
+            <div className="flex-1 w-full overflow-hidden">
               <iframe
                 src="https://autonetcan.lums.edu.pk/createNetwork"
                 className="w-full h-full border-0"
-                style={{ minHeight: 'calc(100vh - 200px)' }}
                 title="AutoNetCan - Automated Network Construction"
                 allow="clipboard-write"
                 referrerPolicy="no-referrer-when-downgrade"
