@@ -2756,9 +2756,9 @@ function ProjectVisualizationPage() {
 
       case 'autonetcan':
         return (
-          <div className="h-full w-full flex flex-col overflow-hidden">
+          <div className="flex-1 w-full min-h-0 flex flex-col overflow-hidden">
             {/* Iframe container */}
-            <div className="flex-1 w-full overflow-hidden">
+            <div className="flex-1 w-full min-h-0 overflow-hidden">
               <iframe
                 src="https://autonetcan.lums.edu.pk/createNetwork"
                 className="w-full h-full border-0"
