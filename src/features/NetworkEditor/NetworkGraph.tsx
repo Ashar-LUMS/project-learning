@@ -981,9 +981,9 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
         layout: {
           name: 'preset',  // Don't run layout at init - handled post-init
         } as any,
-        minZoom: 0.2,
+        minZoom: 0.05,
         maxZoom: 4,
-        wheelSensitivity: 0.3,
+        wheelSensitivity: 1.5,
         boxSelectionEnabled: true,
       });
 

@@ -33,7 +33,7 @@ import { applyTherapiesToNetwork } from '@/lib/applyTherapies';
 import SeqAnalysisTab from './tabs/SeqAnalysisTab';
 import ExomeSeqTab from './tabs/ExomeSeqTab';
 import { PatientDrugScoresDialog } from './PatientDrugScoresDialog';
-import { Network, FileText, BarChart3 } from 'lucide-react';
+import { Network, FileText, BarChart3, Trash2 } from 'lucide-react';
 
 type ProjectRecord = {
   id: string;
@@ -107,6 +107,10 @@ function ProjectVisualizationPage() {
 
   // Merge Network dialog state
   const [isMergeDialogOpen, setIsMergeDialogOpen] = useState(false);
+
+  // Delete Network confirmation state
+  const [networkToDelete, setNetworkToDelete] = useState<ProjectNetworkRecord | null>(null);
+  const [isDeletingNetwork, setIsDeletingNetwork] = useState(false);
 
   // Fate classification state
   const [fateDialogOpen, setFateDialogOpen] = useState(false);
@@ -1239,32 +1243,84 @@ function ProjectVisualizationPage() {
     return { ruleBasedNetworks: ruleBased, weightBasedNetworks: weightBased };
   }, [sidebarRecentNetworks, getNetworkType]);
 
+  // Handle network deletion
+  const handleDeleteNetwork = useCallback(async () => {
+    if (!networkToDelete || !projectId) return;
+    setIsDeletingNetwork(true);
+    try {
+      // Remove from networks table
+      const { error: deleteError } = await supabase
+        .from('networks')
+        .delete()
+        .eq('id', networkToDelete.id);
+      if (deleteError) throw deleteError;
+
+      // Remove from project's networks array
+      const updatedNetworkIds = networks
+        .filter(n => n.id !== networkToDelete.id)
+        .map(n => n.id);
+      const { error: updateError } = await supabase
+        .from('projects')
+        .update({ networks: updatedNetworkIds })
+        .eq('id', projectId);
+      if (updateError) throw updateError;
+
+      // Update local state
+      setNetworks(prev => prev.filter(n => n.id !== networkToDelete.id));
+      if (selectedNetworkId === networkToDelete.id) {
+        const remaining = networks.filter(n => n.id !== networkToDelete.id);
+        selectNetwork(remaining[0]?.id || '');
+      }
+      showToast({ title: 'Network Deleted', description: `"${networkToDelete.name}" has been removed.` });
+    } catch (e) {
+      showToast({ title: 'Delete Failed', description: e instanceof Error ? e.message : 'Failed to delete network', variant: 'destructive' });
+    } finally {
+      setIsDeletingNetwork(false);
+      setNetworkToDelete(null);
+    }
+  }, [networkToDelete, projectId, networks, selectedNetworkId, setNetworks, selectNetwork, showToast]);
+
   // Render a single network item in the sidebar
   const renderNetworkItem = useCallback((network: ProjectNetworkRecord) => {
     const createdLabel = formatTimestamp(network.created_at);
     const isActive = network.id === selectedNetworkId;
     return (
-      <button
+      <div
         key={network.id}
-        type="button"
-        onClick={() => handleSelectNetwork(network.id)}
         className={cn(
-          "w-full rounded-lg border p-2 text-left transition-colors", 
+          "w-full rounded-lg border p-2 text-left transition-colors group relative", 
           isActive
             ? "border-primary bg-primary/10 text-primary"
             : "border-transparent bg-card hover:border-muted hover:bg-muted"
         )}
       >
-        <div className="flex items-start justify-between gap-2">
-          <span className="text-xs font-medium text-foreground break-words flex-1 min-w-0">{network.name}</span>
-          {isActive && (
-            <span className="text-xs uppercase tracking-wide text-primary flex-shrink-0 whitespace-nowrap">Active</span>
+        <button
+          type="button"
+          onClick={() => handleSelectNetwork(network.id)}
+          className="w-full text-left"
+        >
+          <div className="flex items-start justify-between gap-2 pr-6">
+            <span className="text-xs font-medium text-foreground break-words flex-1 min-w-0">{network.name}</span>
+            {isActive && (
+              <span className="text-xs uppercase tracking-wide text-primary flex-shrink-0 whitespace-nowrap">Active</span>
+            )}
+          </div>
+          {createdLabel && (
+            <div className="mt-0.5 text-xs text-muted-foreground">Created {createdLabel}</div>
           )}
-        </div>
-        {createdLabel && (
-          <div className="mt-0.5 text-xs text-muted-foreground">Created {createdLabel}</div>
-        )}
-      </button>
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setNetworkToDelete(network);
+          }}
+          className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-all"
+          title="Delete network"
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
     );
   }, [selectedNetworkId, handleSelectNetwork]);
 
@@ -2938,6 +2994,34 @@ function ProjectVisualizationPage() {
         selectedNetworkId={selectedNetworkId}
         onMerge={handleSaveMergedNetwork}
       />
+
+      {/* Delete Network Confirmation Dialog */}
+      <Dialog open={!!networkToDelete} onOpenChange={(open) => { if (!open) setNetworkToDelete(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Network</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{networkToDelete?.name}"? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setNetworkToDelete(null)}
+              disabled={isDeletingNetwork}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteNetwork}
+              disabled={isDeletingNetwork}
+            >
+              {isDeletingNetwork ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Import Network Dialog - Two-step flow */}
       <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>

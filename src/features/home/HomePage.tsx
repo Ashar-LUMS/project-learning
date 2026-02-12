@@ -420,15 +420,24 @@ const HomePage: React.FC = () => {
     });
   }, [users, createTeamSearch]);
 
+  const hasEditSearch = useMemo(() => editTeamSearch.trim().length > 0, [editTeamSearch]);
+
+  // Users currently assigned to the project being edited
+  const assignedUsersForEdit = useMemo(() => {
+    return users.filter(u => editSelectedAssigneeIds.has(u.id));
+  }, [users, editSelectedAssigneeIds]);
+
+  // Search results: users matching search who are NOT already assigned
   const filteredUsersForEdit = useMemo(() => {
     const q = editTeamSearch.trim().toLowerCase();
-    if (!q) return users;
+    if (!q) return [];
     return users.filter(u => {
+      if (editSelectedAssigneeIds.has(u.id)) return false; // exclude already assigned
       const name = (u.name || '').toLowerCase();
       const email = (u.email || '').toLowerCase();
       return name.includes(q) || email.includes(q);
     });
-  }, [users, editTeamSearch]);
+  }, [users, editTeamSearch, editSelectedAssigneeIds]);
 
   return (
     <main className="flex-1 overflow-y-auto">
@@ -880,96 +889,138 @@ const HomePage: React.FC = () => {
               />
               <div className="text-xs text-muted-foreground mt-1">{editName.length}/80</div>
             </div>
+            {/* Assigned Team Members Section */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium text-foreground">Assign Team Members</label>
-                <span className="text-xs text-muted-foreground">{editSelectedAssigneeIds.size} selected</span>
+                <label className="block text-sm font-medium text-foreground">Assigned Team Members</label>
+                <span className="text-xs text-muted-foreground">{editSelectedAssigneeIds.size} assigned</span>
               </div>
               {isUsersLoading ? (
                 <div className="flex items-center justify-center h-20 border rounded-xl bg-muted">Loading team members...</div>
-              ) : (
-                <>
-                  <div className="mb-3 relative">
-                    <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      placeholder="Search team members"
-                      className="pl-9 rounded-xl border-2 focus:border-primary focus:ring-2 focus:ring-primary/20"
-                      value={editTeamSearch}
-                      onChange={(e) => setEditTeamSearch(e.target.value)}
-                    />
-                  </div>
-                  {(!usersError && filteredUsersForEdit.length > 0) ? (
-                    <div className="max-h-60 overflow-auto border rounded-xl divide-y">
-                      {filteredUsersForEdit.map(u => {
-                        const isCreator = editingProject && editingProject.creator_email === u.email;
-                        const assigneeEditDisabled = policyAttrs.onlyAdminsEditAssignees && !isAdmin;
-                        return (
-                          <label key={u.id} className={`flex items-center gap-3 py-3 px-4 ${isCreator ? 'bg-muted cursor-default' : assigneeEditDisabled ? 'bg-muted cursor-not-allowed opacity-60' : 'hover:bg-muted cursor-pointer'}`}>
-                            <input
-                              type="checkbox"
-                              checked={editSelectedAssigneeIds.has(u.id)}
-                              onChange={() => toggleAssignee(u.id, setEditSelectedAssigneeIds)}
-                              disabled={!!isCreator || assigneeEditDisabled}
-                              className="rounded border-border text-primary focus:ring-primary"
-                            />
-                            <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-sm font-medium">
-                              {(u.name || u.email || '?').charAt(0).toUpperCase()}
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-sm font-medium text-foreground">{u.name || 'Unnamed User'}</span>
-                              {/*<span className="text-xs text-muted-foreground">{u.email || 'No email'}</span>*/}
-                            </div>
-                            {isCreator && (
-                              <div className="ml-auto">
-                                <span className="inline-block bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-full">Creator</span>
-                              </div>
-                            )}
-                          </label>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="p-4 text-sm text-muted-foreground border rounded-xl bg-muted">
-                      {usersError ? 'Unable to load other users. You can still update the project.' : 'No other users available.'}
-                    </div>
-                  )}
-                  {/* Cleanup for deleted assignees */}
-                  {(() => {
-                    const unknownIds = Array.from(editSelectedAssigneeIds).filter(id => !knownUserIds.has(id));
-                    if (unknownIds.length === 0) return null;
+              ) : assignedUsersForEdit.length > 0 ? (
+                <div className="max-h-40 overflow-auto border rounded-xl divide-y">
+                  {assignedUsersForEdit.map(u => {
+                    const isCreator = editingProject && editingProject.creator_email === u.email;
+                    const assigneeEditDisabled = policyAttrs.onlyAdminsEditAssignees && !isAdmin;
                     return (
-                      <div className="mt-3 p-3 rounded-xl border border-amber-200 bg-amber-50">
-                        <div className="text-sm font-medium text-amber-800 mb-2">Deleted users in assignees</div>
-                        <div className="flex flex-wrap gap-2 mb-3">
-                          {unknownIds.map(id => (
-                            <span key={id} className="inline-flex items-center gap-1 text-xs bg-white border border-amber-200 text-amber-800 px-2 py-1 rounded-full">
-                              Deleted user
-                              <span className="opacity-60">(email unavailable)</span>
-                              <button
-                                type="button"
-                                className="ml-1 text-amber-700 hover:text-amber-900"
-                                onClick={() => setEditSelectedAssigneeIds(prev => { const next = new Set(prev); next.delete(id); return next; })}
-                                disabled={policyAttrs.onlyAdminsEditAssignees && !isAdmin}
-                                aria-label="Remove deleted user from assignees"
-                              >
-                                ×
-                              </button>
-                            </span>
-                          ))}
+                      <div key={u.id} className={`flex items-center gap-3 py-3 px-4 ${isCreator ? 'bg-muted' : ''}`}>
+                        <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-sm font-medium">
+                          {(u.name || u.email || '?').charAt(0).toUpperCase()}
                         </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="border-amber-300 text-amber-800 hover:bg-amber-100"
-                          onClick={() => setEditSelectedAssigneeIds(prev => new Set(Array.from(prev).filter(id => knownUserIds.has(id))))}
-                          disabled={policyAttrs.onlyAdminsEditAssignees && !isAdmin}
-                        >
-                          Remove all deleted users
-                        </Button>
+                        <div className="flex flex-col flex-1">
+                          <span className="text-sm font-medium text-foreground">{u.name || 'Unnamed User'}</span>
+                          <span className="text-xs text-muted-foreground">{u.email || 'No email'}</span>
+                        </div>
+                        {isCreator ? (
+                          <span className="inline-block bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-full">Creator</span>
+                        ) : (
+                          <button
+                            type="button"
+                            className="text-muted-foreground hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={() => toggleAssignee(u.id, setEditSelectedAssigneeIds)}
+                            disabled={assigneeEditDisabled}
+                            aria-label="Remove from project"
+                          >
+                            <X size={16} />
+                          </button>
+                        )}
                       </div>
                     );
-                  })()}
-                </>
+                  })}
+                </div>
+              ) : (
+                <div className="p-4 text-sm text-muted-foreground border rounded-xl bg-muted">
+                  No team members assigned yet.
+                </div>
+              )}
+              {/* Cleanup for deleted assignees */}
+              {(() => {
+                const unknownIds = Array.from(editSelectedAssigneeIds).filter(id => !knownUserIds.has(id));
+                if (unknownIds.length === 0) return null;
+                return (
+                  <div className="mt-3 p-3 rounded-xl border border-amber-200 bg-amber-50">
+                    <div className="text-sm font-medium text-amber-800 mb-2">Deleted users in assignees</div>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {unknownIds.map(id => (
+                        <span key={id} className="inline-flex items-center gap-1 text-xs bg-white border border-amber-200 text-amber-800 px-2 py-1 rounded-full">
+                          Deleted user
+                          <span className="opacity-60">(email unavailable)</span>
+                          <button
+                            type="button"
+                            className="ml-1 text-amber-700 hover:text-amber-900"
+                            onClick={() => setEditSelectedAssigneeIds(prev => { const next = new Set(prev); next.delete(id); return next; })}
+                            disabled={policyAttrs.onlyAdminsEditAssignees && !isAdmin}
+                            aria-label="Remove deleted user from assignees"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="border-amber-300 text-amber-800 hover:bg-amber-100"
+                      onClick={() => setEditSelectedAssigneeIds(prev => new Set(Array.from(prev).filter(id => knownUserIds.has(id))))}
+                      disabled={policyAttrs.onlyAdminsEditAssignees && !isAdmin}
+                    >
+                      Remove all deleted users
+                    </Button>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Add Team Members Section */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Add Team Members</label>
+              <div className="mb-3 relative">
+                <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search by name or email to add members"
+                  className="pl-9 rounded-xl border-2 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  value={editTeamSearch}
+                  onChange={(e) => setEditTeamSearch(e.target.value)}
+                />
+              </div>
+              {usersError ? (
+                <div className="p-4 text-sm text-muted-foreground border rounded-xl bg-muted">
+                  Unable to load users. You can still update the project.
+                </div>
+              ) : hasEditSearch ? (
+                filteredUsersForEdit.length > 0 ? (
+                  <div className="max-h-40 overflow-auto border rounded-xl divide-y">
+                    {filteredUsersForEdit.map(u => {
+                      const assigneeEditDisabled = policyAttrs.onlyAdminsEditAssignees && !isAdmin;
+                      return (
+                        <label key={u.id} className={`flex items-center gap-3 py-3 px-4 ${assigneeEditDisabled ? 'bg-muted cursor-not-allowed opacity-60' : 'hover:bg-muted cursor-pointer'}`}>
+                          <input
+                            type="checkbox"
+                            checked={editSelectedAssigneeIds.has(u.id)}
+                            onChange={() => toggleAssignee(u.id, setEditSelectedAssigneeIds)}
+                            disabled={assigneeEditDisabled}
+                            className="rounded border-border text-primary focus:ring-primary"
+                          />
+                          <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-sm font-medium">
+                            {(u.name || u.email || '?').charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium text-foreground">{u.name || 'Unnamed User'}</span>
+                            <span className="text-xs text-muted-foreground">{u.email || 'No email'}</span>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="p-4 text-sm text-muted-foreground border rounded-xl bg-muted">
+                    No users found for "{editTeamSearch.trim()}".
+                  </div>
+                )
+              ) : (
+                <div className="p-4 text-sm text-muted-foreground border rounded-xl bg-muted">
+                  Start typing a name or email to search for team members to add.
+                </div>
               )}
             </div>
           </div>
