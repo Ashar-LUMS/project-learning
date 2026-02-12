@@ -256,9 +256,9 @@ export default function NetworkEditorLayout({
         </div>
 
         {/* Main Workspace */}
-        <div className="flex-1 min-h-0 overflow-auto bg-gradient-to-br from-background to-muted/5 relative">
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-gradient-to-br from-background to-muted/5 relative">
           <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-muted/5 pointer-events-none" />
-          <div className="relative">
+          <div className="relative flex-1 min-h-0 flex flex-col overflow-auto">
             {children}
           </div>
         </div>
