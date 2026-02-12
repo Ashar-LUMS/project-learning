@@ -638,7 +638,7 @@ function SeqAnalysisSidebar() {
               Seq Analysis
             </h2>
             <p className="text-xs text-muted-foreground">
-              RNA-seq data processing
+              Exome-seq data processing
             </p>
           </div>
         </div>
