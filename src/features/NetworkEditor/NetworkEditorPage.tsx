@@ -1128,7 +1128,7 @@ function NetworkEditorPage() {
 
       case 'autonetcan':
         return (
-          <div className="h-full w-full flex flex-col overflow-hidden">
+          <div className="flex-1 w-full min-h-0 flex flex-col overflow-hidden">
             {/* Header with fallback options */}
             <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30 shrink-0">
               <div className="space-y-0.5">
@@ -1153,7 +1153,7 @@ function NetworkEditorPage() {
               </div>
             </div>
             {/* Iframe container */}
-            <div className="flex-1 w-full overflow-hidden">
+            <div className="flex-1 w-full min-h-0 overflow-hidden">
               <iframe
                 src="https://autonetcan.lums.edu.pk/createNetwork"
                 className="w-full h-full border-0"
