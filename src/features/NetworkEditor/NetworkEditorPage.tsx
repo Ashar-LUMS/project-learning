@@ -691,10 +691,10 @@ function NetworkEditorPage() {
         );
       case 'network-inference':
         return (
-          <div className="h-full p-6 space-y-6">
-            <div className="flex flex-col lg:flex-row gap-6 h-full">
+          <div className="p-6">
+            <div className="flex flex-col lg:flex-row gap-6">
               <Card className="flex-1">
-                <CardContent className="p-6 space-y-4 h-full flex flex-col">
+                <CardContent className="p-6 space-y-4">
                   <div className="space-y-1">
                     <h2 className="text-xl font-semibold">Deterministic Analysis</h2>
                     <p className="text-sm text-muted-foreground">Enter Boolean update rules (one per line, e.g. A = B AND !C)</p>
@@ -864,8 +864,8 @@ function NetworkEditorPage() {
                       </AlertDescription>
                     </Alert>
                   )}
-                  {/* Results Container - Scrollable */}
-                  <div className="flex-1 overflow-auto min-h-0 space-y-4">
+                  {/* Results Container */}
+                  <div className="space-y-4">
                   {analysisResult && (
                     <div className="border rounded-md p-4 space-y-4 bg-muted/30">
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -882,8 +882,7 @@ function NetworkEditorPage() {
                       {/* Attractor Landscape Button */}
                       {analysisResult.attractors.length > 0 && (
                         <Button
-                          variant="outline"
-                          className="w-full"
+                          className="h-9 px-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-sm font-medium shadow-md"
                           onClick={() => {
                             setAttractorLandscapeData(analysisResult.attractors);
                             setAttractorLandscapeOpen(true);
@@ -892,29 +891,29 @@ function NetworkEditorPage() {
                           View Attractor Landscape
                         </Button>
                       )}
-                      <div className="space-y-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                         {analysisResult.attractors.map((attr: any) => (
                           <div key={attr.id} className="border rounded-md p-3 bg-background/50">
                             <div className="flex items-center justify-between mb-2">
                               <h3 className="font-medium text-sm">Attractor #{attr.id + 1} ({attr.type})</h3>
                               <span className="text-xs text-muted-foreground">Period {attr.period} • Basin { (attr.basinShare*100).toFixed(1) }%</span>
                             </div>
-                            <div className="overflow-auto">
+                            <div>
                               <table className="w-full text-xs border-collapse">
                                 <thead>
                                   <tr>
-                                    <th className="text-left p-1 font-semibold">State</th>
-                                    {analysisResult.nodeOrder.map((n: any) => (
-                                      <th key={n} className="p-1 font-medium">{analysisResult.nodeLabels[n]}</th>
+                                    <th className="text-left p-1 font-semibold">Node</th>
+                                    {attr.states.map((_: any, si: number) => (
+                                      <th key={si} className="p-1 font-medium text-center">S{si + 1}</th>
                                     ))}
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {attr.states.map((s: any, si: number) => (
-                                    <tr key={si} className="odd:bg-muted/40">
-                                      <td className="p-1 font-mono">{s.binary}</td>
-                                      {analysisResult.nodeOrder.map((n: any) => (
-                                        <td key={n} className="p-1 text-center">{s.values[n]}</td>
+                                  {analysisResult.nodeOrder.map((n: any) => (
+                                    <tr key={n} className="odd:bg-muted/40">
+                                      <td className="p-1 font-medium">{analysisResult.nodeLabels[n]}</td>
+                                      {attr.states.map((s: any, si: number) => (
+                                        <td key={si} className={`p-1 text-center ${s.values[n] === 1 ? 'bg-primary/10 font-medium' : ''}`}>{s.values[n]}</td>
                                       ))}
                                     </tr>
                                   ))}
@@ -956,8 +955,7 @@ function NetworkEditorPage() {
                         {/* Attractor Landscape Button */}
                         {weightedResult.attractors.length > 0 && (
                           <Button
-                            variant="outline"
-                            className="w-full border-blue-300 hover:bg-blue-100"
+                            className="h-9 px-4 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white text-sm font-medium shadow-md"
                             onClick={() => {
                               setAttractorLandscapeData(weightedResult.attractors);
                               setAttractorLandscapeOpen(true);
@@ -966,29 +964,29 @@ function NetworkEditorPage() {
                             View Attractor Landscape
                           </Button>
                         )}
-                        <div className="space-y-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                           {weightedResult.attractors.map((attr: any) => (
                             <div key={attr.id} className="border rounded-md p-3 bg-white shadow-sm">
                               <div className="flex items-center justify-between mb-2">
                                 <h3 className="font-medium text-sm text-blue-800">Attractor #{attr.id + 1} ({attr.type})</h3>
                                 <span className="text-xs text-muted-foreground">Period {attr.period} • Basin { (attr.basinShare*100).toFixed(1) }%</span>
                               </div>
-                              <div className="overflow-auto">
+                              <div>
                                 <table className="w-full text-xs border-collapse">
                                   <thead>
                                     <tr>
-                                      <th className="text-left p-1 font-semibold">State</th>
-                                      {weightedResult.nodeOrder.map((n: string) => (
-                                        <th key={n} className="p-1 font-medium">{weightedResult.nodeLabels[n]}</th>
+                                      <th className="text-left p-1 font-semibold">Node</th>
+                                      {attr.states.map((_: any, si: number) => (
+                                        <th key={si} className="p-1 font-medium text-center">S{si + 1}</th>
                                       ))}
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {attr.states.map((s: any, si: number) => (
-                                      <tr key={si} className="odd:bg-muted/40">
-                                        <td className="p-1 font-mono">{s.binary}</td>
-                                        {weightedResult.nodeOrder.map((n: string) => (
-                                          <td key={n} className="p-1 text-center">{s.values[n]}</td>
+                                    {weightedResult.nodeOrder.map((n: string) => (
+                                      <tr key={n} className="odd:bg-muted/40">
+                                        <td className="p-1 font-medium">{weightedResult.nodeLabels[n]}</td>
+                                        {attr.states.map((s: any, si: number) => (
+                                          <td key={si} className={`p-1 text-center ${s.values[n] === 1 ? 'bg-primary/10 font-medium' : ''}`}>{s.values[n]}</td>
                                         ))}
                                       </tr>
                                     ))}
@@ -1032,27 +1030,25 @@ function NetworkEditorPage() {
                         {/* Landscape Buttons */}
                         <div className="flex flex-wrap gap-2">
                           <Button
-                            variant="outline"
-                            className="border-purple-300 hover:bg-purple-100"
+                            className="h-9 px-4 bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white text-sm font-medium shadow-md"
                             onClick={() => setProbabilityLandscapeOpen(true)}
                           >
                             View Probability Landscape
                           </Button>
                           {Object.keys(probabilisticResult.potentialEnergies).length > 0 && (
                             <Button
-                              variant="outline"
-                              className="border-purple-300 hover:bg-purple-100"
+                              className="h-9 px-4 bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white text-sm font-medium shadow-md"
                               onClick={() => setEnergyLandscapeOpen(true)}
                             >
-                              View Potential Energy Landscape
+                              View Energy Landscape
                             </Button>
                           )}
                           <Button
                             variant="outline"
-                            className="border-purple-300 hover:bg-purple-100"
+                            className="h-9 px-4 text-sm border-purple-300 hover:bg-purple-100"
                             onClick={() => setShowProbabilityTables(!showProbabilityTables)}
                           >
-                            {showProbabilityTables ? 'Hide' : 'Show'} Probability Tables
+                            {showProbabilityTables ? 'Hide' : 'Show'} Tables
                           </Button>
                         </div>
                         {showProbabilityTables && (

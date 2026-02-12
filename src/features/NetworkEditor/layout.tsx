@@ -25,7 +25,6 @@ import {
   User,
   PanelLeftClose,
   PanelLeft,
-  ChevronDown,
   FileText,
   Dna
 } from 'lucide-react';
@@ -233,7 +232,7 @@ export default function NetworkEditorLayout({
       </div>
 
       {/* Main Content Area */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Enhanced Sidebar */}
         <div className={cn(
           "border-r bg-background flex flex-col transition-all duration-300",
@@ -257,9 +256,9 @@ export default function NetworkEditorLayout({
         </div>
 
         {/* Main Workspace */}
-        <div className="flex-1 overflow-hidden bg-gradient-to-br from-background to-muted/5 relative flex flex-col">
+        <div className="flex-1 min-h-0 overflow-auto bg-gradient-to-br from-background to-muted/5 relative">
           <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-muted/5 pointer-events-none" />
-          <div className="relative flex-1 overflow-auto">
+          <div className="relative">
             {children}
           </div>
         </div>
@@ -499,171 +498,77 @@ function NetworkSidebar() {
 
 // Enhanced Network Analysis Sidebar
 function NetworkAnalysisSidebar({ actions }: { actions?: NetworkEditorLayoutProps['inferenceActions'] }) {
-  const [expandedSections, setExpandedSections] = React.useState<Set<string>>(new Set(['deterministic', 'probabilistic']));
-
-  const toggleSection = (section: string) => {
-    const newExpanded = new Set(expandedSections);
-    if (newExpanded.has(section)) {
-      newExpanded.delete(section);
-    } else {
-      newExpanded.add(section);
-    }
-    setExpandedSections(newExpanded);
-  };
-
   return (
-    <div className="flex flex-col h-full gap-2">
-      {/* Header */}
-      <div className="flex-shrink-0">
-        <h2 className="text-lg font-bold tracking-tight text-foreground">Network Analysis</h2>
+    <div className="space-y-3">
+      {/* Deterministic Analysis */}
+      <div>
+        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Deterministic</p>
+        <div className="flex gap-1.5">
+          <Button
+            className="h-7 text-xs px-2.5"
+            onClick={() => actions?.run?.()}
+            disabled={Boolean(actions?.isRunning) || !Boolean(actions?.isRuleBased)}
+            variant={actions?.isRuleBased ? "default" : "outline"}
+            title={!actions?.isRuleBased ? 'Rule-based networks only' : 'Run rule-based analysis'}
+            size="sm"
+          >
+            Rule-based
+          </Button>
+          <Button
+            className="h-7 text-xs px-2.5"
+            onClick={() => {
+              if (actions?.isRuleBased) return;
+              actions?.runWeighted?.();
+            }}
+            disabled={actions?.isWeightedRunning || actions?.isRuleBased}
+            variant={!actions?.isRuleBased ? "default" : "outline"}
+            title={actions?.isRuleBased ? 'Weight-based networks only' : 'Run weighted analysis'}
+            size="sm"
+          >
+            Weighted
+          </Button>
+        </div>
       </div>
 
-      {/* Analysis Sections */}
-      <div className="flex-1 space-y-1 overflow-y-auto">
-        {/* Deterministic Analysis Section */}
-        <Card className="border-0 bg-card/50">
-          <div
-            className="px-3 py-2 cursor-pointer hover:bg-accent/30 transition-colors flex items-center justify-between rounded-md"
-            onClick={() => toggleSection('deterministic')}
-          >
-            <CardTitle className="text-xs font-semibold">Deterministic Analysis</CardTitle>
-            <ChevronDown
-              className={`w-3 h-3 transition-transform ${expandedSections.has('deterministic') ? 'rotate-180' : ''}`}
-            />
-          </div>
-          {expandedSections.has('deterministic') && (
-            <CardContent className="p-0 pt-1">
-              <div className="space-y-1 px-3 pb-2">
-                {/* Rule-based */}
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Rule-based</p>
-                  <Button
-                    className="w-full justify-start gap-2 h-8 px-2 text-xs"
-                    onClick={() => actions?.run?.()}
-                    disabled={Boolean(actions?.isRunning) || !Boolean(actions?.isRuleBased)}
-                    variant="secondary"
-                    title={!actions?.isRuleBased ? 'Rule-based deterministic analysis only' : undefined}
-                    size="sm"
-                  >
-                    <Play className="w-3 h-3" />
-                    Run Rule-based
-                  </Button>
-                </div>
-
-                {/* Weight-based */}
-                <div className="pt-1 border-t border-border/40">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1 pt-1">Weight-based</p>
-                  <Button
-                    className="w-full justify-start gap-2 h-8 px-2 text-xs"
-                    onClick={() => {
-                      if (actions?.isRuleBased) return;
-                      actions?.runWeighted?.();
-                    }}
-                    disabled={actions?.isWeightedRunning || actions?.isRuleBased}
-                    variant="secondary"
-                    title={actions?.isRuleBased ? 'Weighted analysis disabled for rule-based networks' : undefined}
-                    size="sm"
-                  >
-                    <Play className="w-3 h-3" />
-                    Run Weighted
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          )}
-        </Card>
-
-        {/* Probabilistic Analysis Section */}
-        <Card className="border-0 bg-card/50">
-          <div
-            className="px-3 py-2 cursor-pointer hover:bg-accent/30 transition-colors flex items-center justify-between rounded-md"
-            onClick={() => toggleSection('probabilistic')}
-          >
-            <CardTitle className="text-xs font-semibold">Probabilistic Analysis</CardTitle>
-            <ChevronDown
-              className={`w-3 h-3 transition-transform ${expandedSections.has('probabilistic') ? 'rotate-180' : ''}`}
-            />
-          </div>
-          {expandedSections.has('probabilistic') && (
-            <CardContent className="p-0 pt-1">
-              <div className="space-y-1 px-3 pb-2">
-                {/* Rules-based Network Analysis */}
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Rules-based Network</p>
-                  <Button
-                    className="w-full justify-start gap-2 h-8 px-2 text-xs"
-                    onClick={() => {
-                      if (!actions) return;
-                      actions?.runProbabilistic?.();
-                    }}
-                    disabled={Boolean(actions?.isProbabilisticRunning)}
-                    variant="secondary"
-                    size="sm"
-                  >
-                    <Play className="w-3 h-3" />
-                    Run Probabilistic
-                  </Button>
-                </div>
-
-                {/* Weight-based Network Analysis */}
-                <div className="pt-1 border-t border-border/40">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1 pt-1">Weight-based Network</p>
-                  <Button
-                    className="w-full justify-start gap-2 h-8 px-2 text-xs"
-                    variant="secondary"
-                    disabled
-                    title="Coming soon"
-                    size="sm"
-                  >
-                    <Play className="w-3 h-3" />
-                    Run Probabilistic
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          )}
-        </Card>
-
-        {/* ODE Section */}
-        <Card className="border-0 bg-card/50">
-          <div
-            className="px-3 py-2 cursor-pointer hover:bg-accent/30 transition-colors flex items-center justify-between rounded-md"
-            onClick={() => toggleSection('ode')}
-          >
-            <CardTitle className="text-xs font-semibold">ODE</CardTitle>
-            <ChevronDown
-              className={`w-3 h-3 transition-transform ${expandedSections.has('ode') ? 'rotate-180' : ''}`}
-            />
-          </div>
-          {expandedSections.has('ode') && (
-            <CardContent className="p-0 pt-1">
-              <div className="space-y-1 px-3 pb-2">
-                <Button
-                  className="w-full justify-start gap-2 h-8 px-2 text-xs"
-                  variant="secondary"
-                  disabled
-                  title="Coming soon"
-                  size="sm"
-                >
-                  <Play className="w-3 h-3" />
-                  Run ODE
-                </Button>
-              </div>
-            </CardContent>
-          )}
-        </Card>
+      {/* Probabilistic Analysis */}
+      <div>
+        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Probabilistic</p>
+        <Button
+          className="h-7 text-xs px-2.5"
+          onClick={() => actions?.runProbabilistic?.()}
+          disabled={Boolean(actions?.isProbabilisticRunning)}
+          variant="secondary"
+          size="sm"
+        >
+          Run Analysis
+        </Button>
       </div>
 
-      {/* Download Results Button */}
-      <Button
-        variant="outline"
-        className="w-full justify-start gap-2 h-8 px-2 text-xs"
-        onClick={() => actions?.download?.()}
-        disabled={!actions?.hasResult}
-      >
-        <Download className="w-3 h-3" />
-        Download Results
-      </Button>
+      {/* ODE */}
+      <div>
+        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">ODE</p>
+        <Button
+          className="h-7 text-xs px-2.5"
+          variant="outline"
+          disabled
+          size="sm"
+        >
+          Coming Soon
+        </Button>
+      </div>
+
+      {/* Download Results */}
+      <div className="pt-2 border-t">
+        <Button
+          variant="outline"
+          className="h-7 text-xs px-2.5"
+          onClick={() => actions?.download?.()}
+          disabled={!actions?.hasResult}
+        >
+          <Download className="w-3 h-3 mr-1.5" />
+          Download
+        </Button>
+      </div>
     </div>
   );
 }
