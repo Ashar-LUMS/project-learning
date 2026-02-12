@@ -133,7 +133,6 @@ function ProjectVisualizationPage() {
   } | null>(null);
 
   // Minimal inference wiring so sidebar actions work here too
-  const [rulesText, setRulesText] = useState('');
 
   const [ruleBasedNodeLimitWarning, setRuleBasedNodeLimitWarning] = useState<string | null>(null);
 
