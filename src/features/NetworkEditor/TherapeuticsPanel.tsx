@@ -9,15 +9,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
 import { KnockInDialog } from './KnockInDialog';
 import { KnockOutDialog } from './KnockOutDialog';
 import type { NetworkNode, TherapeuticIntervention } from '@/types/network';
-import { Plus, X, Save, Syringe, ChevronsUpDown, Trash2, Power, ChevronUp } from 'lucide-react';
+import { Plus, X, Save, Syringe, ChevronsUpDown, Trash2, Power } from 'lucide-react';
 import { supabase } from '@/supabaseClient';
 import { useToast } from '@/components/ui/toast';
 
@@ -82,11 +77,6 @@ export function TherapeuticsPanel({
       { name: 'Infusion Rate', value: '1.5', extension: 'ml/min' },
       { name: 'Cycles', value: '4', extension: 'cycles' },
     ],
-    'Gene Therapy': [
-      { name: 'Vector Dose', value: '1e12', extension: 'vg/kg' },
-      { name: 'Expression Level', value: '80', extension: '%' },
-      { name: 'Monitoring Period', value: '24', extension: 'weeks' },
-    ],
   });
 
   const [targetedTherapyNodes, setTargetedTherapyNodes] = useState<TargetedTherapyNode[]>([
@@ -96,7 +86,6 @@ export function TherapeuticsPanel({
   const [selectedTherapy, setSelectedTherapy] = useState<string | null>(null);
   const [newPropertyName, setNewPropertyName] = useState('');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [openTherapies, setOpenTherapies] = useState<Record<string, boolean>>({});
   const [groupTherapies, setGroupTherapies] = useState<GroupTherapy[]>([]);
 
   const availableExtensions = [
@@ -107,30 +96,6 @@ export function TherapeuticsPanel({
   ];
 
   const modulationModes = ['inhibit', 'activate', 'enhance', 'suppress', 'modulate'];
-
-  // Initialize and keep open state in sync with available therapy sections
-  useEffect(() => {
-    setOpenTherapies((prev) => {
-      const next: Record<string, boolean> = { ...prev };
-      // Ensure all therapy groups exist in the map
-      Object.keys(therapyProperties).forEach((key) => {
-        if (next[key] === undefined) next[key] = true;
-      });
-      // Track Targeted Therapy separately
-      if (next['Targeted Therapy'] === undefined) next['Targeted Therapy'] = true;
-      return next;
-    });
-  }, [therapyProperties]);
-
-  const collapseAllSections = () => {
-    setOpenTherapies((prev) => {
-      const next: Record<string, boolean> = {};
-      Object.keys(prev).forEach((k) => {
-        next[k] = false;
-      });
-      return next;
-    });
-  };
 
   const handleAddTargetedNode = () => {
     setTargetedTherapyNodes(prev => [
@@ -492,18 +457,6 @@ export function TherapeuticsPanel({
             Therapy Properties
           </h4>
           <div className="flex items-center gap-1">
-            {!isSidebarCollapsed && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-7 h-7 w-7 p-0 flex-shrink-0"
-                onClick={collapseAllSections}
-                title="Collapse all sections"
-              >
-                <ChevronUp className="size-3.5" />
-                <span className="sr-only">Collapse all sections</span>
-              </Button>
-            )}
             <Button 
               variant="ghost" 
               size="icon" 
@@ -520,156 +473,82 @@ export function TherapeuticsPanel({
         </div>
 
         {!isSidebarCollapsed && (
-        <Collapsible defaultOpen className="flex flex-col flex-1 overflow-hidden">
+          <div className="flex-1 overflow-hidden flex flex-col">
+            {/* Therapy Type Buttons */}
+            <div className="p-2 space-y-1.5 border-b">
+              <Button
+                variant={selectedTherapy === 'Chemotherapy' ? 'default' : 'outline'}
+                size="sm"
+                className={`w-full justify-start h-8 text-xs ${
+                  selectedTherapy === 'Chemotherapy' 
+                    ? 'bg-purple-600 hover:bg-purple-700 text-white' 
+                    : 'border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-400 dark:hover:bg-purple-950'
+                }`}
+                onClick={() => setSelectedTherapy(selectedTherapy === 'Chemotherapy' ? null : 'Chemotherapy')}
+              >
+                Chemotherapy
+              </Button>
+              <Button
+                variant={selectedTherapy === 'Immunotherapy' ? 'default' : 'outline'}
+                size="sm"
+                className={`w-full justify-start h-8 text-xs ${
+                  selectedTherapy === 'Immunotherapy' 
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white' 
+                    : 'border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950'
+                }`}
+                onClick={() => setSelectedTherapy(selectedTherapy === 'Immunotherapy' ? null : 'Immunotherapy')}
+              >
+                Immunotherapy
+              </Button>
+              <Button
+                variant={selectedTherapy === 'Targeted Therapy' ? 'default' : 'outline'}
+                size="sm"
+                className={`w-full justify-start h-8 text-xs ${
+                  selectedTherapy === 'Targeted Therapy' 
+                    ? 'bg-amber-600 hover:bg-amber-700 text-white' 
+                    : 'border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950'
+                }`}
+                onClick={() => setSelectedTherapy(selectedTherapy === 'Targeted Therapy' ? null : 'Targeted Therapy')}
+              >
+                Targeted Therapy
+              </Button>
+            </div>
 
-          <CollapsibleContent className="flex-1 overflow-hidden flex flex-col">
-            <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1">
-              {Object.entries(therapyProperties).map(([therapy, properties]) => (
-                <Collapsible
-                  key={therapy}
-                  open={openTherapies[therapy] ?? true}
-                  onOpenChange={(open) =>
-                    setOpenTherapies((prev) => ({ ...prev, [therapy]: open }))
-                  }
-                  className="border rounded-md text-xs"
-                >
-                  <div className="flex items-center justify-between px-2 py-1.5">
-                    <CollapsibleTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="flex-1 justify-start h-6 text-xs font-medium px-1"
-                        onClick={() => setSelectedTherapy(selectedTherapy === therapy ? null : therapy)}
-                      >
-                        <ChevronsUpDown className="size-2.5 mr-1 flex-shrink-0" />
-                        <span className="truncate text-left">{therapy}</span>
-                      </Button>
-                    </CollapsibleTrigger>
+            {/* Properties Panel */}
+            <div className="flex-1 overflow-y-auto px-2 py-2">
+              {selectedTherapy === null ? (
+                <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
+                  <Syringe className="w-6 h-6 opacity-20 mb-2" />
+                  <p className="text-xs">Select a therapy type</p>
+                  <p className="text-xs opacity-60">to view and edit properties</p>
+                </div>
+              ) : selectedTherapy === 'Targeted Therapy' ? (
+                /* Targeted Therapy Properties */
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium">Target Nodes</span>
                     <Badge variant="outline" className="text-xs">
-                      {properties.length}
+                      {targetedTherapyNodes.length}
                     </Badge>
                   </div>
 
-                  <CollapsibleContent className="px-2 py-1 border-t space-y-1">
-                    {properties.length === 0 ? (
-                      <p className="text-xs text-muted-foreground italic">No properties</p>
-                    ) : (
-                      <div className="space-y-1">
-                        {properties.map((prop, idx) => (
-                          <div
-                            key={idx}
-                            className="border rounded p-1 bg-background group"
-                          >
-                            <div className="flex items-center justify-between mb-0.5">
-                              <span className="text-xs font-medium text-muted-foreground truncate">
-                                {prop.name}
-                              </span>
-                              <button
-                                onClick={() => handleRemoveProperty(therapy, idx)}
-                                className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-0.5 text-red-500 hover:text-red-700 flex-shrink-0 focus-visible:ring-1 focus-visible:ring-red-400 rounded"
-                                aria-label={`Remove ${prop.name} property`}
-                              >
-                                <Trash2 className="size-2.5" />
-                              </button>
-                            </div>
-                            <div className="flex gap-0.5">
-                              <Input
-                                placeholder="Val"
-                                value={prop.value}
-                                onChange={(e) => handleUpdatePropertyValue(therapy, idx, e.target.value)}
-                                className="h-5 text-xs flex-1 px-1 py-0.5"
-                              />
-                              <Select
-                                value={prop.extension}
-                                onValueChange={(value) => handleUpdatePropertyExtension(therapy, idx, value)}
-                              >
-                                <SelectTrigger className="h-5 w-16 text-xs px-1">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {availableExtensions.map((ext) => (
-                                    <SelectItem key={ext} value={ext} className="text-xs">
-                                      {ext}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {selectedTherapy === therapy && (
-                      <div className="flex gap-0.5 pt-0.5 border-t mt-0.5">
-                        <Input
-                          placeholder="Name"
-                          value={newPropertyName}
-                          onChange={(e) => setNewPropertyName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              handleAddProperty(therapy);
-                            }
-                          }}
-                          className="h-5 text-xs px-1 py-0.5"
-                        />
-                        <Button
-                          onClick={() => handleAddProperty(therapy)}
-                          size="sm"
-                          className="h-5 px-1"
-                          variant="secondary"
-                        >
-                          <Plus className="size-2" />
-                        </Button>
-                      </div>
-                    )}
-                  </CollapsibleContent>
-                </Collapsible>
-              ))}
-
-              {/* Targeted Therapy Section */}
-              <Collapsible
-                className="border rounded-md text-xs"
-                open={openTherapies['Targeted Therapy'] ?? true}
-                onOpenChange={(open) =>
-                  setOpenTherapies((prev) => ({ ...prev, ['Targeted Therapy']: open }))
-                }
-              >
-                <div className="flex items-center justify-between px-2 py-1.5">
-                  <CollapsibleTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="flex-1 justify-start h-6 text-xs font-medium px-1"
-                      onClick={() => setSelectedTherapy(selectedTherapy === 'Targeted Therapy' ? null : 'Targeted Therapy')}
-                    >
-                      <ChevronsUpDown className="size-2.5 mr-1 flex-shrink-0" />
-                      <span className="truncate text-left">Targeted Therapy</span>
-                    </Button>
-                  </CollapsibleTrigger>
-                  <Badge variant="outline" className="text-[10px]">
-                    {targetedTherapyNodes.length}
-                  </Badge>
-                </div>
-
-                <CollapsibleContent className="px-2 py-1 border-t space-y-1">
                   {targetedTherapyNodes.length === 0 ? (
                     <p className="text-xs text-muted-foreground italic">No target nodes</p>
                   ) : (
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                       {targetedTherapyNodes.map((targetNode) => (
                         <div
                           key={targetNode.id}
-                          className="border rounded p-1 bg-background group"
+                          className="border rounded p-2 bg-background group"
                         >
-                          <div className="flex flex-col gap-1">
+                          <div className="flex flex-col gap-1.5">
                             {/* Target Node Dropdown */}
                             <Select
                               value={targetNode.nodeId}
                               onValueChange={(value) => handleUpdateTargetedNode(targetNode.id, 'nodeId', value)}
                             >
-                              <SelectTrigger className="h-5 text-xs w-full px-1 py-0.5">
-                                <SelectValue placeholder="Node" />
+                              <SelectTrigger className="h-7 text-xs w-full">
+                                <SelectValue placeholder="Select node" />
                               </SelectTrigger>
                               <SelectContent>
                                 {nodes.map((node) => (
@@ -685,7 +564,7 @@ export function TherapeuticsPanel({
                               value={targetNode.modulationMode}
                               onValueChange={(value) => handleUpdateTargetedNode(targetNode.id, 'modulationMode', value)}
                             >
-                              <SelectTrigger className="h-5 text-xs w-full px-1 py-0.5">
+                              <SelectTrigger className="h-7 text-xs w-full">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -697,39 +576,39 @@ export function TherapeuticsPanel({
                               </SelectContent>
                             </Select>
 
-                            {/* Value Input */}
-                            <Input
-                              placeholder="Val"
-                              value={targetNode.value}
-                              onChange={(e) => handleUpdateTargetedNode(targetNode.id, 'value', e.target.value)}
-                              className="h-5 text-xs w-full px-1 py-0.5"
-                            />
-
-                            {/* Extension Dropdown */}
-                            <Select
-                              value={targetNode.extension}
-                              onValueChange={(value) => handleUpdateTargetedNode(targetNode.id, 'extension', value)}
-                            >
-                              <SelectTrigger className="h-5 text-xs w-full px-1 py-0.5">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {availableExtensions.map((ext) => (
-                                  <SelectItem key={ext} value={ext} className="text-xs">
-                                    {ext}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            {/* Value and Extension Row */}
+                            <div className="flex gap-1">
+                              <Input
+                                placeholder="Value"
+                                value={targetNode.value}
+                                onChange={(e) => handleUpdateTargetedNode(targetNode.id, 'value', e.target.value)}
+                                className="h-7 text-xs flex-1"
+                              />
+                              <Select
+                                value={targetNode.extension}
+                                onValueChange={(value) => handleUpdateTargetedNode(targetNode.id, 'extension', value)}
+                              >
+                                <SelectTrigger className="h-7 w-20 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {availableExtensions.map((ext) => (
+                                    <SelectItem key={ext} value={ext} className="text-xs">
+                                      {ext}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
 
                             {/* Remove Button */}
                             <div className="flex justify-end">
                               <button
                                 onClick={() => handleRemoveTargetedNode(targetNode.id)}
-                                className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-0.5 text-red-500 hover:text-red-700 flex-shrink-0 focus-visible:ring-1 focus-visible:ring-red-400 rounded"
+                                className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-1 text-red-500 hover:text-red-700 rounded"
                                 aria-label="Remove targeted node"
                               >
-                                <Trash2 className="size-2.5" />
+                                <Trash2 className="size-3" />
                               </button>
                             </div>
                           </div>
@@ -738,35 +617,58 @@ export function TherapeuticsPanel({
                     </div>
                   )}
 
-                  {/* Group Therapy Editor */}
-                  {groupTherapies.length > 0 && (
-                    <div className="space-y-1 pt-1 border-t">
-                      {groupTherapies.map((g) => (
-                        <div key={g.id} className="border rounded p-1 bg-background">
-                          <div className="flex items-center justify-between mb-0.5">
+                  {/* Add Target Button */}
+                  <div className="pt-2 border-t mt-2">
+                    <Button
+                      onClick={handleAddTargetedNode}
+                      size="sm"
+                      className="h-7 text-xs w-full"
+                      variant="secondary"
+                    >
+                      <Plus className="size-3 mr-1" />
+                      Add Target
+                    </Button>
+                  </div>
+
+                  {/* Group Therapies */}
+                  <div className="space-y-2 pt-3 border-t mt-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium">Group Therapies</span>
+                      <Badge variant="outline" className="text-xs">
+                        {groupTherapies.length}
+                      </Badge>
+                    </div>
+
+                    {groupTherapies.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">No group therapies</p>
+                    ) : (
+                      groupTherapies.map((g) => (
+                        <div key={g.id} className="border rounded p-2 bg-background">
+                          <div className="flex items-center justify-between mb-1.5">
                             <Input
                               placeholder="Group name"
                               value={g.name}
                               onChange={(e) => handleUpdateGroupTherapy(g.id, 'name', e.target.value)}
-                              className="h-5 text-xs px-1 py-0.5 flex-1 mr-1"
+                              className="h-7 text-xs flex-1 mr-1"
                             />
                             <button
                               onClick={() => handleRemoveGroupTherapy(g.id)}
-                              className="p-0.5 text-red-500 hover:text-red-700 flex-shrink-0"
+                              className="p-1 text-red-500 hover:text-red-700"
                             >
-                              <Trash2 className="size-2.5" />
+                              <Trash2 className="size-3" />
                             </button>
                           </div>
 
                           {/* Members */}
-                          <div className="space-y-1">
+                          <div className="space-y-1.5 mb-2">
+                            <span className="text-xs text-muted-foreground">Members:</span>
                             {g.members.map((memberId, idx) => (
-                              <div key={idx} className="flex items-center gap-0.5">
+                              <div key={idx} className="flex items-center gap-1">
                                 <Select
                                   value={memberId}
                                   onValueChange={(value) => handleUpdateGroupMember(g.id, idx, value)}
                                 >
-                                  <SelectTrigger className="h-5 text-xs w-full px-1 py-0.5">
+                                  <SelectTrigger className="h-7 text-xs w-full">
                                     <SelectValue placeholder="Select node" />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -780,34 +682,32 @@ export function TherapeuticsPanel({
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-5 px-1"
+                                  className="h-7 px-2"
                                   onClick={() => handleRemoveGroupMember(g.id, idx)}
                                   title="Remove member"
                                 >
-                                  <Trash2 className="size-2" />
+                                  <Trash2 className="size-3" />
                                 </Button>
                               </div>
                             ))}
-                            <div className="flex gap-0.5">
-                              <Button
-                                onClick={() => handleAddGroupMember(g.id)}
-                                size="sm"
-                                className="h-5 px-1 flex-1"
-                                variant="secondary"
-                              >
-                                <Plus className="size-2 mr-0.5" />
-                                Add Member
-                              </Button>
-                            </div>
+                            <Button
+                              onClick={() => handleAddGroupMember(g.id)}
+                              size="sm"
+                              className="h-7 text-xs w-full"
+                              variant="outline"
+                            >
+                              <Plus className="size-3 mr-1" />
+                              Add Member
+                            </Button>
                           </div>
 
                           {/* Group modifiers */}
-                          <div className="mt-1 flex flex-col gap-1">
+                          <div className="space-y-1.5">
                             <Select
                               value={g.modulationMode}
                               onValueChange={(value) => handleUpdateGroupTherapy(g.id, 'modulationMode', value)}
                             >
-                              <SelectTrigger className="h-5 text-xs w-full px-1 py-0.5">
+                              <SelectTrigger className="h-7 text-xs w-full">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -819,18 +719,89 @@ export function TherapeuticsPanel({
                               </SelectContent>
                             </Select>
 
-                            <Input
-                              placeholder="Val"
-                              value={g.value}
-                              onChange={(e) => handleUpdateGroupTherapy(g.id, 'value', e.target.value)}
-                              className="h-5 text-xs w-full px-1 py-0.5"
-                            />
+                            <div className="flex gap-1">
+                              <Input
+                                placeholder="Value"
+                                value={g.value}
+                                onChange={(e) => handleUpdateGroupTherapy(g.id, 'value', e.target.value)}
+                                className="h-7 text-xs flex-1"
+                              />
+                              <Select
+                                value={g.extension}
+                                onValueChange={(value) => handleUpdateGroupTherapy(g.id, 'extension', value)}
+                              >
+                                <SelectTrigger className="h-7 w-20 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {availableExtensions.map((ext) => (
+                                    <SelectItem key={ext} value={ext} className="text-xs">
+                                      {ext}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
 
-                            <Select
-                              value={g.extension}
-                              onValueChange={(value) => handleUpdateGroupTherapy(g.id, 'extension', value)}
+                    {/* Add Group Button */}
+                    <Button
+                      onClick={handleAddGroupTherapy}
+                      size="sm"
+                      className="h-7 text-xs w-full mt-2"
+                      variant="secondary"
+                    >
+                      <Plus className="size-3 mr-1" />
+                      Add Group
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                /* Chemotherapy / Immunotherapy Properties */
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium">Properties</span>
+                    <Badge variant="outline" className="text-xs">
+                      {(therapyProperties[selectedTherapy] || []).length}
+                    </Badge>
+                  </div>
+
+                  {(therapyProperties[selectedTherapy] || []).length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic">No properties</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {(therapyProperties[selectedTherapy] || []).map((prop, idx) => (
+                        <div
+                          key={idx}
+                          className="border rounded p-2 bg-background group"
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-medium text-muted-foreground truncate">
+                              {prop.name}
+                            </span>
+                            <button
+                              onClick={() => handleRemoveProperty(selectedTherapy, idx)}
+                              className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-0.5 text-red-500 hover:text-red-700 rounded"
+                              aria-label={`Remove ${prop.name} property`}
                             >
-                              <SelectTrigger className="h-5 text-xs w-full px-1 py-0.5">
+                              <Trash2 className="size-3" />
+                            </button>
+                          </div>
+                          <div className="flex gap-1">
+                            <Input
+                              placeholder="Value"
+                              value={prop.value}
+                              onChange={(e) => handleUpdatePropertyValue(selectedTherapy, idx, e.target.value)}
+                              className="h-7 text-xs flex-1"
+                            />
+                            <Select
+                              value={prop.extension}
+                              onValueChange={(value) => handleUpdatePropertyExtension(selectedTherapy, idx, value)}
+                            >
+                              <SelectTrigger className="h-7 w-20 text-xs">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -847,32 +818,32 @@ export function TherapeuticsPanel({
                     </div>
                   )}
 
-                  {/* Add Target / Add Group Buttons */}
-                  <div className="flex gap-0.5 pt-0.5 border-t mt-0.5">
+                  {/* Add Property */}
+                  <div className="flex gap-1 pt-2 border-t mt-2">
+                    <Input
+                      placeholder="Property name"
+                      value={newPropertyName}
+                      onChange={(e) => setNewPropertyName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleAddProperty(selectedTherapy);
+                        }
+                      }}
+                      className="h-7 text-xs"
+                    />
                     <Button
-                      onClick={handleAddTargetedNode}
+                      onClick={() => handleAddProperty(selectedTherapy)}
                       size="sm"
-                      className="h-5 px-1 flex-1"
+                      className="h-7 px-2"
                       variant="secondary"
                     >
-                      <Plus className="size-2 mr-0.5" />
-                      Add Target
-                    </Button>
-                    <Button
-                      onClick={handleAddGroupTherapy}
-                      size="sm"
-                      className="h-5 px-1 flex-1"
-                      variant="secondary"
-                    >
-                      <Plus className="size-2 mr-0.5" />
-                      Add Group Therapy
+                      <Plus className="size-3" />
                     </Button>
                   </div>
-                </CollapsibleContent>
-              </Collapsible>
+                </div>
+              )}
             </div>
-          </CollapsibleContent>
-        </Collapsible>
+          </div>
         )}
       </div>
 
