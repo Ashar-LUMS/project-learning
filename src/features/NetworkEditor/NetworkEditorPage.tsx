@@ -704,18 +704,39 @@ function NetworkEditorPage() {
                   )}
                   {/* Progress indicators for running analyses */}
                   {(isAnalyzing || isWeightedAnalyzing || isProbabilisticAnalyzing) && (
-                    <div className="flex items-center gap-3 p-3 bg-primary/5 border border-primary/20 rounded-md">
-                      <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-primary">
-                          {isAnalyzing && 'Running rule-based analysis…'}
-                          {isWeightedAnalyzing && 'Running weighted analysis…'}
-                          {isProbabilisticAnalyzing && 'Running probabilistic analysis…'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Exploring state space and detecting attractors. This may take a moment for larger networks.
-                        </p>
+                    <div className="p-3 bg-primary/5 border border-primary/20 rounded-md space-y-3">
+                      <div className="flex items-center gap-3">
+                        <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full flex-shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-primary">
+                            {isAnalyzing && 'Running rule-based analysis…'}
+                            {isWeightedAnalyzing && 'Running weighted analysis…'}
+                            {isProbabilisticAnalyzing && 'Running probabilistic analysis…'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Exploring state space and detecting attractors. This may take a moment for larger networks.
+                          </p>
+                        </div>
                       </div>
+                      {/* Animated Progress Bar */}
+                      <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-primary rounded-full animate-pulse"
+                          style={{
+                            animation: 'progress-indeterminate 1.5s ease-in-out infinite',
+                            width: '100%',
+                            backgroundImage: 'linear-gradient(90deg, transparent, hsl(var(--primary)) 50%, transparent)',
+                            backgroundSize: '200% 100%',
+                            animationName: 'shimmer',
+                          }}
+                        />
+                      </div>
+                      <style>{`
+                        @keyframes shimmer {
+                          0% { background-position: 200% 0; }
+                          100% { background-position: -200% 0; }
+                        }
+                      `}</style>
                     </div>
                   )}
                   {!isAnalyzing && analysisResult && !analysisError && (
