@@ -257,28 +257,11 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
       const nestedRules = (effectiveNetworkData as any)?.network_data?.rules;
       const rules = Array.isArray(topRules) ? topRules : Array.isArray(dataRules) ? dataRules : Array.isArray(nestedRules) ? nestedRules : [];
       const metaType = (effectiveNetworkData as any)?.metadata?.type || (effectiveNetworkData as any)?.data?.metadata?.type || (effectiveNetworkData as any)?.network_data?.metadata?.type;
-      const result = (Array.isArray(rules) && rules.length > 0) || metaType === 'Rule based';
-      console.debug('[NetworkGraph] isRuleBased computed', {
-        networkId,
-        topRules,
-        dataRules,
-        nestedRules,
-        rules,
-        metaType,
-        result
-      });
-      return result;
+      return (Array.isArray(rules) && rules.length > 0) || metaType === 'Rule based';
     } catch {
       return false;
     }
-  }, [effectiveNetworkData, networkId]);
-  
-  // Ref to keep isRuleBased accessible in event handlers without re-registering them
-  const isRuleBasedRef = useRef(isRuleBased);
-  useEffect(() => {
-    console.debug('[NetworkGraph] updating isRuleBasedRef', { from: isRuleBasedRef.current, to: isRuleBased });
-    isRuleBasedRef.current = isRuleBased;
-  }, [isRuleBased]);
+  }, [effectiveNetworkData]);
   // Parse rules to determine inhibitor relationships
   // Returns a Set of "source::target" strings where source inhibits target
   const inhibitorEdges = useMemo(() => {
@@ -286,23 +269,23 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
     const rules = (effectiveNetworkData as any)?.rules || [];
     
     for (const rule of rules) {
-      // Handle both { name, action } format and { name: "A = B" } format (supports labels with spaces)
+      // Handle both { name, action } format and { name: "A = B" } format
       let target: string;
       let expression: string;
       
       if (typeof rule === 'string') {
-        const eqIndex = rule.indexOf('=');
-        if (eqIndex <= 0) continue;
-        target = rule.substring(0, eqIndex).trim();
-        expression = rule.substring(eqIndex + 1).trim();
+        const match = rule.match(/^([a-zA-Z0-9_]+)\s*=\s*(.+)$/);
+        if (!match) continue;
+        target = match[1];
+        expression = match[2];
       } else if (rule.action) {
         target = rule.name;
         expression = rule.action;
       } else if (rule.name && rule.name.includes('=')) {
-        const eqIndex = rule.name.indexOf('=');
-        if (eqIndex <= 0) continue;
-        target = rule.name.substring(0, eqIndex).trim();
-        expression = rule.name.substring(eqIndex + 1).trim();
+        const match = rule.name.match(/^([a-zA-Z0-9_]+)\s*=\s*(.+)$/);
+        if (!match) continue;
+        target = match[1];
+        expression = match[2];
       } else {
         continue;
       }
@@ -670,34 +653,9 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
       // Preserve existing metadata and rules from the network (support multiple shapes)
       const existingMetadata = (network && ((network as any).metadata || (network as any).data?.metadata || (network as any).network_data?.metadata)) || {};
       const existingRules = (effectiveNetworkData as any)?.rules || (effectiveNetworkData as any)?.data?.rules || (effectiveNetworkData as any)?.network_data?.rules || [];
-      
       // Determine final rules by merging existing rules with locally added rules
-      // Local rules take precedence (override existing rules for the same target)
-      // Convert all rules to string format "Target = Expression"
-      const baseRules: string[] = (Array.isArray(existingRules) ? existingRules : (existingRules ? [existingRules] : [])).map((r: any) => {
-        if (typeof r === 'string') return r;
-        // Object format: { name, action } where action is the expression
-        if (r?.action) return `${r.name} = ${r.action}`;
-        // Object format: { name: "Target = Expression" }
-        if (r?.name && r.name.includes('=')) return r.name;
-        return r?.name || '';
-      }).filter((r: string) => r.includes('='));
-      
-      // Helper to extract target from a rule string
-      const getRuleTarget = (rule: string): string => {
-        const eqIndex = rule.indexOf('=');
-        return eqIndex >= 0 ? rule.substring(0, eqIndex).trim() : '';
-      };
-      
-      // Get set of targets that have local overrides
-      const localTargets = new Set(localRules.map(getRuleTarget));
-      
-      // Filter out base rules that have local overrides, then add local rules
-      const finalRules = [
-        ...baseRules.filter(r => !localTargets.has(getRuleTarget(r))),
-        ...localRules
-      ];
-      
+      const baseRules = Array.isArray(existingRules) ? existingRules : (existingRules ? [existingRules] : []);
+      const finalRules = [...baseRules, ...localRules];
       const finalMetadata: any = { ...existingMetadata };
       // Preserve network type if already set (from creation or previous saves)
       // Only infer type if not explicitly set in metadata
@@ -738,16 +696,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
       };
 
       // Debug: log payload to aid troubleshooting when saves result in empty network
-      try { 
-        console.debug('[NetworkGraph] saving payload', payload); 
-        console.debug('[NetworkGraph] rules breakdown', { 
-          existingRules, 
-          baseRules, 
-          localRules, 
-          localTargets: Array.from(localTargets),
-          finalRules 
-        });
-      } catch (e) { }
+      try { console.debug('[NetworkGraph] saving payload', payload); } catch (e) { }
 
       if (isUpdate && networkId) {
         const { data, error } = await supabase
@@ -1206,101 +1155,6 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
               const exists = prev.some(e => e.source === currentEdgeSource && e.target === id);
               return exists ? prev : [...prev, { source: currentEdgeSource!, target: id, weight: defaultEdgeWeight }];
             });
-            
-            // For rule-based networks, update the target node's rule to include the source
-            if (isRuleBasedRef.current) {
-              // Get source and target labels
-              const sourceNode = cy.getElementById(currentEdgeSource);
-              const targetNode = cy.getElementById(id);
-              const sourceLabel = sourceNode?.data('label') || currentEdgeSource;
-              const targetLabel = targetNode?.data('label') || id;
-              
-              // Get existing rules from network data (convert all formats to full rule strings)
-              const existingNetworkRules: string[] = (() => {
-                const rules = (effectiveNetworkData as any)?.rules || (effectiveNetworkData as any)?.data?.rules || [];
-                return Array.isArray(rules) ? rules.map((r: any) => {
-                  if (typeof r === 'string') return r;
-                  if (r?.action) return `${r.name} = ${r.action}`;
-                  if (r?.name && r.name.includes('=')) return r.name;
-                  return '';
-                }).filter((r: string) => r.includes('=')) : [];
-              })();
-              
-              console.debug('[NetworkGraph:addEdge] rule update context', {
-                sourceLabel,
-                targetLabel,
-                existingNetworkRules
-              });
-              
-              // Helper to find rule index for a target in a rules array
-              const findRuleIndex = (rulesArr: string[], target: string) => {
-                return rulesArr.findIndex(r => {
-                  const eqIndex = r.indexOf('=');
-                  if (eqIndex === -1) return false;
-                  const ruleTarget = r.substring(0, eqIndex).trim();
-                  return ruleTarget === target;
-                });
-              };
-              
-              // Helper to get expression from rule
-              const getExpression = (rule: string) => {
-                const eqIndex = rule.indexOf('=');
-                return eqIndex >= 0 ? rule.substring(eqIndex + 1).trim() : '';
-              };
-              
-              // Update rules: find existing rule for target and add source to it
-              setLocalRules(prev => {
-                // First check if rule exists in localRules
-                const localRuleIndex = findRuleIndex(prev, targetLabel);
-                
-                if (localRuleIndex >= 0) {
-                  // Update existing local rule
-                  const existingRule = prev[localRuleIndex];
-                  const expression = getExpression(existingRule);
-                  
-                  if (!expression.includes(sourceLabel)) {
-                    let newExpression: string;
-                    if (expression === targetLabel) {
-                      newExpression = sourceLabel;
-                    } else {
-                      newExpression = `(${expression}) AND ${sourceLabel}`;
-                    }
-                    const newRule = `${targetLabel} = ${newExpression}`;
-                    const updated = [...prev];
-                    updated[localRuleIndex] = newRule;
-                    return updated;
-                  }
-                  return prev;
-                }
-                
-                // Check if rule exists in network's existing rules
-                const networkRuleIndex = findRuleIndex(existingNetworkRules, targetLabel);
-                
-                if (networkRuleIndex >= 0) {
-                  // Create updated version of the network rule
-                  const existingRule = existingNetworkRules[networkRuleIndex];
-                  const expression = getExpression(existingRule);
-                  
-                  if (!expression.includes(sourceLabel)) {
-                    let newExpression: string;
-                    if (expression === targetLabel) {
-                      newExpression = sourceLabel;
-                    } else {
-                      newExpression = `(${expression}) AND ${sourceLabel}`;
-                    }
-                    const newRule = `${targetLabel} = ${newExpression}`;
-                    // Add as override in localRules (will be merged on save)
-                    return [...prev, newRule];
-                  }
-                  return prev;
-                }
-                
-                // No existing rule found - create new rule
-                const newRule = `${targetLabel} = ${sourceLabel}`;
-                return [...prev, newRule];
-              });
-            }
-            
             cy.getElementById(currentEdgeSource)?.removeClass('edge-source');
             setEdgeSourceId(null);
           }
@@ -1309,7 +1163,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
 
         // If this network is rule-based, do not open the properties panel,
         // but still highlight the node's neighborhood (do not fade neighbors).
-        if (isRuleBasedRef.current) {
+        if (isRuleBased) {
           //try { showToast({ title: 'Rule-based network', description: 'Node properties are not available for rule-based networks.', variant: 'default' }); } catch { }
           try {
             const neighborhood = node.closedNeighborhood();
@@ -1376,10 +1230,12 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
             handleAddNodeWithMode(evt);
           }
 
-          // Allow add-edge mode to be cancelled by clicking on background
-          if (toolRef.current === 'add-edge' && edgeSourceRef.current) {
-            cy.getElementById(edgeSourceRef.current)?.removeClass('edge-source');
-            setEdgeSourceId(null);
+          // Do not allow add-edge mode on rule-based networks (edges are derived from rules)
+          if (!isRuleBased) {
+            if (toolRef.current === 'add-edge' && edgeSourceRef.current) {
+              cy.getElementById(edgeSourceRef.current)?.removeClass('edge-source');
+              setEdgeSourceId(null);
+            }
           }
         }
       });
@@ -1652,22 +1508,9 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
               nodeCounterRef.current++;
               
               // For rule-based networks, auto-generate a self-referential rule (node maintains its state)
-              // Use ref to get current value (button handler may have stale closure)
-              const currentIsRuleBased = isRuleBasedRef.current;
-              console.debug('[NetworkGraph:addNode:button] checking isRuleBased', { 
-                currentIsRuleBased, 
-                isRuleBasedFromState: isRuleBased,
-                newLabel 
-              });
-              if (currentIsRuleBased) {
+              if (isRuleBased) {
                 const newRule = `${newLabel} = ${newLabel}`;
-                setLocalRules(prev => {
-                  const updated = [...prev, newRule];
-                  console.debug('[NetworkGraph:addNode] adding rule', { newRule, newLocalRules: updated });
-                  return updated;
-                });
-              } else {
-                console.debug('[NetworkGraph:addNode] isRuleBased is false, no rule added');
+                setLocalRules(prev => [...prev, newRule]);
               }
               
               setTimeout(() => {
@@ -1706,8 +1549,9 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
           <Button
             size="sm"
             variant={tool === 'add-edge' ? 'default' : 'ghost'}
-            className={`h-9 w-9 rounded-md transition-all ${tool === 'add-edge' ? 'bg-primary text-primary-foreground shadow-md' : 'hover:bg-accent text-muted-foreground'}`}
+            className={`h-9 w-9 rounded-md transition-all ${tool === 'add-edge' ? 'bg-primary text-primary-foreground shadow-md' : 'hover:bg-accent text-muted-foreground'} disabled:opacity-40`}
             onClick={() => {
+              if (isRuleBased) return;
               setTool('add-edge');
               if (selectedNode && cyRef.current) {
                 const id = selectedNode.id;
@@ -1715,7 +1559,8 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                 try { cyRef.current.getElementById(id)?.addClass('edge-source'); } catch { }
               }
             }}
-            title={isRuleBased ? "Add Edge (E) - Will update rules" : "Add Edge (E)"}
+            disabled={isRuleBased}
+            title="Add Edge (E)"
           >
             <Link size={20} />
           </Button>
@@ -2228,8 +2073,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                     nodeCounterRef.current++;
 
                     // For rule-based networks, auto-generate a self-referential rule
-                    const currentIsRuleBased = isRuleBasedRef.current;
-                    if (currentIsRuleBased) {
+                    if (isRuleBased) {
                       const newRule = `${newLabel} = ${newLabel}`;
                       setLocalRules(prev => [...prev, newRule]);
                     }
@@ -2249,7 +2093,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                         const addedNode = cyRef.current.getElementById(newId);
                         if (addedNode) {
                           addedNode.select();
-                          if (!currentIsRuleBased) {
+                          if (!isRuleBased) {
                             setSelectedNode(newNode);
                           }
                         }

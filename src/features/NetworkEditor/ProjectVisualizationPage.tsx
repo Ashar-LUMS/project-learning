@@ -152,20 +152,11 @@ function ProjectVisualizationPage() {
       const data = (selectedNetwork as any)?.data || selectedNetwork;
       const rules = Array.isArray(data?.rules) ? data.rules : [];
       const metaType = data?.metadata?.type || data?.network_data?.metadata?.type;
-      const isRuleBased = (Array.isArray(rules) && rules.length > 0) || metaType === 'Rule based';
-      console.debug('[ProjectVisualizationPage] selectedIsRuleBased check', {
-        selectedNetworkId,
-        dataExists: !!data,
-        rules,
-        rulesLength: rules.length,
-        metaType,
-        isRuleBased
-      });
-      return isRuleBased;
+      return (Array.isArray(rules) && rules.length > 0) || metaType === 'Rule based';
     } catch {
       return false;
     }
-  }, [selectedNetwork, selectedNetworkId]);
+  }, [selectedNetwork]);
 
   useEffect(() => {
     setRuleBasedNodeLimitWarning(null);
@@ -766,14 +757,11 @@ function ProjectVisualizationPage() {
     
     // Check for nodes without rules and warn user
     // Rules use node names/labels, so we need to compare against both id and label
-    // Parse rule targets from rulesArray to handle both old and new formats (including labels with spaces)
+    // Parse rule targets from rulesArray to handle both old and new formats
     const ruleTargets = new Set<string>();
     rulesArray.forEach((ruleStr: string) => {
-      const eqIndex = ruleStr.indexOf('=');
-      if (eqIndex > 0) {
-        const target = ruleStr.substring(0, eqIndex).trim();
-        ruleTargets.add(target);
-      }
+      const match = ruleStr.match(/^([a-zA-Z0-9_]+)\s*=/);
+      if (match) ruleTargets.add(match[1]);
     });
     
     const nodeIdentifiers = new Map<string, string>(); // id -> label mapping
@@ -948,13 +936,6 @@ function ProjectVisualizationPage() {
           type: newNetworkType === 'rules' ? 'Rule based' : 'Weight based',
         },
       };
-      
-      console.debug('[ProjectVisualizationPage] Creating network', {
-        networkName,
-        newNetworkType,
-        initialNetworkData,
-        metadataType: initialNetworkData.metadata.type
-      });
 
       // 1) Create a new empty network record with type metadata
       const { data: createdNetwork, error: createErr } = await supabase
@@ -991,29 +972,9 @@ function ProjectVisualizationPage() {
         if (updateErr) throw updateErr;
       }
 
-      // Immediately add the new network to state so it's available before the async refresh completes
-      const newNetworkRecord = {
-        id: createdNetwork.id,
-        name: createdNetwork.name,
-        created_at: createdNetwork.created_at ?? null,
-        data: createdNetwork.network_data ?? null,
-      };
-      
-      console.debug('[ProjectVisualizationPage] Network created, adding to state', {
-        newNetworkRecord,
-        dataMetadataType: newNetworkRecord.data?.metadata?.type,
-        hasRules: Array.isArray(newNetworkRecord.data?.rules)
-      });
-      
-      setNetworks(prev => {
-        // Check if already exists (unlikely but safe)
-        if (prev.some(n => n.id === newNetworkRecord.id)) return prev;
-        return [...prev, newNetworkRecord];
-      });
-      
-      // Select the new network and refresh to ensure consistency
-      selectNetwork(createdNetwork.id);
+      // Refresh networks from Supabase to ensure consistency
       refreshNetworks();
+      selectNetwork(createdNetwork.id);
       setRecentNetworkIds((prev) => [createdNetwork.id, ...prev.filter((id) => id !== createdNetwork.id)].slice(0, MAX_RECENT_NETWORKS));
       
       setIsNewNetworkDialogOpen(false);
@@ -1210,52 +1171,26 @@ function ProjectVisualizationPage() {
         const rules = importedRules || [];
         const nodeSet = new Set<string>();
         const edgeMap = new Map<string, Set<string>>(); // target -> sources
-        
-        // Helper to extract identifiers from expression (handles labels with spaces)
-        const extractIdentifiers = (expression: string, knownLabels: Set<string>): string[] => {
-          const ids: string[] = [];
-          // First try to match known labels (longer matches first)
-          const sortedLabels = Array.from(knownLabels).sort((a, b) => b.length - a.length);
-          let remaining = expression;
-          for (const label of sortedLabels) {
-            if (remaining.includes(label)) {
-              ids.push(label);
-              remaining = remaining.split(label).join('');
-            }
-          }
-          // Extract remaining identifiers (words/numbers)
-          const extras = remaining.match(/[a-zA-Z][a-zA-Z0-9_]*/g) || [];
-          extras.forEach(id => {
-            if (!['AND', 'OR', 'XOR', 'NAND', 'NOR', 'NOT'].includes(id.toUpperCase()) && !ids.includes(id)) {
-              ids.push(id);
-            }
-          });
-          return ids;
-        };
-        
-        // First pass: collect all targets
         rules.forEach(rule => {
-          const eqIndex = rule.indexOf('=');
-          if (eqIndex > 0) {
-            const target = rule.substring(0, eqIndex).trim();
+          const match = rule.match(/^([a-zA-Z0-9_]+)\s*=/);
+          if (match) {
+            const target = match[1];
             nodeSet.add(target);
-          }
-        });
-        
-        // Second pass: build edges using known labels
-        rules.forEach(rule => {
-          const eqIndex = rule.indexOf('=');
-          if (eqIndex > 0) {
-            const target = rule.substring(0, eqIndex).trim();
-            const expression = rule.substring(eqIndex + 1).trim();
-            const identifiers = extractIdentifiers(expression, nodeSet);
-            identifiers.forEach(id => {
-              nodeSet.add(id);
-              if (id !== target) {
-                if (!edgeMap.has(target)) edgeMap.set(target, new Set());
-                edgeMap.get(target)!.add(id);
-              }
-            });
+
+            const exprMatch = rule.match(/=\s*(.+)$/);
+            if (exprMatch) {
+              const expr = exprMatch[1];
+              const identifiers = expr.match(/[a-zA-Z0-9_]+/g) || [];
+              identifiers.forEach(id => {
+                if (!['AND', 'OR', 'XOR', 'NAND', 'NOR', 'NOT'].includes(id.toUpperCase())) {
+                  nodeSet.add(id);
+                  if (id !== target) {
+                    if (!edgeMap.has(target)) edgeMap.set(target, new Set());
+                    edgeMap.get(target)!.add(id);
+                  }
+                }
+              });
+            }
           }
         });
 
@@ -1831,27 +1766,12 @@ function ProjectVisualizationPage() {
     const nodes = networkData.nodes || [];
     const therapies = selectedNetwork.therapies;
 
-    // Build rules map from network data (handles both string and object formats)
+    // Build rules map from network data
     const rulesMap: Record<string, string> = {};
     if (networkData.rules) {
-      networkData.rules.forEach((rule: any) => {
-        if (typeof rule === 'string') {
-          // Parse string rule: "Target = Expression"
-          const eqIndex = rule.indexOf('=');
-          if (eqIndex > 0) {
-            const target = rule.substring(0, eqIndex).trim();
-            const expression = rule.substring(eqIndex + 1).trim();
-            rulesMap[target] = expression;
-          }
-        } else if (rule.name && rule.action) {
-          // Object format: { name: "Target", action: "Expression" }
+      networkData.rules.forEach((rule) => {
+        if (rule.name && rule.action) {
           rulesMap[rule.name] = rule.action;
-        } else if (rule.name && rule.name.includes('=')) {
-          // Object format with full rule in name: { name: "Target = Expression" }
-          const eqIndex = rule.name.indexOf('=');
-          const target = rule.name.substring(0, eqIndex).trim();
-          const expression = rule.name.substring(eqIndex + 1).trim();
-          rulesMap[target] = expression;
         }
       });
     }
@@ -1862,18 +1782,9 @@ function ProjectVisualizationPage() {
       ? applyTherapiesToNetwork(networkData, interventionsToApply)
       : networkData;
     
-    // Helper to count rules (handles both string and object formats)
-    const countRules = (rules: any[] | undefined): number => {
-      if (!Array.isArray(rules)) return 0;
-      return rules.filter(r => {
-        if (typeof r === 'string') return r.includes('=');
-        return r.name && (r.action || r.name.includes('='));
-      }).length;
-    };
-    
     // hasRules is true if either original or modified network has rules
-    const originalRulesCount = countRules(networkData.rules);
-    const modifiedRulesCount = countRules(modifiedData.rules);
+    const originalRulesCount = networkData.rules?.filter(r => r.name && r.action)?.length ?? 0;
+    const modifiedRulesCount = modifiedData.rules?.filter(r => r.name && r.action)?.length ?? 0;
     const hasRules = originalRulesCount > 0 || modifiedRulesCount > 0;
     
     const interventionCount = interventionsToApply.length;
@@ -2107,7 +2018,6 @@ function ProjectVisualizationPage() {
                       networkId={selectedNetworkId} 
                       projectId={projectId} 
                       refreshToken={networkGraphRefreshToken}
-                      overrideNetworkData={selectedNetwork?.data || null}
                       onSaved={(newNetwork) => {
                       setNetworks(prev => {
                         const existingIndex = prev.findIndex(n => n.id === newNetwork.id);
