@@ -2996,16 +2996,32 @@ function ProjectVisualizationPage() {
               Cancel
             </Button>
             <Button onClick={() => {
-              if (selectedNetwork?.data) {
+              // Prefer live data from the graph (includes current positions), fall back to saved data
+              const liveData = networkGraphRef.current?.getLiveNetworkData();
+              const exportData = liveData || selectedNetwork?.data;
+              
+              // Debug: log what we're exporting
+              console.log('[Export] liveData:', liveData);
+              console.log('[Export] selectedNetwork?.data:', selectedNetwork?.data);
+              console.log('[Export] exportData:', exportData);
+              console.log('[Export] nodes:', exportData?.nodes?.length, 'edges:', exportData?.edges?.length);
+              
+              if (exportData && (exportData.nodes?.length > 0 || exportData.edges?.length > 0)) {
                 exportAndDownloadNetworkAs(
-                  selectedNetwork.data as NetworkData, 
-                  selectedNetwork.name || 'network',
+                  exportData as NetworkData, 
+                  selectedNetwork?.name || 'network',
                   selectedExportFormat
                 );
                 setIsExportDialogOpen(false);
                 showToast({
                   title: 'Network Exported',
                   description: `Exported as ${SUPPORTED_EXPORT_FORMATS.find(f => f.id === selectedExportFormat)?.label || selectedExportFormat}`,
+                });
+              } else {
+                showToast({
+                  title: 'Export Failed',
+                  description: 'No network data available to export. Make sure you are on the Editor tab.',
+                  variant: 'destructive',
                 });
               }
             }}>

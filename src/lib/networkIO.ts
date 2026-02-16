@@ -426,6 +426,8 @@ export function parseSBMLqualNetwork(xmlContent: string): NetworkData {
  * Format:
  * Section 1: node_id, basal_value (nodes with basal values)
  * Section 2: source, weight, target (edges with weights)
+ * Section 3: node_id, value, x, y, color, model (node positions)
+ * Section 4: network type
  * Sections separated by ",,"
  */
 export function exportWeightedNetworkToCSV(data: NetworkData): string {
@@ -448,8 +450,27 @@ export function exportWeightedNetworkToCSV(data: NetworkData): string {
     lines.push(`${edge.source},${weight},${edge.target}`);
   }
   
-  // Empty separator (end marker)
+  // Empty separator
   lines.push(',,');
+  
+  // Section 3: Node positions (node_id, value, x, y, color, model)
+  for (const node of nodes) {
+    const bias = node.properties?.bias ?? 0;
+    // Position can be stored as node.position or node.properties.position
+    const pos = (node as any).position || node.properties?.position || { x: 0, y: 0 };
+    const x = pos.x ?? 0;
+    const y = pos.y ?? 0;
+    const color = node.properties?.color ?? 'white';
+    const model = node.properties?.model ?? 'devs.SimpleMoleculeModel';
+    lines.push(`${node.id},${bias},${x},${y},${color},${model}`);
+  }
+  
+  // Empty separator
+  lines.push(',,');
+  
+  // Section 4: Network type
+  const networkType = data.metadata?.type || 'Weight Based';
+  lines.push(networkType);
   
   return lines.join('\n');
 }

@@ -33,8 +33,10 @@ type Edge = {
   target: string;
   interaction?: string;
   weight?: number;
+  edgeType?: 'activator' | 'inhibitor';
   properties?: {
     capacity?: number;
+    edgeType?: 'activator' | 'inhibitor';
     [key: string]: any;
   };
 };
@@ -45,6 +47,7 @@ export type NetworkGraphHandle = {
     edges: Array<{ source: string; target: string; weight?: number }>
     tieBehavior: 'hold'
   } | null;
+  getLiveNetworkData: () => NetworkData | null;
   fitToView: () => void;
   saveAsNew: () => void;
   updateCurrent: () => void;
@@ -559,6 +562,90 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
     }
   };
 
+  // Infer Boolean rules from graph topology for rule-based networks
+  // For each node with incoming edges:
+  //   - activators combined with AND
+  //   - inhibitors prefixed with NOT
+  //   - Final: (activator1 AND activator2) AND (NOT inhibitor1) AND (NOT inhibitor2)
+  // Nodes with no incoming edges get self-referential rule: NodeLabel = NodeLabel
+  const inferRulesFromGraph = (nodes: any[], edges: any[]): string[] => {
+    const rules: string[] = [];
+    const nodeLabels = new Map<string, string>();
+    
+    // Build node id -> label map
+    for (const node of nodes) {
+      const id = String(node.id);
+      const label = String(node.label || node.id);
+      nodeLabels.set(id, label);
+    }
+    
+    // Group incoming edges by target node
+    const incomingEdges = new Map<string, { activators: string[]; inhibitors: string[] }>();
+    
+    // Initialize all nodes with empty incoming edge lists
+    for (const node of nodes) {
+      incomingEdges.set(String(node.id), { activators: [], inhibitors: [] });
+    }
+    
+    // Classify each edge as activator or inhibitor
+    for (const edge of edges) {
+      const sourceId = String(edge.source);
+      const targetId = String(edge.target);
+      const sourceLabel = nodeLabels.get(sourceId) || sourceId;
+      
+      // Check edge type - can be in properties.edgeType, edgeType, interaction, or inferred from weight
+      const edgeType = edge.properties?.edgeType || edge.edgeType || edge.interaction;
+      const weight = Number(edge.weight);
+      // Negative weight means inhibitor; explicit edgeType takes precedence
+      const isInhibitor = edgeType === 'inhibitor' || edgeType === 'inhibition' || edgeType === 'Inhibiting' 
+        || (!edgeType && weight < 0);
+      
+      const targetEdges = incomingEdges.get(targetId);
+      if (targetEdges) {
+        if (isInhibitor) {
+          targetEdges.inhibitors.push(sourceLabel);
+        } else {
+          targetEdges.activators.push(sourceLabel);
+        }
+      }
+    }
+    
+    // Generate rule for each node
+    for (const node of nodes) {
+      const nodeId = String(node.id);
+      const nodeLabel = nodeLabels.get(nodeId) || nodeId;
+      const incoming = incomingEdges.get(nodeId);
+      
+      if (!incoming || (incoming.activators.length === 0 && incoming.inhibitors.length === 0)) {
+        // No incoming edges - self-referential rule (maintains current state)
+        rules.push(`${nodeLabel} = ${nodeLabel}`);
+      } else {
+        // Build expression from activators and inhibitors
+        const parts: string[] = [];
+        
+        // Add activators (combined with AND if multiple)
+        if (incoming.activators.length > 0) {
+          if (incoming.activators.length === 1) {
+            parts.push(incoming.activators[0]);
+          } else {
+            parts.push(`(${incoming.activators.join(' AND ')})`);
+          }
+        }
+        
+        // Add negated inhibitors
+        for (const inhibitor of incoming.inhibitors) {
+          parts.push(`NOT ${inhibitor}`);
+        }
+        
+        // Combine all parts with AND
+        const expression = parts.length === 1 ? parts[0] : parts.join(' AND ');
+        rules.push(`${nodeLabel} = ${expression}`);
+      }
+    }
+    
+    return rules;
+  };
+
   // Save network function
   const saveNetwork = async (isUpdate: boolean = false) => {
     try {
@@ -652,25 +739,24 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
       
       // Preserve existing metadata and rules from the network (support multiple shapes)
       const existingMetadata = (network && ((network as any).metadata || (network as any).data?.metadata || (network as any).network_data?.metadata)) || {};
-      const existingRules = (effectiveNetworkData as any)?.rules || (effectiveNetworkData as any)?.data?.rules || (effectiveNetworkData as any)?.network_data?.rules || [];
-      // Determine final rules by merging existing rules with locally added rules
-      const baseRules = Array.isArray(existingRules) ? existingRules : (existingRules ? [existingRules] : []);
-      const finalRules = [...baseRules, ...localRules];
       const finalMetadata: any = { ...existingMetadata };
       // Preserve network type if already set (from creation or previous saves)
       // Only infer type if not explicitly set in metadata
       if (!finalMetadata.type) {
-        // If rules exist, mark as Rule based; otherwise default to Weight based
-        if (Array.isArray(finalRules) && finalRules.length > 0) {
-          finalMetadata.type = 'Rule based';
-        } else {
-          finalMetadata.type = 'Weight based';
-        }
+        finalMetadata.type = 'Weight based';
       } else {
         // Normalize existing type to consistent casing
         if (finalMetadata.type === 'weight based') {
           finalMetadata.type = 'Weight based';
         }
+      }
+
+      // For rule-based networks, infer rules from graph topology (nodes + edges)
+      // This allows users to draw edges and have rules auto-generated
+      let finalRules: string[] = [];
+      if (finalMetadata.type === 'Rule based') {
+        // Infer rules from the graph structure
+        finalRules = inferRulesFromGraph(nodes, dedupedEdges);
       }
 
       // If rule-based, strip node weights and biases before saving
@@ -1033,11 +1119,12 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                       const newEdgeId = `edge:${src}:${tgt}`;
                       const maybeExisting = cy.getElementById(newEdgeId);
                       if (!maybeExisting || maybeExisting.length === 0) {
-                        try { cy.add({ group: 'edges', data: { id: newEdgeId, source: src, target: tgt, weight: defaultEdgeWeight } }); } catch (e) { }
+                        // Default to activator edge type
+                        try { cy.add({ group: 'edges', data: { id: newEdgeId, source: src, target: tgt, weight: defaultEdgeWeight, edgeType: 'activator' } }); } catch (e) { }
                       }
                       setLocalEdges(prev => {
                         const exists = prev.some(e => e.source === src && e.target === tgt);
-                        return exists ? prev : [...prev, { source: src, target: tgt, weight: defaultEdgeWeight }];
+                        return exists ? prev : [...prev, { source: src, target: tgt, weight: defaultEdgeWeight, edgeType: 'activator' }];
                       });
                     } catch (e) {
                       // Error in complete handler
@@ -1075,11 +1162,12 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                 const newEdgeId = `edge:${src}:${tgt}`;
                 const maybeExisting = cy.getElementById(newEdgeId);
                 if (!maybeExisting || maybeExisting.length === 0) {
-                  try { cy.add({ group: 'edges', data: { id: newEdgeId, source: src, target: tgt, weight: defaultEdgeWeight } }); } catch (e) { }
+                  // Default to activator edge type
+                  try { cy.add({ group: 'edges', data: { id: newEdgeId, source: src, target: tgt, weight: defaultEdgeWeight, edgeType: 'activator' } }); } catch (e) { }
                 }
                 setLocalEdges(prev => {
                   const exists = prev.some(e => e.source === src && e.target === tgt);
-                  return exists ? prev : [...prev, { source: src, target: tgt, weight: defaultEdgeWeight }];
+                  return exists ? prev : [...prev, { source: src, target: tgt, weight: defaultEdgeWeight, edgeType: 'activator' }];
                 });
               } catch (e) {
                 // Error in edgehandles complete handler
@@ -1138,22 +1226,21 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
           if (!currentEdgeSource) {
             setEdgeSourceId(id);
             node.addClass('edge-source');
-          } else if (currentEdgeSource === id) {
-            setEdgeSourceId(null);
-            node.removeClass('edge-source');
           } else {
+            // Allow self-loops (source === target) - this creates edges like cln3 -> cln3
             const newEdgeId = `edge:${currentEdgeSource}:${id}`;
             try {
               const existing = cy.getElementById(newEdgeId);
               if (!existing || existing.length === 0) {
-                cy.add({ group: 'edges', data: { id: newEdgeId, source: currentEdgeSource, target: id, weight: defaultEdgeWeight } });
+                // Default to activator edge type
+                cy.add({ group: 'edges', data: { id: newEdgeId, source: currentEdgeSource, target: id, weight: defaultEdgeWeight, edgeType: 'activator' } });
               }
             } catch (e) {
               // Error adding edge via click
             }
             setLocalEdges(prev => {
               const exists = prev.some(e => e.source === currentEdgeSource && e.target === id);
-              return exists ? prev : [...prev, { source: currentEdgeSource!, target: id, weight: defaultEdgeWeight }];
+              return exists ? prev : [...prev, { source: currentEdgeSource!, target: id, weight: defaultEdgeWeight, edgeType: 'activator' }];
             });
             cy.getElementById(currentEdgeSource)?.removeClass('edge-source');
             setEdgeSourceId(null);
@@ -1206,6 +1293,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
           target: String(data.target),
           interaction: data.interaction,
           weight: data.weight,
+          edgeType: data.edgeType || data.properties?.edgeType,
           properties: data.properties || {}
         });
         setSelectedNode(null);
@@ -1230,12 +1318,10 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
             handleAddNodeWithMode(evt);
           }
 
-          // Do not allow add-edge mode on rule-based networks (edges are derived from rules)
-          if (!isRuleBased) {
-            if (toolRef.current === 'add-edge' && edgeSourceRef.current) {
-              cy.getElementById(edgeSourceRef.current)?.removeClass('edge-source');
-              setEdgeSourceId(null);
-            }
+          // Allow add-edge mode for all network types (rules will be inferred from edges)
+          if (toolRef.current === 'add-edge' && edgeSourceRef.current) {
+            cy.getElementById(edgeSourceRef.current)?.removeClass('edge-source');
+            setEdgeSourceId(null);
           }
         }
       });
@@ -1422,6 +1508,54 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
         return null;
       }
     },
+    getLiveNetworkData: (): NetworkData | null => {
+      // Use currentNodes/currentEdges (merged from fetched data + local modifications)
+      // Enrich with live Cytoscape positions when available
+      const exportNodes = currentNodes.map((n: any) => {
+        // Try to get live position from cytoscape if available
+        let pos = { x: 0, y: 0 };
+        if (cyRef.current) {
+          try {
+            const cyNode = cyRef.current.getElementById(n.id);
+            if (cyNode && cyNode.length > 0) {
+              const cyPos = (typeof cyNode.position === 'function') ? cyNode.position() : { x: 0, y: 0 };
+              pos = { x: cyPos.x || 0, y: cyPos.y || 0 };
+            }
+          } catch { }
+        }
+        // Fallback to stored position
+        if (pos.x === 0 && pos.y === 0 && n.properties?.position) {
+          pos = n.properties.position;
+        }
+        const props = n.properties || {};
+        return {
+          id: String(n.id),
+          label: String(n.label ?? n.id),
+          type: String(n.type ?? 'custom'),
+          weight: Number(n.weight ?? 1),
+          position: pos,
+          properties: { ...props, position: pos, bias: props.bias ?? 0 },
+        };
+      });
+      const exportEdges = currentEdges.map((e: any) => ({
+        source: String(e.source),
+        target: String(e.target),
+        weight: Number(e.weight ?? 1),
+        interaction: e.interaction,
+        properties: e.properties || {},
+      }));
+      // Get metadata from stored network if available
+      const existingMetadata = (network as any)?.metadata || {};
+      return {
+        nodes: exportNodes,
+        edges: exportEdges,
+        rules: (network as any)?.rules || [],
+        metadata: {
+          ...existingMetadata,
+          type: existingMetadata.type || (isRuleBased ? 'Rule based' : 'Weight based'),
+        },
+      };
+    },
     fitToView: () => {
       if (cyRef.current) {
         cyRef.current.fit(undefined, 60);
@@ -1440,7 +1574,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
       if (readOnly) return;
       void saveNetwork(update);
     }
-  }), [networkId, readOnly, hasModifications]);
+  }), [networkId, readOnly, hasModifications, currentNodes, currentEdges, network, isRuleBased]);
 
   // Skip loading check when override data is provided
   if (isLoading && !overrideNetworkData) {
@@ -1507,12 +1641,6 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
               setLocalNodes(prev => [...prev, newNode]);
               nodeCounterRef.current++;
               
-              // For rule-based networks, auto-generate a self-referential rule (node maintains its state)
-              if (isRuleBased) {
-                const newRule = `${newLabel} = ${newLabel}`;
-                setLocalRules(prev => [...prev, newRule]);
-              }
-              
               setTimeout(() => {
                 try {
                   if (cyRef.current) {
@@ -1551,7 +1679,6 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
             variant={tool === 'add-edge' ? 'default' : 'ghost'}
             className={`h-9 w-9 rounded-md transition-all ${tool === 'add-edge' ? 'bg-primary text-primary-foreground shadow-md' : 'hover:bg-accent text-muted-foreground'} disabled:opacity-40`}
             onClick={() => {
-              if (isRuleBased) return;
               setTool('add-edge');
               if (selectedNode && cyRef.current) {
                 const id = selectedNode.id;
@@ -1559,7 +1686,6 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                 try { cyRef.current.getElementById(id)?.addClass('edge-source'); } catch { }
               }
             }}
-            disabled={isRuleBased}
             title="Add Edge (E)"
           >
             <Link size={20} />
@@ -1571,7 +1697,6 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
             size="sm"
             variant={tool === 'delete' ? 'destructive' : 'ghost'}
             onClick={() => setTool('delete')}
-            disabled={isRuleBased}
             className={`h-9 w-9 rounded-md transition-all ${tool === 'delete' ? 'bg-destructive text-destructive-foreground shadow-md' : 'hover:bg-accent text-muted-foreground'} disabled:opacity-40`}
             title="Delete (D)"
           >
@@ -1913,14 +2038,52 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                       </div>
                     </div>
 
-                    {selectedEdge.interaction && (
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Interaction</label>
-                        <div className="text-sm text-muted-foreground bg-muted px-3 py-2 rounded-lg border border-border">
-                          {selectedEdge.interaction}
-                        </div>
-                      </div>
-                    )}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Edge Type</label>
+                      <select
+                        value={selectedEdge.edgeType || selectedEdge.properties?.edgeType || 'activator'}
+                        onChange={(e) => {
+                          const newEdgeType = e.target.value as 'activator' | 'inhibitor';
+                          setSelectedEdge(prev => prev ? { ...prev, edgeType: newEdgeType } : null);
+                          if (cyRef.current) {
+                            const edges = cyRef.current.edges().filter((edge: any) =>
+                              edge.data('source') === selectedEdge.source &&
+                              edge.data('target') === selectedEdge.target
+                            );
+                            edges.forEach((edge: any) => {
+                              edge.data('edgeType', newEdgeType);
+                            });
+                          }
+                          // Update local edges
+                          const edgeKey = `${selectedEdge.source}-${selectedEdge.target}`;
+                          const isLocal = localEdges.some(e => `${e.source}-${e.target}` === edgeKey);
+                          if (isLocal) {
+                            setLocalEdges(prev =>
+                              prev.map(e =>
+                                e.source === selectedEdge.source && e.target === selectedEdge.target
+                                  ? { ...e, edgeType: newEdgeType }
+                                  : e
+                              )
+                            );
+                          } else {
+                            setLocalEdges(prev => {
+                              const alreadyModified = prev.find(e => e.source === selectedEdge.source && e.target === selectedEdge.target);
+                              if (alreadyModified) {
+                                return prev.map(e => e.source === selectedEdge.source && e.target === selectedEdge.target ? { ...e, edgeType: newEdgeType } : e);
+                              }
+                              return [...prev, { source: selectedEdge.source, target: selectedEdge.target, weight: selectedEdge.weight ?? defaultEdgeWeight, edgeType: newEdgeType }];
+                            });
+                          }
+                        }}
+                        className="h-9 w-full text-sm bg-background border border-border rounded-lg px-3 py-2 focus:border-primary focus:ring-primary"
+                      >
+                        <option value="activator">Activator (→)</option>
+                        <option value="inhibitor">Inhibitor (⊣)</option>
+                      </select>
+                      <p className="text-xs text-muted-foreground">
+                        Activator edges promote target activation. Inhibitor edges suppress target activation.
+                      </p>
+                    </div>
 
                     <div className="space-y-1.5">
                       <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Weight</label>
@@ -2046,7 +2209,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
               )}
 
               {isRuleBased && (
-                <p className="text-xs text-muted-foreground">A default rule will be auto-generated for this node (NodeLabel = NodeLabel).</p>
+                <p className="text-xs text-muted-foreground">Rules will be automatically inferred from the graph structure when you save.</p>
               )}
 
               <div className="flex gap-2 pt-2">
@@ -2071,12 +2234,6 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                     setLocalNodes(prev => [...prev, newNode]);
                     setNewNodeDraft(null);
                     nodeCounterRef.current++;
-
-                    // For rule-based networks, auto-generate a self-referential rule
-                    if (isRuleBased) {
-                      const newRule = `${newLabel} = ${newLabel}`;
-                      setLocalRules(prev => [...prev, newRule]);
-                    }
 
                     setTimeout(() => {
                       if (cyRef.current) {
