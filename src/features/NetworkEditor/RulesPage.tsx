@@ -72,30 +72,55 @@ export default function RulesPage({
       const nodeSet = new Set<string>();
       const edgeMap = new Map<string, Set<string>>(); // target -> sources
       
-      rules.forEach(rule => {
-        const match = rule.match(/^([a-zA-Z0-9_]+)\s*=/);
-        if (match) {
-          const target = match[1];
-          nodeSet.add(target);
-          
-          // Extract identifiers from expression (right side of =)
-          const exprMatch = rule.match(/=\s*(.+)$/);
-          if (exprMatch) {
-            const expr = exprMatch[1];
-            const identifiers = expr.match(/[a-zA-Z0-9_]+/g) || [];
-            identifiers.forEach(id => {
-              if (!['AND', 'OR', 'XOR', 'NAND', 'NOR', 'NOT'].includes(id.toUpperCase())) {
-                nodeSet.add(id);
-                // Create edge from source to target
-                if (id !== target) {
-                  if (!edgeMap.has(target)) {
-                    edgeMap.set(target, new Set());
-                  }
-                  edgeMap.get(target)!.add(id);
-                }
-              }
-            });
+      // Helper to extract identifiers from expression (handles labels with spaces)
+      const extractIdentifiers = (expression: string, knownLabels: Set<string>): string[] => {
+        const ids: string[] = [];
+        // First try to match known labels (longer matches first to avoid partial matches)
+        const sortedLabels = Array.from(knownLabels).sort((a, b) => b.length - a.length);
+        let remaining = expression;
+        for (const label of sortedLabels) {
+          if (remaining.includes(label)) {
+            ids.push(label);
+            remaining = remaining.split(label).join('');
           }
+        }
+        // Then extract any remaining identifiers (words/numbers)
+        const extras = remaining.match(/[a-zA-Z][a-zA-Z0-9_]*/g) || [];
+        extras.forEach(id => {
+          if (!['AND', 'OR', 'XOR', 'NAND', 'NOR', 'NOT'].includes(id.toUpperCase()) && !ids.includes(id)) {
+            ids.push(id);
+          }
+        });
+        return ids;
+      };
+      
+      // First pass: collect all targets (everything before =)
+      rules.forEach(rule => {
+        const eqIndex = rule.indexOf('=');
+        if (eqIndex > 0) {
+          const target = rule.substring(0, eqIndex).trim();
+          nodeSet.add(target);
+        }
+      });
+      
+      // Second pass: build edges using known node labels
+      rules.forEach(rule => {
+        const eqIndex = rule.indexOf('=');
+        if (eqIndex > 0) {
+          const target = rule.substring(0, eqIndex).trim();
+          const expression = rule.substring(eqIndex + 1).trim();
+          
+          const identifiers = extractIdentifiers(expression, nodeSet);
+          identifiers.forEach(id => {
+            nodeSet.add(id);
+            // Create edge from source to target
+            if (id !== target) {
+              if (!edgeMap.has(target)) {
+                edgeMap.set(target, new Set());
+              }
+              edgeMap.get(target)!.add(id);
+            }
+          });
         }
       });
 
@@ -129,11 +154,13 @@ export default function RulesPage({
       }
 
       const networkData = (selectedNetwork.data || {}) as NetworkData;
-      // Parse rules into proper { name, action } format
+      // Parse rules into proper { name, action } format (handles labels with spaces)
       const parsedRules = rules.map(r => {
-        const match = r.match(/^([a-zA-Z0-9_]+)\s*=\s*(.+)$/);
-        if (match) {
-          return { name: match[1], action: match[2].trim(), enabled: true };
+        const eqIndex = r.indexOf('=');
+        if (eqIndex > 0) {
+          const name = r.substring(0, eqIndex).trim();
+          const action = r.substring(eqIndex + 1).trim();
+          return { name, action, enabled: true };
         }
         // Fallback for rules without proper format
         return { name: r, action: '', enabled: true };
@@ -194,23 +221,43 @@ export default function RulesPage({
         .map(line => line.trim())
         .filter(line => line && !line.startsWith('#') && !line.startsWith('//'));
 
-      // Extract node names from rules
+      // Extract node names from rules (handles labels with spaces by using indexOf)
       const nodeSet = new Set<string>();
-      rules.forEach(rule => {
-        const match = rule.match(/^([a-zA-Z0-9_]+)\s*=/);
-        if (match) {
-          nodeSet.add(match[1]);
+      
+      // Helper to extract identifiers from expression (handles labels with spaces)
+      const extractIdentifiers = (expression: string, knownLabels: Set<string>): string[] => {
+        const ids: string[] = [];
+        const sortedLabels = Array.from(knownLabels).sort((a, b) => b.length - a.length);
+        let remaining = expression;
+        for (const label of sortedLabels) {
+          if (remaining.includes(label)) {
+            ids.push(label);
+            remaining = remaining.split(label).join('');
+          }
         }
-        // Extract identifiers from expression (right side of =)
-        const exprMatch = rule.match(/=\s*(.+)$/);
-        if (exprMatch) {
-          const expr = exprMatch[1];
-          const identifiers = expr.match(/[a-zA-Z0-9_]+/g) || [];
-          identifiers.forEach(id => {
-            if (!['AND', 'OR', 'XOR', 'NAND', 'NOR', 'NOT'].includes(id.toUpperCase())) {
-              nodeSet.add(id);
-            }
-          });
+        const extras = remaining.match(/[a-zA-Z][a-zA-Z0-9_]*/g) || [];
+        extras.forEach(id => {
+          if (!['AND', 'OR', 'XOR', 'NAND', 'NOR', 'NOT'].includes(id.toUpperCase()) && !ids.includes(id)) {
+            ids.push(id);
+          }
+        });
+        return ids;
+      };
+      
+      // First pass: collect targets
+      rules.forEach(rule => {
+        const eqIndex = rule.indexOf('=');
+        if (eqIndex > 0) {
+          nodeSet.add(rule.substring(0, eqIndex).trim());
+        }
+      });
+      
+      // Second pass: collect sources using known labels
+      rules.forEach(rule => {
+        const eqIndex = rule.indexOf('=');
+        if (eqIndex > 0) {
+          const expression = rule.substring(eqIndex + 1).trim();
+          extractIdentifiers(expression, nodeSet).forEach(id => nodeSet.add(id));
         }
       });
 

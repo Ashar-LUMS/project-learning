@@ -219,7 +219,7 @@ function NetworkEditorPage() {
     if (!networkNodes.length) {
       showToast({ 
         title: 'No Nodes Found', 
-        description: 'Please add nodes in the Network tab first.',
+        description: 'The selected network has no nodes. Please add nodes in the Network tab first.',
         variant: 'destructive'
       });
       return;
@@ -338,6 +338,35 @@ function NetworkEditorPage() {
   };
 
   const handleOpenProbabilisticDialog = () => {
+    // Check if network has nodes before opening the dialog
+    const live = graphRef.current?.getLiveWeightedConfig();
+    if (live && Array.isArray(live.nodes) && live.nodes.length > 0) {
+      setProbabilisticFormError(null);
+      setIsProbabilisticDialogOpen(true);
+      return;
+    }
+
+    if (!selectedNetwork) {
+      showToast({
+        title: 'No Network Selected',
+        description: 'Please select a network first.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    const networkData = (selectedNetwork as any).data || selectedNetwork;
+    const networkNodes = networkData?.nodes || [];
+
+    if (!networkNodes.length) {
+      showToast({
+        title: 'No Nodes Found',
+        description: 'The selected network has no nodes. Please add nodes in the Network tab first.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     setProbabilisticFormError(null);
     setIsProbabilisticDialogOpen(true);
   };

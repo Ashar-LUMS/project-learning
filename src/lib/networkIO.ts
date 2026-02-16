@@ -1133,11 +1133,17 @@ export function mergeNetworks(
   const mergedRules: Rule[] = [];
   const baseRulesByTarget = new Map<string, Rule>();
   
+  // Helper to extract target from rule (handles labels with spaces)
+  const extractRuleTarget = (ruleName: string | undefined): string => {
+    if (!ruleName) return '';
+    const eqIndex = ruleName.indexOf('=');
+    return eqIndex > 0 ? ruleName.substring(0, eqIndex).trim() : ruleName;
+  };
+  
   if (base.rules) {
     for (const rule of base.rules) {
       // Extract target from rule name (format: "Target = expression")
-      const targetMatch = rule.name?.match(/^([a-zA-Z0-9_]+)\s*=/);
-      const target = targetMatch?.[1] ?? rule.name;
+      const target = extractRuleTarget(rule.name);
       baseRulesByTarget.set(target, rule);
       mergedRules.push({ ...rule });
     }
@@ -1145,8 +1151,7 @@ export function mergeNetworks(
 
   if (overlay.rules) {
     for (const overlayRule of overlay.rules) {
-      const targetMatch = overlayRule.name?.match(/^([a-zA-Z0-9_]+)\s*=/);
-      const target = targetMatch?.[1] ?? overlayRule.name;
+      const target = extractRuleTarget(overlayRule.name);
       // Map target to new ID if renamed
       const mappedTarget = nodeIdMap.get(target) ?? target;
 
@@ -1159,7 +1164,7 @@ export function mergeNetworks(
           case 'keep-second':
             // Replace base rule with overlay rule
             const idx = mergedRules.findIndex(r => {
-              const rTarget = r.name?.match(/^([a-zA-Z0-9_]+)\s*=/)?.[1] ?? r.name;
+              const rTarget = extractRuleTarget(r.name);
               return rTarget === target || rTarget === mappedTarget;
             });
             if (idx !== -1) {
@@ -1258,7 +1263,12 @@ export function getMergePreview(
   const overlayEdgeKeys = new Set(overlay.edges.map(edgeKey));
   const edgeConflicts = [...overlayEdgeKeys].filter(key => baseEdgeKeys.has(key)).length;
 
-  const getRuleTarget = (r: Rule) => r.name?.match(/^([a-zA-Z0-9_]+)\s*=/)?.[1] ?? r.name;
+  // Helper to extract target from rule (handles labels with spaces)
+  const getRuleTarget = (r: Rule) => {
+    if (!r.name) return '';
+    const eqIndex = r.name.indexOf('=');
+    return eqIndex > 0 ? r.name.substring(0, eqIndex).trim() : r.name;
+  };
   const baseRuleTargets = new Set((base.rules || []).map(getRuleTarget));
   const overlayRuleTargets = new Set((overlay.rules || []).map(getRuleTarget));
   const ruleConflicts = [...overlayRuleTargets].filter(t => baseRuleTargets.has(t)).length;

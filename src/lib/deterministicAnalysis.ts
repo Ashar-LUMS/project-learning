@@ -29,11 +29,18 @@ interface Token {
 
 /**
  * Tokenize a boolean expression
+ * @param expr - The expression to tokenize
+ * @param knownLabels - Optional set of known node labels (supports labels with spaces)
  */
-function tokenize(expr: string): Token[] {
+function tokenize(expr: string, knownLabels?: Set<string>): Token[] {
   const tokens: Token[] = [];
   let i = 0;
   const trimmed = expr.trim();
+  
+  // Sort known labels by length (longest first) to match greedily
+  const sortedLabels = knownLabels 
+    ? Array.from(knownLabels).sort((a, b) => b.length - a.length)
+    : [];
 
   while (i < trimmed.length) {
     // Skip whitespace
@@ -71,6 +78,24 @@ function tokenize(expr: string): Token[] {
       i++;
       continue;
     }
+    
+    // Try to match known labels (for labels with spaces)
+    let matchedLabel = false;
+    for (const label of sortedLabels) {
+      // Check if label matches at current position (case-insensitive for operators check)
+      const slice = trimmed.substring(i, i + label.length);
+      if (slice === label) {
+        // Make sure it's not a partial match (next char should be operator/paren/end)
+        const nextChar = trimmed[i + label.length];
+        if (!nextChar || !/[a-zA-Z0-9_]/.test(nextChar)) {
+          tokens.push({ type: 'IDENTIFIER', value: label });
+          i += label.length;
+          matchedLabel = true;
+          break;
+        }
+      }
+    }
+    if (matchedLabel) continue;
 
     // Multi-character operators and identifiers
     let word = '';
@@ -99,16 +124,24 @@ function tokenize(expr: string): Token[] {
 
 /**
  * Parse a single rule: TARGET = EXPRESSION
+ * Supports labels with spaces (e.g., "Node 1 = Node 2 AND Node 3")
+ * @param rule - The rule string to parse
+ * @param knownLabels - Optional set of known node labels for parsing expressions with spaces
  */
-function parseRule(rule: string): RuleParsed {
-  const match = rule.match(/^\s*([a-zA-Z0-9_]+)\s*=\s*(.+)\s*$/);
-  if (!match) {
+function parseRule(rule: string, knownLabels?: Set<string>): RuleParsed {
+  const eqIndex = rule.indexOf('=');
+  if (eqIndex <= 0) {
     throw new Error(`Invalid rule syntax: "${rule}". Expected format: TARGET = EXPRESSION`);
   }
 
-  const target = match[1].trim();
-  const expression = match[2].trim();
-  const tokens = tokenize(expression);
+  const target = rule.substring(0, eqIndex).trim();
+  const expression = rule.substring(eqIndex + 1).trim();
+  
+  if (!target || !expression) {
+    throw new Error(`Invalid rule syntax: "${rule}". Expected format: TARGET = EXPRESSION`);
+  }
+  
+  const tokens = tokenize(expression, knownLabels);
 
   return { target, expression, tokens };
 }
@@ -216,16 +249,33 @@ export function performDeterministicAnalysis(
   const stateCap = options.stateCap ?? ANALYSIS_CONFIG.DEFAULT_STATE_CAP;
   const stepCap = options.stepCap ?? ANALYSIS_CONFIG.DEFAULT_STEP_CAP;
 
-  // Parse all rules
-  const parsedRules: RuleParsed[] = [];
   const warnings: string[] = [];
-
+  
+  // First pass: collect all targets (left-hand sides of rules) as known labels
+  // This allows us to parse expressions that contain labels with spaces
+  const knownLabels = new Set<string>();
+  const validRuleStrings: string[] = [];
+  
   for (const rule of rules) {
     const trimmed = rule.trim();
     if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('//')) continue;
     
+    const eqIndex = trimmed.indexOf('=');
+    if (eqIndex > 0) {
+      const target = trimmed.substring(0, eqIndex).trim();
+      if (target) {
+        knownLabels.add(target);
+        validRuleStrings.push(trimmed);
+      }
+    }
+  }
+
+  // Second pass: parse rules with known labels for tokenizing expressions
+  const parsedRules: RuleParsed[] = [];
+  
+  for (const rule of validRuleStrings) {
     try {
-      parsedRules.push(parseRule(trimmed));
+      parsedRules.push(parseRule(rule, knownLabels));
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       warnings.push(`Rule parse error: ${message}`);
@@ -236,10 +286,9 @@ export function performDeterministicAnalysis(
     throw new Error('No valid rules found. Please provide at least one rule in the format: TARGET = EXPRESSION');
   }
 
-  // Extract all unique node identifiers
-  const nodeIds = new Set<string>();
+  // Extract all unique node identifiers (targets + any identifiers from expressions)
+  const nodeIds = new Set<string>(knownLabels);
   for (const rule of parsedRules) {
-    nodeIds.add(rule.target);
     for (const token of rule.tokens) {
       if (token.type === 'IDENTIFIER') {
         nodeIds.add(token.value);

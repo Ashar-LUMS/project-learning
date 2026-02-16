@@ -152,11 +152,20 @@ function ProjectVisualizationPage() {
       const data = (selectedNetwork as any)?.data || selectedNetwork;
       const rules = Array.isArray(data?.rules) ? data.rules : [];
       const metaType = data?.metadata?.type || data?.network_data?.metadata?.type;
-      return (Array.isArray(rules) && rules.length > 0) || metaType === 'Rule based';
+      const isRuleBased = (Array.isArray(rules) && rules.length > 0) || metaType === 'Rule based';
+      console.debug('[ProjectVisualizationPage] selectedIsRuleBased check', {
+        selectedNetworkId,
+        dataExists: !!data,
+        rules,
+        rulesLength: rules.length,
+        metaType,
+        isRuleBased
+      });
+      return isRuleBased;
     } catch {
       return false;
     }
-  }, [selectedNetwork]);
+  }, [selectedNetwork, selectedNetworkId]);
 
   useEffect(() => {
     setRuleBasedNodeLimitWarning(null);
@@ -614,6 +623,28 @@ function ProjectVisualizationPage() {
   }, [selectedNetwork, selectedAttractorId, cellFates, networks, selectedNetworkId, setNetworks, showToast]);
 
   const handleOpenProbabilisticDialog = () => {
+    // Check if network has nodes before opening the dialog
+    if (!selectedNetwork) {
+      showToast({
+        title: 'No Network Selected',
+        description: 'Please select a network first.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    const networkData = (selectedNetwork.data || selectedNetwork) as NetworkData | null;
+    const nodes = Array.isArray(networkData?.nodes) ? networkData.nodes : [];
+
+    if (nodes.length === 0) {
+      showToast({
+        title: 'No Nodes Found',
+        description: 'The selected network has no nodes. Please add nodes in the Network tab first.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     setProbabilisticFormError(null);
     setIsProbabilisticDialogOpen(true);
   };
@@ -735,11 +766,14 @@ function ProjectVisualizationPage() {
     
     // Check for nodes without rules and warn user
     // Rules use node names/labels, so we need to compare against both id and label
-    // Parse rule targets from rulesArray to handle both old and new formats
+    // Parse rule targets from rulesArray to handle both old and new formats (including labels with spaces)
     const ruleTargets = new Set<string>();
     rulesArray.forEach((ruleStr: string) => {
-      const match = ruleStr.match(/^([a-zA-Z0-9_]+)\s*=/);
-      if (match) ruleTargets.add(match[1]);
+      const eqIndex = ruleStr.indexOf('=');
+      if (eqIndex > 0) {
+        const target = ruleStr.substring(0, eqIndex).trim();
+        ruleTargets.add(target);
+      }
     });
     
     const nodeIdentifiers = new Map<string, string>(); // id -> label mapping
@@ -764,6 +798,32 @@ function ProjectVisualizationPage() {
     await runTherapeuticsRuleBasedAnalysis(rulesArray);
     setTherapeuticsSubTab('attractors');
     showToast({ title: 'Rule-Based Analysis Complete', description: 'Analysis of therapeutics-modified network completed.' });
+  };
+
+  const handleOpenTherapeuticsProbabilisticDialog = () => {
+    // Check if network has nodes before opening the dialog
+    if (!selectedNetwork) {
+      showToast({
+        title: 'No Network Selected',
+        description: 'Please select a network first.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    const networkData = (selectedNetwork.data || selectedNetwork) as NetworkData | null;
+    const nodes = Array.isArray(networkData?.nodes) ? networkData.nodes : [];
+
+    if (nodes.length === 0) {
+      showToast({
+        title: 'No Nodes Found',
+        description: 'The selected network has no nodes. Please add nodes in the Network tab first.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setTherapeuticsProbabilisticDialogOpen(true);
   };
 
   const handleTherapeuticsProbabilisticSubmit = async () => {
@@ -888,6 +948,13 @@ function ProjectVisualizationPage() {
           type: newNetworkType === 'rules' ? 'Rule based' : 'Weight based',
         },
       };
+      
+      console.debug('[ProjectVisualizationPage] Creating network', {
+        networkName,
+        newNetworkType,
+        initialNetworkData,
+        metadataType: initialNetworkData.metadata.type
+      });
 
       // 1) Create a new empty network record with type metadata
       const { data: createdNetwork, error: createErr } = await supabase
@@ -924,9 +991,29 @@ function ProjectVisualizationPage() {
         if (updateErr) throw updateErr;
       }
 
-      // Refresh networks from Supabase to ensure consistency
-      refreshNetworks();
+      // Immediately add the new network to state so it's available before the async refresh completes
+      const newNetworkRecord = {
+        id: createdNetwork.id,
+        name: createdNetwork.name,
+        created_at: createdNetwork.created_at ?? null,
+        data: createdNetwork.network_data ?? null,
+      };
+      
+      console.debug('[ProjectVisualizationPage] Network created, adding to state', {
+        newNetworkRecord,
+        dataMetadataType: newNetworkRecord.data?.metadata?.type,
+        hasRules: Array.isArray(newNetworkRecord.data?.rules)
+      });
+      
+      setNetworks(prev => {
+        // Check if already exists (unlikely but safe)
+        if (prev.some(n => n.id === newNetworkRecord.id)) return prev;
+        return [...prev, newNetworkRecord];
+      });
+      
+      // Select the new network and refresh to ensure consistency
       selectNetwork(createdNetwork.id);
+      refreshNetworks();
       setRecentNetworkIds((prev) => [createdNetwork.id, ...prev.filter((id) => id !== createdNetwork.id)].slice(0, MAX_RECENT_NETWORKS));
       
       setIsNewNetworkDialogOpen(false);
@@ -1123,26 +1210,52 @@ function ProjectVisualizationPage() {
         const rules = importedRules || [];
         const nodeSet = new Set<string>();
         const edgeMap = new Map<string, Set<string>>(); // target -> sources
-        rules.forEach(rule => {
-          const match = rule.match(/^([a-zA-Z0-9_]+)\s*=/);
-          if (match) {
-            const target = match[1];
-            nodeSet.add(target);
-
-            const exprMatch = rule.match(/=\s*(.+)$/);
-            if (exprMatch) {
-              const expr = exprMatch[1];
-              const identifiers = expr.match(/[a-zA-Z0-9_]+/g) || [];
-              identifiers.forEach(id => {
-                if (!['AND', 'OR', 'XOR', 'NAND', 'NOR', 'NOT'].includes(id.toUpperCase())) {
-                  nodeSet.add(id);
-                  if (id !== target) {
-                    if (!edgeMap.has(target)) edgeMap.set(target, new Set());
-                    edgeMap.get(target)!.add(id);
-                  }
-                }
-              });
+        
+        // Helper to extract identifiers from expression (handles labels with spaces)
+        const extractIdentifiers = (expression: string, knownLabels: Set<string>): string[] => {
+          const ids: string[] = [];
+          // First try to match known labels (longer matches first)
+          const sortedLabels = Array.from(knownLabels).sort((a, b) => b.length - a.length);
+          let remaining = expression;
+          for (const label of sortedLabels) {
+            if (remaining.includes(label)) {
+              ids.push(label);
+              remaining = remaining.split(label).join('');
             }
+          }
+          // Extract remaining identifiers (words/numbers)
+          const extras = remaining.match(/[a-zA-Z][a-zA-Z0-9_]*/g) || [];
+          extras.forEach(id => {
+            if (!['AND', 'OR', 'XOR', 'NAND', 'NOR', 'NOT'].includes(id.toUpperCase()) && !ids.includes(id)) {
+              ids.push(id);
+            }
+          });
+          return ids;
+        };
+        
+        // First pass: collect all targets
+        rules.forEach(rule => {
+          const eqIndex = rule.indexOf('=');
+          if (eqIndex > 0) {
+            const target = rule.substring(0, eqIndex).trim();
+            nodeSet.add(target);
+          }
+        });
+        
+        // Second pass: build edges using known labels
+        rules.forEach(rule => {
+          const eqIndex = rule.indexOf('=');
+          if (eqIndex > 0) {
+            const target = rule.substring(0, eqIndex).trim();
+            const expression = rule.substring(eqIndex + 1).trim();
+            const identifiers = extractIdentifiers(expression, nodeSet);
+            identifiers.forEach(id => {
+              nodeSet.add(id);
+              if (id !== target) {
+                if (!edgeMap.has(target)) edgeMap.set(target, new Set());
+                edgeMap.get(target)!.add(id);
+              }
+            });
           }
         });
 
@@ -1718,12 +1831,27 @@ function ProjectVisualizationPage() {
     const nodes = networkData.nodes || [];
     const therapies = selectedNetwork.therapies;
 
-    // Build rules map from network data
+    // Build rules map from network data (handles both string and object formats)
     const rulesMap: Record<string, string> = {};
     if (networkData.rules) {
-      networkData.rules.forEach((rule) => {
-        if (rule.name && rule.action) {
+      networkData.rules.forEach((rule: any) => {
+        if (typeof rule === 'string') {
+          // Parse string rule: "Target = Expression"
+          const eqIndex = rule.indexOf('=');
+          if (eqIndex > 0) {
+            const target = rule.substring(0, eqIndex).trim();
+            const expression = rule.substring(eqIndex + 1).trim();
+            rulesMap[target] = expression;
+          }
+        } else if (rule.name && rule.action) {
+          // Object format: { name: "Target", action: "Expression" }
           rulesMap[rule.name] = rule.action;
+        } else if (rule.name && rule.name.includes('=')) {
+          // Object format with full rule in name: { name: "Target = Expression" }
+          const eqIndex = rule.name.indexOf('=');
+          const target = rule.name.substring(0, eqIndex).trim();
+          const expression = rule.name.substring(eqIndex + 1).trim();
+          rulesMap[target] = expression;
         }
       });
     }
@@ -1734,9 +1862,18 @@ function ProjectVisualizationPage() {
       ? applyTherapiesToNetwork(networkData, interventionsToApply)
       : networkData;
     
+    // Helper to count rules (handles both string and object formats)
+    const countRules = (rules: any[] | undefined): number => {
+      if (!Array.isArray(rules)) return 0;
+      return rules.filter(r => {
+        if (typeof r === 'string') return r.includes('=');
+        return r.name && (r.action || r.name.includes('='));
+      }).length;
+    };
+    
     // hasRules is true if either original or modified network has rules
-    const originalRulesCount = networkData.rules?.filter(r => r.name && r.action)?.length ?? 0;
-    const modifiedRulesCount = modifiedData.rules?.filter(r => r.name && r.action)?.length ?? 0;
+    const originalRulesCount = countRules(networkData.rules);
+    const modifiedRulesCount = countRules(modifiedData.rules);
     const hasRules = originalRulesCount > 0 || modifiedRulesCount > 0;
     
     const interventionCount = interventionsToApply.length;
@@ -1850,7 +1987,7 @@ function ProjectVisualizationPage() {
 
             {/* Probabilistic Analysis */}
             <Button
-              onClick={() => setTherapeuticsProbabilisticDialogOpen(true)}
+              onClick={handleOpenTherapeuticsProbabilisticDialog}
               variant="outline"
               className="w-full justify-start h-9 text-xs"
               disabled={isTherapeuticsProbabilisticRunning}
@@ -1970,6 +2107,7 @@ function ProjectVisualizationPage() {
                       networkId={selectedNetworkId} 
                       projectId={projectId} 
                       refreshToken={networkGraphRefreshToken}
+                      overrideNetworkData={selectedNetwork?.data || null}
                       onSaved={(newNetwork) => {
                       setNetworks(prev => {
                         const existingIndex = prev.findIndex(n => n.id === newNetwork.id);
@@ -2806,11 +2944,27 @@ function ProjectVisualizationPage() {
           <DialogHeader>
             <DialogTitle>Create New Network</DialogTitle>
             <DialogDescription>
-              Choose a network type and optionally provide a name.
+              Provide a name and choose a network type.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-5">
+            {/* Network Name */}
+            <div className="space-y-2">
+              <Label htmlFor="new-network-name">Network Name <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Input
+                id="new-network-name"
+                placeholder="My Network"
+                value={newNetworkName}
+                onChange={(e) => setNewNetworkName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !isCreatingNetwork) {
+                    handleCreateNewNetwork();
+                  }
+                }}
+              />
+            </div>
+
             {/* Network Type Selection */}
             <div className="space-y-3">
               <Label className="text-sm font-medium">Network Type</Label>
@@ -2867,22 +3021,6 @@ function ProjectVisualizationPage() {
                   </p>
                 </button>
               </div>
-            </div>
-
-            {/* Network Name */}
-            <div className="space-y-2">
-              <Label htmlFor="new-network-name">Network Name <span className="text-muted-foreground font-normal">(optional)</span></Label>
-              <Input
-                id="new-network-name"
-                placeholder="My Network"
-                value={newNetworkName}
-                onChange={(e) => setNewNetworkName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !isCreatingNetwork) {
-                    handleCreateNewNetwork();
-                  }
-                }}
-              />
             </div>
           </div>
 
