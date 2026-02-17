@@ -288,11 +288,21 @@ const HomePage: React.FC = () => {
     if (!editName.trim()) return;
     try {
       setIsUpdateLoading(true);
-      // Duplicate name check (exclude current project)
+      // Duplicate name check (exclude current project) - use server-side check to avoid
+      // stale local state causing false positives when editing projects.
       if (policyAttrs.preventDuplicateNames) {
-        const name = editName.trim().toLowerCase();
-        const exists = (projects || []).some(p => p.id !== editingProject.id && (p.name || '').trim().toLowerCase() === name);
-        if (exists) throw new Error('A project with this name already exists.');
+        const nameTrim = editName.trim();
+        try {
+          const { data: existing, error: fetchErr } = await supabase
+            .from('projects')
+            .select('id')
+            .ilike('name', nameTrim);
+          if (fetchErr) throw fetchErr;
+          const exists = (existing || []).some((p: any) => p.id !== editingProject.id);
+          if (exists) throw new Error('A project with this name already exists.');
+        } catch (e) {
+          throw e;
+        }
       }
       // Optionally remove deleted assignees per policy
       const cleaned = new Set(editSelectedAssigneeIds);
@@ -462,8 +472,8 @@ const HomePage: React.FC = () => {
             : 'bg-red-50/80 border-red-200 text-red-800 dark:bg-red-950/80 dark:border-red-800 dark:text-red-200'
             }`}
         >
-          <div className="flex items-start gap-3">
-            <div className={`mt-0.5 rounded-full p-2 ${banner.type === 'success' ? 'bg-green-100 dark:bg-green-900' : 'bg-red-100 dark:bg-red-900'
+          <div className="flex items-center gap-3">
+            <div className={`rounded-full p-2 ${banner.type === 'success' ? 'bg-green-100 dark:bg-green-900' : 'bg-red-100 dark:bg-red-900'
               }`}>
               {banner.type === 'success' ? <UserCheck size={16} /> : <AlertCircle size={16} />}
             </div>
