@@ -182,6 +182,11 @@ export function SeqAnalysisTab({
     }
   }, []);
 
+  const triggerFileInput = useCallback((id: string) => {
+    const el = document.getElementById(id) as HTMLInputElement | null;
+    if (el) el.click();
+  }, []);
+
   const handleFastq1Change = useCallback(
     handleFileChange(setFastq1, /\.(fastq|fq)\.gz$/i, "Must be a .fastq.gz or .fq.gz file"),
     [handleFileChange]
@@ -460,15 +465,22 @@ export function SeqAnalysisTab({
                   Forward Reads (R1) <span className="text-red-500">*</span>
                 </Label>
                 <div className="flex items-center gap-2">
-                  <Input
+                  <input
                     id="fastq_1"
                     type="file"
                     accept=".fastq.gz,.fq.gz"
                     onChange={handleFastq1Change}
                     disabled={isRunning}
-                    className={cn(fastq1.error && "border-red-500")}
+                    className="sr-only"
                   />
-                  <Button variant="outline" size="sm" onClick={() => downloadFastqSample('R1')}>Sample</Button>
+                  <Button variant="secondary" size="sm" onClick={() => triggerFileInput('fastq_1')}>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Choose file
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => downloadFastqSample('R1')} className="gap-2">
+                    <Download className="w-4 h-4" />
+                    Download sample
+                  </Button>
                   {fastq1.file && (
                     <Badge variant="secondary" className="shrink-0">
                       {formatFileSize(fastq1.file.size)}
@@ -488,15 +500,22 @@ export function SeqAnalysisTab({
                   Reverse Reads (R2) <span className="text-red-500">*</span>
                 </Label>
                 <div className="flex items-center gap-2">
-                  <Input
+                  <input
                     id="fastq_2"
                     type="file"
                     accept=".fastq.gz,.fq.gz"
                     onChange={handleFastq2Change}
                     disabled={isRunning}
-                    className={cn(fastq2.error && "border-red-500")}
+                    className="sr-only"
                   />
-                  <Button variant="outline" size="sm" onClick={() => downloadFastqSample('R2')}>Sample</Button>
+                  <Button variant="secondary" size="sm" onClick={() => triggerFileInput('fastq_2')}>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Choose file
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => downloadFastqSample('R2')} className="gap-2">
+                    <Download className="w-4 h-4" />
+                    Download sample
+                  </Button>
                   {fastq2.file && (
                     <Badge variant="secondary" className="shrink-0">
                       {formatFileSize(fastq2.file.size)}
@@ -518,15 +537,22 @@ export function SeqAnalysisTab({
                   Reference Genome <span className="text-red-500">*</span>
                 </Label>
                 <div className="flex items-center gap-2">
-                  <Input
+                  <input
                     id="reference"
                     type="file"
                     accept=".fa.gz,.fasta.gz"
                     onChange={handleReferenceChange}
                     disabled={isRunning}
-                    className={cn(reference.error && "border-red-500")}
+                    className="sr-only"
                   />
-                  <Button variant="outline" size="sm" onClick={downloadFastaSample}>Sample</Button>
+                  <Button variant="secondary" size="sm" onClick={() => triggerFileInput('reference')}>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Choose file
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={downloadFastaSample} className="gap-2">
+                    <Download className="w-4 h-4" />
+                    Download sample
+                  </Button>
                   {reference.file && (
                     <Badge variant="secondary" className="shrink-0">
                       {formatFileSize(reference.file.size)}
@@ -546,15 +572,22 @@ export function SeqAnalysisTab({
                   Gene Annotation <span className="text-red-500">*</span>
                 </Label>
                 <div className="flex items-center gap-2">
-                  <Input
+                  <input
                     id="annotation"
                     type="file"
                     accept=".gff3.gz,.gtf.gz"
                     onChange={handleAnnotationChange}
                     disabled={isRunning}
-                    className={cn(annotation.error && "border-red-500")}
+                    className="sr-only"
                   />
-                  <Button variant="outline" size="sm" onClick={downloadGff3Sample}>Sample</Button>
+                  <Button variant="secondary" size="sm" onClick={() => triggerFileInput('annotation')}>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Choose file
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={downloadGff3Sample} className="gap-2">
+                    <Download className="w-4 h-4" />
+                    Download sample
+                  </Button>
                   {annotation.file && (
                     <Badge variant="secondary" className="shrink-0">
                       {formatFileSize(annotation.file.size)}

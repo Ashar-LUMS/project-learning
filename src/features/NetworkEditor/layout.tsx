@@ -158,8 +158,8 @@ export default function NetworkEditorLayout({
   // Separate enabled and disabled tabs
   const enabledTabs = [
     { id: 'projects' as TabType, label: 'Projects', icon: Folder, color: 'text-blue-600' },
-    { id: 'rna-seq' as TabType, label: 'RNA-seq', icon: Dna, color: 'text-sky-600' },
     { id: 'exome-seq' as TabType, label: 'Exome-seq', icon: Dna, color: 'text-sky-600' },
+    { id: 'rna-seq' as TabType, label: 'RNA-seq', icon: Dna, color: 'text-sky-600' },
     { id: 'network' as TabType, label: 'Network Editor', icon: Network, color: 'text-green-600' },
     { id: 'autonetcan' as TabType, label: 'AutoNetCan', icon: Cpu, color: 'text-teal-600' },
     { id: 'network-inference' as TabType, label: 'Network Analysis', icon: Waypoints, color: 'text-purple-600' },

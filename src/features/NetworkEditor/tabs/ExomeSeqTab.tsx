@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useCallback, useMemo, useRef, useState } from "react";
-import { cn } from "@/lib/utils";
+//import { cn } from "@/lib/utils";
 import { downloadTextAsFile } from "@/lib/download";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+//import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -16,6 +16,7 @@ import {
   XCircle,
   AlertCircle,
   Play,
+  Download,
 } from "lucide-react";
 import type { ProjectNetworkRecord } from '@/hooks/useProjectNetworks';
 import type { NetworkNode } from "@/types/network";
@@ -78,6 +79,11 @@ export function ExomeSeqTab({
     } else {
       setter({ file, error: null });
     }
+  }, []);
+
+  const triggerFileInput = useCallback((id: string) => {
+    const el = document.getElementById(id) as HTMLInputElement | null;
+    if (el) el.click();
   }, []);
 
   const handleTumorFastq1Change = useCallback(
@@ -218,15 +224,22 @@ export function ExomeSeqTab({
                   Tumor Reads (R1) <span className="text-red-500">*</span>
                 </Label>
                 <div className="flex items-center gap-2">
-                  <Input
+                  <input
                     id="exome_tumor_r1"
                     type="file"
                     accept=".fastq.gz,.fq.gz"
                     onChange={handleTumorFastq1Change}
                     disabled={isRunning}
-                    className={cn(tumorFastq1.error && "border-red-500")}
+                    className="sr-only"
                   />
-                  <Button variant="outline" size="sm" onClick={() => downloadFastqSample('tumor_R1')}>Sample</Button>
+                  <Button variant="secondary" size="sm" onClick={() => triggerFileInput('exome_tumor_r1')}>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Choose file
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => downloadFastqSample('tumor_R1')} className="gap-2">
+                    <Download className="w-4 h-4" />
+                    Download sample
+                  </Button>
                   {tumorFastq1.file && (
                     <Badge variant="secondary" className="shrink-0">
                       {formatFileSize(tumorFastq1.file.size)}
@@ -246,15 +259,22 @@ export function ExomeSeqTab({
                   Tumor Reads (R2) <span className="text-red-500">*</span>
                 </Label>
                 <div className="flex items-center gap-2">
-                  <Input
+                  <input
                     id="exome_tumor_r2"
                     type="file"
                     accept=".fastq.gz,.fq.gz"
                     onChange={handleTumorFastq2Change}
                     disabled={isRunning}
-                    className={cn(tumorFastq2.error && "border-red-500")}
+                    className="sr-only"
                   />
-                  <Button variant="outline" size="sm" onClick={() => downloadFastqSample('tumor_R2')}>Sample</Button>
+                  <Button variant="secondary" size="sm" onClick={() => triggerFileInput('exome_tumor_r2')}>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Choose file
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => downloadFastqSample('tumor_R2')} className="gap-2">
+                    <Download className="w-4 h-4" />
+                    Download sample
+                  </Button>
                   {tumorFastq2.file && (
                     <Badge variant="secondary" className="shrink-0">
                       {formatFileSize(tumorFastq2.file.size)}
@@ -276,15 +296,22 @@ export function ExomeSeqTab({
                   Reference Genome <span className="text-red-500">*</span>
                 </Label>
                 <div className="flex items-center gap-2">
-                  <Input
+                  <input
                     id="exome_reference"
                     type="file"
                     accept=".fa.gz,.fasta.gz"
                     onChange={handleReferenceChange}
                     disabled={isRunning}
-                    className={cn(reference.error && "border-red-500")}
+                    className="sr-only"
                   />
-                  <Button variant="outline" size="sm" onClick={downloadFastaSample}>Sample</Button>
+                  <Button variant="secondary" size="sm" onClick={() => triggerFileInput('exome_reference')}>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Choose file
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={downloadFastaSample} className="gap-2">
+                    <Download className="w-4 h-4" />
+                    Download sample
+                  </Button>
                   {reference.file && (
                     <Badge variant="secondary" className="shrink-0">{formatFileSize(reference.file.size)}</Badge>
                   )}
@@ -302,15 +329,22 @@ export function ExomeSeqTab({
                   Exome Targets (BED) <span className="text-red-500">*</span>
                 </Label>
                 <div className="flex items-center gap-2">
-                  <Input
+                  <input
                     id="exome_targets"
                     type="file"
                     accept=".bed,.bed.gz"
                     onChange={handleTargetsBedChange}
                     disabled={isRunning}
-                    className={cn(targetsBed.error && "border-red-500")}
+                    className="sr-only"
                   />
-                  <Button variant="outline" size="sm" onClick={downloadBedSample}>Sample</Button>
+                  <Button variant="secondary" size="sm" onClick={() => triggerFileInput('exome_targets')}>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Choose file
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={downloadBedSample} className="gap-2">
+                    <Download className="w-4 h-4" />
+                    Download sample
+                  </Button>
                   {targetsBed.file && (
                     <Badge variant="secondary" className="shrink-0">{formatFileSize(targetsBed.file.size)}</Badge>
                   )}
