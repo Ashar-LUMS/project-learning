@@ -1544,6 +1544,7 @@ function NetworkEditorPage() {
                 potentialEnergies={probabilisticResult.potentialEnergies}
                 type="probability"
                 mappingType="naive-grid"
+                nodeIdToLabel={nodeIdToLabel}
                 className="h-full"
               />
             )}
@@ -1568,6 +1569,7 @@ function NetworkEditorPage() {
                 potentialEnergies={probabilisticResult.potentialEnergies}
                 type="energy"
                 mappingType="naive-grid"
+                nodeIdToLabel={nodeIdToLabel}
                 className="h-full"
               />
             )}

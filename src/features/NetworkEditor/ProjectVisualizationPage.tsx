@@ -3450,6 +3450,7 @@ function ProjectVisualizationPage() {
                 potentialEnergies={landscapeProbabilisticData.potentialEnergies}
                 type="probability"
                 mappingType="naive-grid"
+                nodeIdToLabel={nodeIdToLabel}
                 className="h-full"
               />
             )}
@@ -3474,6 +3475,7 @@ function ProjectVisualizationPage() {
                 potentialEnergies={landscapeProbabilisticData.potentialEnergies}
                 type="energy"
                 mappingType="naive-grid"
+                nodeIdToLabel={nodeIdToLabel}
                 className="h-full"
               />
             )}

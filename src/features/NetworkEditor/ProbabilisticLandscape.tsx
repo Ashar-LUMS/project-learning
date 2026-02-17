@@ -15,6 +15,7 @@ interface ProbabilisticLandscapeProps {
   type: 'probability' | 'energy';
   mappingType?: 'sammon' | 'naive-grid';
   className?: string;
+  nodeIdToLabel?: Record<string, string>;
 }
 
 /**
@@ -92,6 +93,7 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
   type,
   mappingType = 'naive-grid',
   className = '',
+  nodeIdToLabel,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const plotRef = useRef<HTMLDivElement>(null);
@@ -219,7 +221,10 @@ export const ProbabilisticLandscape: React.FC<ProbabilisticLandscapeProps> = ({
         const onNodes: string[] = [];
         for (let i = 0; i < stateStr.length && i < nodeOrder.length; i++) {
           if (stateStr[i] === '1') {
-            onNodes.push(nodeOrder[i]);
+            const id = nodeOrder[i];
+            // Prefer user-friendly label mapping when available
+            const label = (nodeIdToLabel && nodeIdToLabel[id]) || id;
+            onNodes.push(label);
           }
         }
         if (onNodes.length === 0) return 'All OFF';
