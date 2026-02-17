@@ -19,7 +19,11 @@ export function downloadTextAsFile(filename: string, text: string) {
   const lower = filename.toLowerCase();
 
   if (lower.endsWith('.gz')) {
-    const gzBytes = pako.gzip(text);
+    // Ensure we pass an ArrayBuffer/Uint8Array to pako and create the Blob
+    // from the resulting ArrayBuffer to avoid zero-length downloads in some bundles.
+    const encoder = new TextEncoder();
+    const input = encoder.encode(text);
+    const gzBytes = pako.gzip(input);
     const blob = new Blob([gzBytes], { type: 'application/gzip' });
     triggerBrowserDownload(filename, blob);
     return;

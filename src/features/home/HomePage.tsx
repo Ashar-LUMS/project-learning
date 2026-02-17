@@ -154,6 +154,9 @@ const HomePage: React.FC = () => {
 
   const [createTeamSearch, setCreateTeamSearch] = useState("");
   const [editTeamSearch, setEditTeamSearch] = useState("");
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteMessage, setInviteMessage] = useState<string | null>(null);
+  const [inviteError, setInviteError] = useState<string | null>(null);
   const [policyAttrs, setPolicyAttrs] = useState({
     onlyAdminsCreate: false,
     autoAddCreator: true,
@@ -200,6 +203,38 @@ const HomePage: React.FC = () => {
   }, []);
 
   const { projects, isLoading: isProjectsLoading, error: projectsError, refetch: refetchProjects } = useProjects(isAdmin, currentUserId);
+
+  const INVITE_ENDPOINT = import.meta.env.VITE_INVITE_ENDPOINT ?? '';
+
+  const isValidEmail = (s: string) => typeof s === 'string' && /\S+@\S+\.\S+/.test(s);
+
+  const inviteEmail = async (email: string) => {
+    setInviteMessage(null);
+    setInviteError(null);
+    if (!isValidEmail(email)) {
+      setInviteError('Please provide a valid email address.');
+      return;
+    }
+    if (!INVITE_ENDPOINT) {
+      setInviteError('Invite endpoint not configured (VITE_INVITE_ENDPOINT).');
+      return;
+    }
+    try {
+      setInviteLoading(true);
+      const res = await fetch(INVITE_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.message || 'Invite failed');
+      setInviteMessage(payload?.message || 'Invitation sent');
+    } catch (err: any) {
+      setInviteError(err?.message || String(err));
+    } finally {
+      setInviteLoading(false);
+    }
+  };
 
   const toggleAssignee = useCallback((userId: string, setter: React.Dispatch<React.SetStateAction<Set<string>>>) => {
     setter((prev) => {
@@ -793,6 +828,19 @@ const HomePage: React.FC = () => {
                     ) : (
                       <div className="p-4 text-sm text-muted-foreground border rounded-xl bg-muted">
                         No users found for "{createTeamSearch.trim()}".
+                        {isValidEmail(createTeamSearch.trim()) && (
+                          <div className="mt-3 flex items-center gap-3">
+                            <Button
+                              onClick={() => inviteEmail(createTeamSearch.trim())}
+                              disabled={inviteLoading}
+                              className="rounded-xl"
+                            >
+                              {inviteLoading ? 'Inviting...' : 'Invite by email'}
+                            </Button>
+                            {inviteMessage && <div className="text-sm text-emerald-700">{inviteMessage}</div>}
+                            {inviteError && <div className="text-sm text-red-600">{inviteError}</div>}
+                          </div>
+                        )}
                       </div>
                     )
                   ) : (
@@ -1025,6 +1073,19 @@ const HomePage: React.FC = () => {
                 ) : (
                   <div className="p-4 text-sm text-muted-foreground border rounded-xl bg-muted">
                     No users found for "{editTeamSearch.trim()}".
+                    {isValidEmail(editTeamSearch.trim()) && (
+                      <div className="mt-3 flex items-center gap-3">
+                        <Button
+                          onClick={() => inviteEmail(editTeamSearch.trim())}
+                          disabled={inviteLoading}
+                          className="rounded-xl"
+                        >
+                          {inviteLoading ? 'Inviting...' : 'Invite by email'}
+                        </Button>
+                        {inviteMessage && <div className="text-sm text-emerald-700">{inviteMessage}</div>}
+                        {inviteError && <div className="text-sm text-red-600">{inviteError}</div>}
+                      </div>
+                    )}
                   </div>
                 )
               ) : (
