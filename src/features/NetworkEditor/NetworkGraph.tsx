@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
-import { MousePointer2, CirclePlus, Circle, Link, X, Trash2, Download, Network, Maximize, User } from 'lucide-react';
+import { MousePointer2, CirclePlus, Circle, Link, X, Trash2, Download, Network, Maximize, User, ArrowRight, OctagonMinus } from 'lucide-react';
 import type { NetworkData } from '@/types/network';
 import { exportAndDownloadNetwork } from '@/lib/networkIO';
 import { NetworkPersonalizationDialog } from './NetworkPersonalizationDialog';
@@ -189,7 +189,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
   const cyRef = useRef<Core | null>(null);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null);
-  const [tool, setTool] = useState<'select' | 'add-node' | 'add-edge' | 'delete'>('select');
+  const [tool, setTool] = useState<'select' | 'add-node' | 'add-edge' | 'add-activator' | 'add-inhibitor' | 'delete'>('select');
   const toolRef = useRef(tool);
 
   useEffect(() => {
@@ -260,7 +260,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
       const nestedRules = (effectiveNetworkData as any)?.network_data?.rules;
       const rules = Array.isArray(topRules) ? topRules : Array.isArray(dataRules) ? dataRules : Array.isArray(nestedRules) ? nestedRules : [];
       const metaType = (effectiveNetworkData as any)?.metadata?.type || (effectiveNetworkData as any)?.data?.metadata?.type || (effectiveNetworkData as any)?.network_data?.metadata?.type;
-      return (Array.isArray(rules) && rules.length > 0) || metaType === 'Rule based';
+      return (Array.isArray(rules) && rules.length > 0) || metaType === 'Rule Based';
     } catch {
       return false;
     }
@@ -571,6 +571,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
   const inferRulesFromGraph = (nodes: any[], edges: any[]): string[] => {
     const rules: string[] = [];
     const nodeLabels = new Map<string, string>();
+    const seenRules = new Set<string>(); // Track unique rules
     
     // Build node id -> label map
     for (const node of nodes) {
@@ -582,16 +583,16 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
     // Group incoming edges by target node
     const incomingEdges = new Map<string, { activators: string[]; inhibitors: string[] }>();
     
-    // Initialize all nodes with empty incoming edge lists
-    for (const node of nodes) {
-      incomingEdges.set(String(node.id), { activators: [], inhibitors: [] });
-    }
-    
     // Classify each edge as activator or inhibitor
     for (const edge of edges) {
       const sourceId = String(edge.source);
       const targetId = String(edge.target);
       const sourceLabel = nodeLabels.get(sourceId) || sourceId;
+      
+      // Initialize target if needed
+      if (!incomingEdges.has(targetId)) {
+        incomingEdges.set(targetId, { activators: [], inhibitors: [] });
+      }
       
       // Check edge type - can be in properties.edgeType, edgeType, interaction, or inferred from weight
       const edgeType = edge.properties?.edgeType || edge.edgeType || edge.interaction;
@@ -600,46 +601,54 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
       const isInhibitor = edgeType === 'inhibitor' || edgeType === 'inhibition' || edgeType === 'Inhibiting' 
         || (!edgeType && weight < 0);
       
-      const targetEdges = incomingEdges.get(targetId);
-      if (targetEdges) {
-        if (isInhibitor) {
+      const targetEdges = incomingEdges.get(targetId)!;
+      if (isInhibitor) {
+        if (!targetEdges.inhibitors.includes(sourceLabel)) {
           targetEdges.inhibitors.push(sourceLabel);
-        } else {
+        }
+      } else {
+        if (!targetEdges.activators.includes(sourceLabel)) {
           targetEdges.activators.push(sourceLabel);
         }
       }
     }
     
-    // Generate rule for each node
+    // Generate rule only for nodes that have incoming edges
     for (const node of nodes) {
       const nodeId = String(node.id);
       const nodeLabel = nodeLabels.get(nodeId) || nodeId;
       const incoming = incomingEdges.get(nodeId);
       
+      // Skip nodes with no incoming edges (no rule needed)
       if (!incoming || (incoming.activators.length === 0 && incoming.inhibitors.length === 0)) {
-        // No incoming edges - self-referential rule (maintains current state)
-        rules.push(`${nodeLabel} = ${nodeLabel}`);
-      } else {
-        // Build expression from activators and inhibitors
-        const parts: string[] = [];
-        
-        // Add activators (combined with AND if multiple)
-        if (incoming.activators.length > 0) {
-          if (incoming.activators.length === 1) {
-            parts.push(incoming.activators[0]);
-          } else {
-            parts.push(`(${incoming.activators.join(' AND ')})`);
-          }
+        continue;
+      }
+      
+      // Build expression from activators and inhibitors using JavaScript operators
+      const parts: string[] = [];
+      
+      // Add activators (combined with && if multiple)
+      if (incoming.activators.length > 0) {
+        if (incoming.activators.length === 1) {
+          parts.push(incoming.activators[0]);
+        } else {
+          parts.push(`(${incoming.activators.join(' && ')})`);
         }
-        
-        // Add negated inhibitors
-        for (const inhibitor of incoming.inhibitors) {
-          parts.push(`NOT ${inhibitor}`);
-        }
-        
-        // Combine all parts with AND
-        const expression = parts.length === 1 ? parts[0] : parts.join(' AND ');
-        rules.push(`${nodeLabel} = ${expression}`);
+      }
+      
+      // Add negated inhibitors with !
+      for (const inhibitor of incoming.inhibitors) {
+        parts.push(`!${inhibitor}`);
+      }
+      
+      // Combine all parts with &&
+      const expression = parts.length === 1 ? parts[0] : parts.join(' && ');
+      const rule = `${nodeLabel} = ${expression}`;
+      
+      // Avoid duplicate rules
+      if (!seenRules.has(rule)) {
+        seenRules.add(rule);
+        rules.push(rule);
       }
     }
     
@@ -743,25 +752,25 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
       // Preserve network type if already set (from creation or previous saves)
       // Only infer type if not explicitly set in metadata
       if (!finalMetadata.type) {
-        finalMetadata.type = 'Weight based';
+        finalMetadata.type = 'Weight Based';
       } else {
         // Normalize existing type to consistent casing
         if (finalMetadata.type === 'weight based') {
-          finalMetadata.type = 'Weight based';
+          finalMetadata.type = 'Weight Based';
         }
       }
 
       // For rule-based networks, infer rules from graph topology (nodes + edges)
       // This allows users to draw edges and have rules auto-generated
       let finalRules: string[] = [];
-      if (finalMetadata.type === 'Rule based') {
+      if (finalMetadata.type === 'Rule Based') {
         // Infer rules from the graph structure
         finalRules = inferRulesFromGraph(nodes, dedupedEdges);
       }
 
       // If rule-based, strip node weights and biases before saving
       const nodesToSave = (Array.isArray(nodes) ? nodes : []).map((n: any) => {
-        if (finalMetadata.type === 'Rule based') {
+        if (finalMetadata.type === 'Rule Based') {
           const copy: any = { ...n };
           if ('weight' in copy) delete copy.weight;
           if (copy.properties) {
@@ -894,7 +903,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
       const pos = evt.position || evt.renderedPosition || { x: 0, y: 0 };
       setNewNodeDraft({
         modelPos: { x: pos.x, y: pos.y },
-        label: `Node ${nodeCounterRef.current + 1}`,
+        label: `Node${nodeCounterRef.current + 1}`,
         type: 'custom',
         weight: defaultNodeWeight
       });
@@ -1221,26 +1230,30 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
           return;
         }
 
-        if (toolRef.current === 'add-edge') {
+        // Handle add-edge, add-activator, and add-inhibitor modes
+        if (toolRef.current === 'add-edge' || toolRef.current === 'add-activator' || toolRef.current === 'add-inhibitor') {
           const id = clickedId;
           if (!currentEdgeSource) {
             setEdgeSourceId(id);
             node.addClass('edge-source');
           } else {
+            // Determine edge type based on tool
+            const edgeType = toolRef.current === 'add-inhibitor' ? 'inhibitor' : 'activator';
+            const edgeWeight = toolRef.current === 'add-inhibitor' ? -1 : 1;
+            
             // Allow self-loops (source === target) - this creates edges like cln3 -> cln3
             const newEdgeId = `edge:${currentEdgeSource}:${id}`;
             try {
               const existing = cy.getElementById(newEdgeId);
               if (!existing || existing.length === 0) {
-                // Default to activator edge type
-                cy.add({ group: 'edges', data: { id: newEdgeId, source: currentEdgeSource, target: id, weight: defaultEdgeWeight, edgeType: 'activator' } });
+                cy.add({ group: 'edges', data: { id: newEdgeId, source: currentEdgeSource, target: id, weight: edgeWeight, edgeType } });
               }
             } catch (e) {
               // Error adding edge via click
             }
             setLocalEdges(prev => {
               const exists = prev.some(e => e.source === currentEdgeSource && e.target === id);
-              return exists ? prev : [...prev, { source: currentEdgeSource!, target: id, weight: defaultEdgeWeight, edgeType: 'activator' }];
+              return exists ? prev : [...prev, { source: currentEdgeSource!, target: id, weight: edgeWeight, edgeType }];
             });
             cy.getElementById(currentEdgeSource)?.removeClass('edge-source');
             setEdgeSourceId(null);
@@ -1319,7 +1332,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
           }
 
           // Allow add-edge mode for all network types (rules will be inferred from edges)
-          if (toolRef.current === 'add-edge' && edgeSourceRef.current) {
+          if ((toolRef.current === 'add-edge' || toolRef.current === 'add-activator' || toolRef.current === 'add-inhibitor') && edgeSourceRef.current) {
             cy.getElementById(edgeSourceRef.current)?.removeClass('edge-source');
             setEdgeSourceId(null);
           }
@@ -1552,7 +1565,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
         rules: (network as any)?.rules || [],
         metadata: {
           ...existingMetadata,
-          type: existingMetadata.type || (isRuleBased ? 'Rule based' : 'Weight based'),
+          type: existingMetadata.type || (isRuleBased ? 'Rule Based' : 'Weight Based'),
         },
       };
     },
@@ -1631,7 +1644,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
             className="h-9 w-9 rounded-md hover:bg-accent disabled:opacity-40 text-muted-foreground"
             onClick={() => {
               const newId = `n-${Date.now()}`;
-              const newLabel = `Node ${nodeCounterRef.current + 1}`;
+              const newLabel = `Node${nodeCounterRef.current + 1}`;
               const newNode = {
                 id: newId,
                 label: newLabel,
@@ -1674,6 +1687,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
 
           <div className="w-6 border-t border-border my-1" />
 
+          {/* Add Edge button - disabled for rules-based networks */}
           <Button
             size="sm"
             variant={tool === 'add-edge' ? 'default' : 'ghost'}
@@ -1686,10 +1700,49 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                 try { cyRef.current.getElementById(id)?.addClass('edge-source'); } catch { }
               }
             }}
-            title="Add Edge (E)"
+            title={isRuleBased ? "Add Edge (disabled for rule-based networks)" : "Add Edge (E)"}
+            disabled={isRuleBased}
           >
             <Link size={20} />
           </Button>
+
+          {/* Activator/Inhibitor Edge buttons - for rules-based networks only */}
+          {isRuleBased && (
+            <>
+              <Button
+                size="sm"
+                variant={tool === 'add-activator' ? 'default' : 'ghost'}
+                className={`h-9 w-9 rounded-md transition-all ${tool === 'add-activator' ? 'bg-green-600 text-white shadow-md' : 'hover:bg-accent text-green-600'}`}
+                onClick={() => {
+                  setTool('add-activator' as any);
+                  if (selectedNode && cyRef.current) {
+                    const id = selectedNode.id;
+                    setEdgeSourceId(id);
+                    try { cyRef.current.getElementById(id)?.addClass('edge-source'); } catch { }
+                  }
+                }}
+                title="Add Activator Edge (green arrow)"
+              >
+                <ArrowRight size={20} />
+              </Button>
+              <Button
+                size="sm"
+                variant={tool === 'add-inhibitor' ? 'default' : 'ghost'}
+                className={`h-9 w-9 rounded-md transition-all ${tool === 'add-inhibitor' ? 'bg-red-600 text-white shadow-md' : 'hover:bg-accent text-red-600'}`}
+                onClick={() => {
+                  setTool('add-inhibitor' as any);
+                  if (selectedNode && cyRef.current) {
+                    const id = selectedNode.id;
+                    setEdgeSourceId(id);
+                    try { cyRef.current.getElementById(id)?.addClass('edge-source'); } catch { }
+                  }
+                }}
+                title="Add Inhibitor Edge (red T-bar)"
+              >
+                <OctagonMinus size={20} />
+              </Button>
+            </>
+          )}
 
           <div className="w-6 border-t border-border my-1" />
 
@@ -1790,7 +1843,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                 })),
                 rules: isRuleBased ? rulesArray : undefined,
                 metadata: {
-                  type: isRuleBased ? 'Rule based' : 'Weight based',
+                  type: isRuleBased ? 'Rule Based' : 'Weight Based',
                   exportedAt: new Date().toISOString()
                 }
               };
@@ -1881,7 +1934,8 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                         value={selectedNode.label}
                         className="h-9 text-sm border-border focus:border-primary focus:ring-primary"
                         onChange={(e) => {
-                          const newLabel = e.target.value;
+                          // Remove spaces from label (no spaces allowed in node names)
+                          const newLabel = e.target.value.replace(/\s/g, '');
                           setSelectedNode(prev => prev ? { ...prev, label: newLabel } : null);
                           if (cyRef.current) {
                             const node = cyRef.current.getElementById(selectedNode.id);
@@ -1896,6 +1950,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                           }
                         }}
                       />
+                      <p className="text-xs text-muted-foreground">No spaces allowed in node names</p>
                     </div>
 
                     <div className="space-y-1.5">
@@ -2085,6 +2140,8 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                       </p>
                     </div>
 
+                    {/* Weight input - hidden for rules-based networks */}
+                    {!isRuleBased && (
                     <div className="space-y-1.5">
                       <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Weight</label>
                       <Input
@@ -2130,6 +2187,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                       />
                       <div className="text-xs text-muted-foreground">Edge weight influences the target node’s net input. CSV import format: source,target,weight.</div>
                     </div>
+                    )}
 
                     <div className="pt-4 border-t">
                       <Button
@@ -2178,10 +2236,15 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                 <label className="text-sm font-medium">Label</label>
                 <Input
                   value={newNodeDraft.label}
-                  onChange={(e) => setNewNodeDraft(prev => prev ? { ...prev, label: e.target.value } : null)}
+                  onChange={(e) => {
+                    // Remove spaces from label (no spaces allowed in node names)
+                    const sanitized = e.target.value.replace(/\s/g, '');
+                    setNewNodeDraft(prev => prev ? { ...prev, label: sanitized } : null);
+                  }}
                   placeholder="Enter node label"
                   autoFocus
                 />
+                <p className="text-xs text-muted-foreground">No spaces allowed in node names</p>
               </div>
 
               <div className="space-y-2">
@@ -2223,7 +2286,9 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                 <Button
                   onClick={() => {
                     const newId = `n-${Date.now()}`;
-                    const newLabel = newNodeDraft.label || `Node ${nodeCounterRef.current + 1}`;
+                    // Sanitize label - remove any spaces and default to Node# if empty
+                    const rawLabel = newNodeDraft.label || `Node${nodeCounterRef.current + 1}`;
+                    const newLabel = rawLabel.replace(/\s/g, '');
                     const newNode = {
                       id: newId,
                       label: newLabel,

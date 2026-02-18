@@ -49,7 +49,7 @@ function NetworkEditorPage() {
       const data = (selectedNetwork as any)?.data || selectedNetwork;
       const rules = Array.isArray(data?.rules) ? data.rules : [];
       const metaType = data?.metadata?.type;
-      return (Array.isArray(rules) && rules.length > 0) || metaType === 'Rule based';
+      return (Array.isArray(rules) && rules.length > 0) || metaType === 'Rule Based';
     } catch {
       return false;
     }

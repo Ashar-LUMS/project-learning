@@ -152,7 +152,7 @@ function ProjectVisualizationPage() {
       const data = (selectedNetwork as any)?.data || selectedNetwork;
       const rules = Array.isArray(data?.rules) ? data.rules : [];
       const metaType = data?.metadata?.type || data?.network_data?.metadata?.type;
-      return (Array.isArray(rules) && rules.length > 0) || metaType === 'Rule based';
+      return (Array.isArray(rules) && rules.length > 0) || metaType === 'Rule Based';
     } catch {
       return false;
     }
@@ -933,7 +933,7 @@ function ProjectVisualizationPage() {
         edges: [],
         rules: newNetworkType === 'rules' ? [] : undefined,
         metadata: {
-          type: newNetworkType === 'rules' ? 'Rule based' : 'Weight based',
+          type: newNetworkType === 'rules' ? 'Rule Based' : 'Weight Based',
         },
       };
 
@@ -1149,7 +1149,7 @@ function ProjectVisualizationPage() {
       setImportError(null);
 
       // Determine the final network type based on user selection
-      const finalType = importNetworkType === 'rules' ? 'Rule based' : 'Weight based';
+      const finalType = importNetworkType === 'rules' ? 'Rule Based' : 'Weight Based';
 
       // Build payload differently depending on whether a full network JSON was provided
       let networkPayload: any;
@@ -1211,7 +1211,7 @@ function ProjectVisualizationPage() {
           nodes,
           edges,
           rules: rules.map(r => ({ name: r, enabled: true })),
-          metadata: { createdFrom: 'rules', type: 'Rule based', importedAt: new Date().toISOString(), sourceFile: networkFileName, rulesFile: rulesFileName }
+          metadata: { createdFrom: 'rules', type: 'Rule Based', importedAt: new Date().toISOString(), sourceFile: networkFileName, rulesFile: rulesFileName }
         };
       }
 
@@ -1265,8 +1265,8 @@ function ProjectVisualizationPage() {
     // Check metadata.type first (authoritative source)
     // Support both 'Weight based' and legacy 'weight based' casing
     const metaType = data.metadata?.type;
-    if (metaType === 'Rule based') return 'rule-based';
-    if (metaType === 'Weight based' || metaType === 'weight based') return 'weight-based';
+    if (metaType === 'Rule Based') return 'rule-based';
+    if (metaType === 'Weight Based' || metaType === 'weight based') return 'weight-based';
     
     // Fallback: check if network has rules
     if (Array.isArray(data.rules) && data.rules.length > 0) return 'rule-based';
@@ -1883,8 +1883,8 @@ function ProjectVisualizationPage() {
               onClick={handleTherapeuticsWeighted}
               variant="outline"
               className="w-full justify-start h-9 text-xs"
-              disabled={isTherapeuticsWeightedRunning || ((selectedNetwork?.data?.metadata?.type === 'Rule based') || (Array.isArray(selectedNetwork?.data?.rules) && selectedNetwork?.data?.rules.length > 0))}
-              title={((selectedNetwork?.data?.metadata?.type === 'Rule based') || (Array.isArray(selectedNetwork?.data?.rules) && selectedNetwork?.data?.rules.length > 0)) ? 'Weighted analysis disabled for rule-based networks' : undefined}
+              disabled={isTherapeuticsWeightedRunning || ((selectedNetwork?.data?.metadata?.type === 'Rule Based') || (Array.isArray(selectedNetwork?.data?.rules) && selectedNetwork?.data?.rules.length > 0))}
+              title={((selectedNetwork?.data?.metadata?.type === 'Rule Based') || (Array.isArray(selectedNetwork?.data?.rules) && selectedNetwork?.data?.rules.length > 0)) ? 'Weighted analysis disabled for rule-based networks' : undefined}
             >
               {isTherapeuticsWeightedRunning ? (
                 <span className="flex items-center gap-2">
@@ -2033,6 +2033,10 @@ function ProjectVisualizationPage() {
                       });
                       selectNetwork(newNetwork.id);
                       setRecentNetworkIds(prev => [newNetwork.id, ...prev.filter(id => id !== newNetwork.id)].slice(0, MAX_RECENT_NETWORKS));
+                      // Bump refresh token to ensure NetworkGraph refetches fresh data after save
+                      setNetworkGraphRefreshToken(prev => prev + 1);
+                      // Also refresh the networks hook to ensure data consistency
+                      refreshNetworks();
                     }} />
                   )}
                 </>
@@ -2071,8 +2075,8 @@ function ProjectVisualizationPage() {
       case 'network-inference': {
         const hasAnyResult = ruleBasedResult || weightedResult || probabilisticResult;
         return (
-          <div className="h-full overflow-auto">
-            <div className="p-4 space-y-4 max-w-6xl">
+          <div className="min-h-0 flex-1 overflow-auto">
+            <div className="p-4 space-y-4 max-w-6xl pb-8">
               {/* Header */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -3215,7 +3219,7 @@ function ProjectVisualizationPage() {
                     {importNetworkType === 'rules' && (
                       <div>Rules: {Array.isArray(importedRules) ? importedRules.length : (Array.isArray(importedNetwork.rules) ? importedNetwork.rules!.length : 0)}</div>
                     )}
-                    <div>Type: {importNetworkType === 'rules' ? 'Rule based' : 'Weight based'}</div>
+                    <div>Type: {importNetworkType === 'rules' ? 'Rule Based' : 'Weight Based'}</div>
                   </div>
                 )}
               </div>

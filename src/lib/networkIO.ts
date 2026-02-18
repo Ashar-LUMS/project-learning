@@ -184,7 +184,7 @@ export function parseSIFNetwork(sifContent: string): NetworkData {
     nodes,
     edges,
     metadata: {
-      type: 'Weight based',
+      type: 'Weight Based',
       importFormat: 'SIF',
       importedAt: new Date().toISOString()
     }
@@ -410,7 +410,7 @@ export function parseSBMLqualNetwork(xmlContent: string): NetworkData {
     edges,
     rules: rules.length > 0 ? rules : undefined,
     metadata: {
-      type: rules.length > 0 ? 'Rule based' : 'Weight based',
+      type: rules.length > 0 ? 'Rule Based' : 'Weight Based',
       importFormat: 'SBML-qual',
       importedAt: new Date().toISOString()
     }
@@ -424,52 +424,70 @@ export function parseSBMLqualNetwork(xmlContent: string): NetworkData {
 /**
  * Export a weight-based network to CSV format.
  * Format:
- * Section 1: node_id, basal_value (nodes with basal values)
- * Section 2: source, weight, target (edges with weights)
- * Section 3: node_id, value, x, y, color, model (node positions)
+ * Section 1: node_name, basal_value (nodes with basal values)
+ * Section 2: source_name, weight, target_name (edges with weights)
+ * Section 3: node_name, value, x, y, color, model (node positions)
  * Section 4: network type
  * Sections separated by ",,"
  */
 export function exportWeightedNetworkToCSV(data: NetworkData): string {
   const lines: string[] = [];
   
-  // Section 1: Nodes with bias values
+  // Build node id -> label map for exporting with names instead of IDs
   const nodes = data.nodes || [];
+  const nodeLabels = new Map<string, string>();
+  for (const node of nodes) {
+    const id = String(node.id);
+    const label = String(node.label || node.id);
+    nodeLabels.set(id, label);
+  }
+  
+  // Section 1: Nodes with bias values (use label)
   for (const node of nodes) {
     const bias = node.properties?.bias ?? 0;
-    lines.push(`${node.id},${bias}`);
+    const label = nodeLabels.get(String(node.id)) || String(node.id);
+    lines.push(`${label},${bias}`);
   }
   
   // Empty separator
   lines.push(',,');
   
-  // Section 2: Edges (source, weight/intensity, target)
+  // Section 2: Edges (source_label, weight/intensity, target_label)
   const edges = data.edges || [];
   for (const edge of edges) {
     const weight = edge.weight ?? 1;
-    lines.push(`${edge.source},${weight},${edge.target}`);
+    const sourceLabel = nodeLabels.get(String(edge.source)) || String(edge.source);
+    const targetLabel = nodeLabels.get(String(edge.target)) || String(edge.target);
+    lines.push(`${sourceLabel},${weight},${targetLabel}`);
   }
   
   // Empty separator
   lines.push(',,');
   
-  // Section 3: Node positions (node_id, value, x, y, color, model)
+  // Section 3: Node positions (node_label, value, x, y, color, model)
   for (const node of nodes) {
     const bias = node.properties?.bias ?? 0;
+    const label = nodeLabels.get(String(node.id)) || String(node.id);
     // Position can be stored as node.position or node.properties.position
     const pos = (node as any).position || node.properties?.position || { x: 0, y: 0 };
     const x = pos.x ?? 0;
     const y = pos.y ?? 0;
     const color = node.properties?.color ?? 'white';
     const model = node.properties?.model ?? 'devs.SimpleMoleculeModel';
-    lines.push(`${node.id},${bias},${x},${y},${color},${model}`);
+    lines.push(`${label},${bias},${x},${y},${color},${model}`);
   }
   
   // Empty separator
   lines.push(',,');
   
-  // Section 4: Network type
-  const networkType = data.metadata?.type || 'Weight Based';
+  // Section 4: Network type (normalize casing for consistency)
+  let networkType = data.metadata?.type || 'Weight Based';
+  // Normalize legacy lowercase to consistent casing
+  if (networkType.toLowerCase() === 'weight based') {
+    networkType = 'Weight Based';
+  } else if (networkType.toLowerCase() === 'rule based') {
+    networkType = 'Rule Based';
+  }
   lines.push(networkType);
   
   return lines.join('\n');
@@ -518,13 +536,24 @@ export function exportRuleBasedNetworkToTXT(data: NetworkData): string {
 
 /**
  * Parse a weight-based network from CSV format.
- * Format:
- * Section 1: node_id, basal_value
- * Section 2: source, weight, target
- * Lines below the second ",," separator are ignored.
+ * Supports both V2 and V1 formats:
+ * 
+ * V2 Format:
+ *   Section 1: node_id, basal_value
+ *   Section 2: source, weight, target
+ * 
+ * V1 Format:
+ *   Section 1: node_id, basal_value
+ *   Section 2: source, weight, target
+ *   Section 3: node_id, bias, x, y, color, model (positions)
+ *   Final line: "Weight Based" or "Weight based" marker
  */
 export function parseWeightedNetworkCSV(csvContent: string): NetworkData {
   const lines = csvContent.split(/\r?\n/).map(l => l.trim());
+  
+  // Check for V1 format marker at the end
+  const lastNonEmptyLine = [...lines].reverse().find(l => l && !l.match(/^,+$/));
+  const isV1Format = lastNonEmptyLine?.toLowerCase() === 'weight based';
   
   // Find section boundaries (empty lines with commas or truly empty)
   const sectionBreaks: number[] = [];
@@ -534,7 +563,7 @@ export function parseWeightedNetworkCSV(csvContent: string): NetworkData {
     }
   });
   
-  // Determine sections based on breaks (ignore anything after the second break)
+  // Determine sections based on breaks
   const section1End = sectionBreaks[0] ?? lines.length;
   const section2Start = section1End + 1;
   const section2End = sectionBreaks[1] ?? lines.length;
@@ -542,17 +571,20 @@ export function parseWeightedNetworkCSV(csvContent: string): NetworkData {
   // Section 1: Nodes (id, bias)
   const nodeLines = lines.slice(0, section1End).filter(l => l && !l.match(/^,+$/));
   const nodes: NetworkNode[] = [];
+  const nodeMap = new Map<string, NetworkNode>();
   
   for (const line of nodeLines) {
     const parts = line.split(',').map(p => p.trim());
     if (parts.length >= 2 && parts[0]) {
       const id = parts[0];
       const bias = parseFloat(parts[1]) || 0;
-      nodes.push({
+      const node: NetworkNode = {
         id,
         label: id,
         properties: { bias }
-      });
+      };
+      nodes.push(node);
+      nodeMap.set(id, node);
     }
   }
   
@@ -571,12 +603,56 @@ export function parseWeightedNetworkCSV(csvContent: string): NetworkData {
     }
   }
   
+  // V1 Format: Section 3 contains position data (node_id, bias, x, y, color, model)
+  if (isV1Format && sectionBreaks.length >= 2) {
+    const section3Start = sectionBreaks[1] + 1;
+    const section3End = sectionBreaks[2] ?? lines.length;
+    const positionLines = lines.slice(section3Start, section3End).filter(l => l && !l.match(/^,+$/) && l.toLowerCase() !== 'weight based');
+    
+    for (const line of positionLines) {
+      const parts = line.split(',').map(p => p.trim());
+      // V1 format: node_id, bias, x, y, color, model
+      if (parts.length >= 4 && parts[0]) {
+        const id = parts[0];
+        const bias = parseFloat(parts[1]) || 0;
+        const x = parseFloat(parts[2]) || 0;
+        const y = parseFloat(parts[3]) || 0;
+        const color = parts[4] || undefined;
+        
+        const existingNode = nodeMap.get(id);
+        if (existingNode) {
+          // Update existing node with position data
+          existingNode.properties = {
+            ...existingNode.properties,
+            bias,
+            position: { x, y },
+            color
+          };
+        } else {
+          // Create new node from position section (backup for nodes not in section 1)
+          const node: NetworkNode = {
+            id,
+            label: id,
+            properties: {
+              bias,
+              position: { x, y },
+              color
+            }
+          };
+          nodes.push(node);
+          nodeMap.set(id, node);
+        }
+      }
+    }
+  }
+  
   return {
     nodes,
     edges,
     metadata: {
-      type: 'Weight based',
-      importedAt: new Date().toISOString()
+      type: 'Weight Based',
+      importedAt: new Date().toISOString(),
+      importFormat: isV1Format ? 'V1 CSV' : 'V2 CSV'
     }
   };
 }
@@ -636,7 +712,7 @@ export function parseRuleBasedNetworkCSV(csvContent: string): NetworkData {
       edges: [],
       rules: [],
       metadata: {
-        type: 'Rule based',
+        type: 'Rule Based',
         createdFrom: 'rules',
         importedAt: new Date().toISOString(),
         importFormat: 'CSV'
@@ -649,7 +725,7 @@ export function parseRuleBasedNetworkCSV(csvContent: string): NetworkData {
     ...parsed,
     metadata: {
       ...(parsed.metadata || {}),
-      type: 'Rule based',
+      type: 'Rule Based',
       createdFrom: 'rules',
       importedAt: new Date().toISOString(),
       importFormat: 'CSV'
@@ -772,7 +848,7 @@ export function parseRuleBasedNetworkTXT(txtContent: string): NetworkData {
     edges,
     rules,
     metadata: {
-      type: 'Rule based',
+      type: 'Rule Based',
       createdFrom: 'rules',
       importedAt: new Date().toISOString()
     }
@@ -831,11 +907,12 @@ export function exportNetwork(
     }
   }
   
-  // Auto-detect based on network type
-  const isRuleBased = data.metadata?.type === 'Rule based' || 
+  // Auto-detect based on network type (handle legacy lowercase casing)
+  const metaType = data.metadata?.type?.toLowerCase();
+  const isRuleBased = metaType === 'rule based' || 
                        data.metadata?.createdFrom === 'rules' ||
                        (Array.isArray(data.rules) && data.rules.length > 0 && 
-                        (!data.edges || data.edges.length === 0 || data.metadata?.type === 'Rule based'));
+                        (!data.edges || data.edges.length === 0 || metaType === 'rule based'));
   
   if (isRuleBased && data.rules && data.rules.length > 0) {
     return {
@@ -976,7 +1053,7 @@ export function exportAndDownloadNetworkAs(
 // ============================================================================
 
 export const SUPPORTED_IMPORT_FORMATS = [
-  { extension: 'csv', label: 'CSV (Weight-based)', description: 'Custom weight-based network format' },
+  { extension: 'csv', label: 'CSV (Weight-based)', description: 'Custom weight-based network format (supports V1 and V2)' },
   { extension: 'txt', label: 'TXT (Rule-based)', description: 'Boolean expression rules' },
   { extension: 'sif', label: 'SIF (Cytoscape)', description: 'Simple Interaction Format' },
   { extension: 'sbml', label: 'SBML-qual', description: 'Systems Biology Markup Language (qualitative)' },
@@ -984,7 +1061,7 @@ export const SUPPORTED_IMPORT_FORMATS = [
 ] as const;
 
 export const SUPPORTED_EXPORT_FORMATS = [
-  { id: 'csv' as ExportFormat, label: 'CSV (Weight-based)', description: 'Custom weight-based network format', extension: '.csv' },
+  { id: 'csv' as ExportFormat, label: 'CSV (Weight-based)', description: 'Custom weight-based format - compatible with V1', extension: '.csv' },
   { id: 'txt' as ExportFormat, label: 'TXT (Rule-based)', description: 'Boolean expression rules', extension: '.txt' },
   { id: 'sif' as ExportFormat, label: 'SIF (Cytoscape)', description: 'Simple Interaction Format - compatible with Cytoscape', extension: '.sif' },
   { id: 'sbml-qual' as ExportFormat, label: 'SBML-qual', description: 'BioModels compatible - Systems Biology standard', extension: '.sbml' },

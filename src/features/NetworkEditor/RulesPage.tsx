@@ -171,7 +171,7 @@ export default function RulesPage({
         nodes,
         edges,
         rules: parsedRules,
-        metadata: { ...(networkData.metadata || {}), type: 'Rule based' }
+        metadata: { ...(networkData.metadata || {}), type: 'Rule Based' }
       };
 
       const { data, error } = await supabase
@@ -275,7 +275,7 @@ export default function RulesPage({
         nodes,
         edges: [],
         rules: rules.map(r => ({ name: r, enabled: true })),
-        metadata: { createdFrom: 'rules', type: 'Rule based' }
+        metadata: { createdFrom: 'rules', type: 'Rule Based' }
       };
 
       // Get first rule target for network name
@@ -351,7 +351,7 @@ Clb56 = Mcm1`;
               <div>
                 <CardTitle>Boolean Update Rules</CardTitle>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Define rules for synchronous Boolean network dynamics
+                  Define rules for synchronous Boolean network dynamics using JavaScript syntax
                 </p>
               </div>
               <div className="flex gap-2">
@@ -410,7 +410,89 @@ Clb56 = Mcm1`;
           </CardContent>
         </Card>
 
-        {/* Info Panel removed per UX request */}
+        {/* Syntax Reference Panel */}
+        <Card className="w-full lg:w-80 flex-shrink-0">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">Boolean Logic Syntax</CardTitle>
+            <p className="text-xs text-muted-foreground">JavaScript-style Boolean operators</p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Operators */}
+            <div>
+              <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Operators</h4>
+              <div className="space-y-1.5 font-mono text-sm">
+                <div className="flex items-center gap-2">
+                  <code className="bg-muted px-2 py-0.5 rounded text-green-600 dark:text-green-400">&&</code>
+                  <span className="text-muted-foreground text-xs">AND</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <code className="bg-muted px-2 py-0.5 rounded text-blue-600 dark:text-blue-400">||</code>
+                  <span className="text-muted-foreground text-xs">OR</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <code className="bg-muted px-2 py-0.5 rounded text-red-600 dark:text-red-400">!</code>
+                  <span className="text-muted-foreground text-xs">NOT</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <code className="bg-muted px-2 py-0.5 rounded text-purple-600 dark:text-purple-400">true</code>
+                  <span className="text-muted-foreground text-xs">TRUE</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <code className="bg-muted px-2 py-0.5 rounded text-orange-600 dark:text-orange-400">false</code>
+                  <span className="text-muted-foreground text-xs">FALSE</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Rules */}
+            <div>
+              <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Format Rules</h4>
+              <ul className="text-xs text-muted-foreground space-y-1.5">
+                <li className="flex items-start gap-1.5">
+                  <span className="text-primary">•</span>
+                  <span>One rule per target node</span>
+                </li>
+                <li className="flex items-start gap-1.5">
+                  <span className="text-primary">•</span>
+                  <span>One rule per line</span>
+                </li>
+                <li className="flex items-start gap-1.5">
+                  <span className="text-primary">•</span>
+                  <span>Empty lines allowed</span>
+                </li>
+                <li className="flex items-start gap-1.5">
+                  <span className="text-primary">•</span>
+                  <span>Round brackets <code className="bg-muted px-1 rounded">()</code> allowed</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Node Names */}
+            <div>
+              <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Node Names</h4>
+              <ul className="text-xs text-muted-foreground space-y-1.5">
+                <li className="flex items-start gap-1.5">
+                  <span className="text-primary">•</span>
+                  <span>No special characters</span>
+                </li>
+                <li className="flex items-start gap-1.5">
+                  <span className="text-destructive">✗</span>
+                  <span>Avoid: sin, cos, tan, log, ln10, exp, ^, PI, sinh, cosh, tanh, abs</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Example */}
+            <div>
+              <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Example</h4>
+              <pre className="text-xs bg-muted p-2 rounded font-mono overflow-x-auto">
+{`A = B && !C
+B = A || D
+C = !A && B`}
+              </pre>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
