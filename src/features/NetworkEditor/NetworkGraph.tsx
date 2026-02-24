@@ -411,6 +411,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
           source: String(e.data('source')),
           target: String(e.data('target')),
           weight: Number(e.data('weight') ?? defaultEdgeWeight),
+          edgeType: e.data('edgeType'),
           interaction: e.data('interaction'),
           properties: e.data('properties') || {}
         }));
@@ -453,8 +454,8 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
     }));
 
     const edgeElems = edges.map((e: any) => {
-      // Determine edge type from rules or existing properties
-      let edgeType = e.properties?.edgeType;
+      // Determine edge type from existing data or properties
+      let edgeType = e.edgeType || e.properties?.edgeType;
       
       // If no explicit edgeType, check if this edge is an inhibitor based on rules
       if (!edgeType) {

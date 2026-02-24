@@ -125,23 +125,48 @@ export function MergeNetworkDialog({
   }, [baseNetwork, overlayNetwork, mergedNetworkName]);
 
   const handleMerge = useCallback(async () => {
-    if (!baseNetwork?.data || !overlayNetwork?.data) return;
+    if (!baseNetwork?.data || !overlayNetwork?.data) {
+      setMergeError('Missing network data: Base or overlay network data is not available.');
+      return;
+    }
     
     setIsMerging(true);
     setMergeError(null);
 
     try {
+      console.log('[MergeNetworkDialog] Starting merge...');
+      console.log('[MergeNetworkDialog] Base network:', baseNetwork.name, 'Nodes:', baseNetwork.data.nodes?.length, 'Edges:', baseNetwork.data.edges?.length);
+      console.log('[MergeNetworkDialog] Overlay network:', overlayNetwork.name, 'Nodes:', overlayNetwork.data.nodes?.length, 'Edges:', overlayNetwork.data.edges?.length);
+      console.log('[MergeNetworkDialog] Options:', { nodeConflictStrategy, edgeConflictStrategy, ruleConflictStrategy });
+
       const mergedData = mergeNetworks(baseNetwork.data, overlayNetwork.data, {
         nodeConflictStrategy,
         edgeConflictStrategy,
         ruleConflictStrategy,
       });
+
+      console.log('[MergeNetworkDialog] Merge complete. Result:', 'Nodes:', mergedData.nodes?.length, 'Edges:', mergedData.edges?.length);
       
       const finalName = mergedNetworkName.trim() || `Merged Network ${new Date().toLocaleString()}`;
+      
+      console.log('[MergeNetworkDialog] Saving merged network as:', finalName);
       await onMerge(mergedData, finalName);
+      console.log('[MergeNetworkDialog] Save successful');
+      
       onOpenChange(false);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to merge networks';
+      console.error('[MergeNetworkDialog] Merge failed:', err);
+      let errorMessage = 'Failed to merge networks';
+      if (err instanceof Error) {
+        errorMessage = err.message;
+        // Include stack trace for debugging
+        console.error('[MergeNetworkDialog] Stack:', err.stack);
+      }
+      // Check for Supabase-specific errors
+      if (err && typeof err === 'object' && 'code' in err) {
+        const supaErr = err as { code: string; message?: string; details?: string };
+        errorMessage = `Database error (${supaErr.code}): ${supaErr.message || 'Unknown error'}${supaErr.details ? ` - ${supaErr.details}` : ''}`;
+      }
       setMergeError(errorMessage);
     } finally {
       setIsMerging(false);
@@ -391,6 +416,16 @@ export function MergeNetworkDialog({
                     </div>
                   </div>
                 </div>
+                {/* Large network warning */}
+                {(mergePreview.estimatedResult.nodes > 100 || mergePreview.estimatedResult.edges > 500) && (
+                  <div className="flex items-start gap-2 mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    <span>
+                      Large network: This merge may take longer to save. If you encounter a timeout error,
+                      try increasing the statement_timeout in your Supabase dashboard.
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -419,9 +454,22 @@ export function MergeNetworkDialog({
             </div>
 
             {mergeError && (
-              <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 p-3 rounded-lg">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                {mergeError}
+              <div className="flex items-start gap-3 text-sm bg-destructive/10 border border-destructive/30 p-4 rounded-lg">
+                <AlertCircle className="w-5 h-5 flex-shrink-0 text-destructive mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-destructive">Merge Failed</p>
+                  <p className="text-destructive/80 mt-1 break-words whitespace-pre-wrap">{mergeError}</p>
+                  {mergeError.toLowerCase().includes('timeout') && (
+                    <div className="mt-3 p-2 bg-muted/50 rounded text-xs text-muted-foreground">
+                      <p className="font-medium mb-1">Possible Solutions:</p>
+                      <ul className="list-disc list-inside space-y-1">
+                        <li>Increase <code className="bg-muted px-1 rounded">statement_timeout</code> in Supabase Dashboard → Database → Settings</li>
+                        <li>Try merging smaller networks first</li>
+                        <li>Use "Node Strategy: Keep Base" to reduce total nodes</li>
+                      </ul>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
