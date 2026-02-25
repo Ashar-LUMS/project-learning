@@ -1,88 +1,206 @@
-# TISON V2 – Boolean Network Analysis Platform
+<div align="center">
 
-A React + TypeScript + Vite application for analyzing Boolean networks in systems biology, with a focus on cancer research and cell fate dynamics.
+# 🧬 TISON V2
 
-## Features
+### **Therapeutic Intervention Simulator for Oncological Networks**
 
-### Core Capabilities
-- **Network Editor** – Visual graph construction with Cytoscape.js, supporting weighted edges and node biases
-- **Three Analysis Modes:**
-  - **Rule-Based** – Boolean network analysis with shunting-yard parser (AND, OR, NOT, XOR)
-  - **Weighted** – Matrix-based analysis with configurable tie-breaking and threshold multipliers
-  - **Probabilistic** – Markovian dynamics with noise (µ) and self-degradation (c) parameters
-- **Attractor Visualization** – Interactive graphs showing fixed points and limit cycles
-- **3D Landscapes** – Plotly.js-powered attractor and probabilistic energy landscapes with Sammon mapping
-- **Cell Fate Classification** – Manual attractor annotation with custom labels, colors, and gene markers
-- **Therapeutics Panel** – Knock-In/Knock-Out interventions for modeling treatments
-- **Network Merging** – Combine multiple networks with configurable conflict resolution strategies
-- **Case Studies** – Load pre-built biological network examples from the samples database
-- **Network Personalization** – Personalize networks using GDC cancer data
-- **Patient Drug Scores** – Calculate patient-specific drug scores from multi-omics data
-- **Multi-Format Import/Export** – Support for CSV, TXT, SIF, and SBML-qual formats
+*A comprehensive platform for Boolean network analysis in systems biology, with applications in cancer research and cell fate prediction*
 
-### Sequencing Analysis
-- **RNA-Seq Integration** – Upload FASTQ files for gene expression analysis linked to networks
-- **Exome-Seq Integration** – Analyze tumor exome sequencing data with variant calling support
+[![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=white)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-7-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
 
-### Navigation Tabs
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md)
+
+---
+
+**[📖 Documentation](#-documentation)** · **[🚀 Getting Started](#-getting-started)** · **[✨ Features](#-features)** · **[📊 Analysis Engines](#-analysis-engines)**
+
+</div>
+
+---
+
+## 📋 Table of Contents
+
+- [About](#-about)
+- [Features](#-features)
+- [Screenshots](#-screenshots)
+- [Tech Stack](#-tech-stack)
+- [Getting Started](#-getting-started)
+- [Analysis Engines](#-analysis-engines)
+- [Data Model](#-data-model)
+- [Documentation](#-documentation)
+- [Contributing](#-contributing)
+- [License](#-license)
+- [Acknowledgments](#-acknowledgments)
+- [Citation](#-citation)
+
+---
+
+## 🎯 About
+
+**TISON V2** is a web-based platform developed as part of a Master's thesis research project. It enables researchers and clinicians to:
+
+- 🔬 **Model gene regulatory networks** using Boolean logic and weighted interactions
+- 📈 **Analyze network dynamics** to identify stable states (attractors) and cell fate transitions
+- 💊 **Simulate therapeutic interventions** such as gene knock-ins and knock-outs
+- 🧪 **Integrate multi-omics data** including RNA-Seq and exome sequencing
+- 🎯 **Compute patient-specific drug scores** for personalized medicine applications
+
+> *"Understanding the dynamics of gene regulatory networks is crucial for predicting cellular behavior and designing effective therapeutic strategies in cancer treatment."*
+
+---
+
+## ✨ Features
+
+<table>
+<tr>
+<td width="50%">
+
+### 🖥️ Network Editor
+- Visual graph construction with **Cytoscape.js**
+- Drag-and-drop node/edge creation
+- Real-time weight and bias editing
+- Rule-based and weight-based modes
+
+</td>
+<td width="50%">
+
+### 📊 Analysis Modes
+- **Rule-Based**: Boolean logic (AND, OR, NOT, XOR)
+- **Weighted**: Matrix-based with tie-breaking
+- **Probabilistic**: Markovian dynamics with noise
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+### 🎨 Visualization
+- Interactive attractor graphs
+- 3D energy landscapes with Plotly.js
+- Sammon mapping projections
+- Cell fate classification badges
+
+</td>
+<td width="50%">
+
+### 💉 Therapeutics
+- Knock-In/Knock-Out simulations
+- Outward regulation modeling
+- Therapy combination analysis
+- Treatment response prediction
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+### 🧬 Sequencing Integration
+- RNA-Seq FASTQ processing
+- Exome sequencing analysis
+- Variant calling support
+- Gene expression normalization
+
+</td>
+<td width="50%">
+
+### 📁 Data Management
+- Multi-format import/export (CSV, SIF, SBML-qual)
+- Network merging with conflict resolution
+- Pre-built case study library
+- GDC cancer data personalization
+
+</td>
+</tr>
+</table>
+
+### 🎛️ Navigation Tabs
+
 | Tab | Description |
-|-----|-------------|
-| Projects | Browse and manage analysis projects |
-| RNA-Seq Analysis | RNA-Seq data upload and processing |
-| Exome-Seq Analysis | Exome sequencing analysis pipeline |
-| Network Inference | AI-powered rule inference from network topology |
-| Manual Network Construction | Visual network building with Cytoscape.js |
-| AutoNetCan | Automated network construction tools |
-| Network Analysis | Run analyses and view attractor results |
-| Therapeutics | Model drug interventions and perturbations |
+|:---:|:---|
+| 📂 **Projects** | Browse and manage analysis projects |
+| 🧬 **RNA-Seq** | Upload and process RNA-Seq data |
+| 🔬 **Exome-Seq** | Tumor exome sequencing pipeline |
+| 🤖 **Network Inference** | AI-powered rule inference |
+| ✏️ **Network Construction** | Visual network building |
+| ⚡ **AutoNetCan** | Automated network generation |
+| 📈 **Analysis** | Run analyses and view results |
+| 💊 **Therapeutics** | Model drug interventions |
 
-### UI/UX Features
-- **Tab-Based Workflow** – Streamlined navigation with only active tabs shown
-- **Progress Indicators** – Animated feedback during long-running analyses
-- **Keyboard Shortcuts** – Quick access to common analysis operations
-- **Actionable Error Messages** – Detailed suggestions for resolving analysis errors
-- **Collapsible Sidebars** – Context-sensitive panels for each workflow stage
-- **Merge Network Dialog** – Visual interface for merging networks with conflict preview
+---
 
-## Tech Stack
+## 📸 Screenshots
 
-- **Frontend:** React 19, TypeScript, Vite 7
-- **Styling:** Tailwind CSS 4, shadcn/ui components
-- **Graph Visualization:** Cytoscape.js (with edgehandles)
-- **3D Visualization:** Plotly.js, React Force Graph
-- **Backend:** Supabase (Auth + PostgreSQL)
-- **Forms:** React Hook Form + Zod validation
-- **Testing:** Vitest
-- **Animations:** Framer Motion
+<div align="center">
 
-## Getting Started
+> *Screenshots coming soon — the platform features a modern, responsive interface built with shadcn/ui components*
+
+<!--
+Add your screenshots here:
+![Network Editor](docs/screenshots/network-editor.png)
+![Analysis Results](docs/screenshots/analysis-results.png)
+![3D Landscape](docs/screenshots/3d-landscape.png)
+-->
+
+</div>
+
+---
+
+## 🛠️ Tech Stack
+
+<div align="center">
+
+| Category | Technologies |
+|:--------:|:-------------|
+| **Frontend** | React 19 · TypeScript · Vite 7 |
+| **Styling** | Tailwind CSS 4 · shadcn/ui · Framer Motion |
+| **Visualization** | Cytoscape.js · Plotly.js · React Force Graph |
+| **Backend** | Supabase (Auth + PostgreSQL) |
+| **Forms** | React Hook Form · Zod |
+| **Testing** | Vitest |
+
+</div>
+
+---
+
+## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js 18+
-- npm or yarn
+
+- **Node.js** 18+ 
+- **npm** or **yarn**
+- **Supabase** account (for backend services)
 
 ### Installation
 
 ```bash
 # Clone the repository
-git clone <repo-url>
-cd app-ashar
+git clone https://github.com/yourusername/tison-v2.git
+cd tison-v2
 
 # Install dependencies
 npm install
 
-# Create environment file
+# Set up environment variables
 cp .env.example .env.local
-# Edit .env.local with your Supabase credentials:
-# VITE_SUPABASE_URL=your-supabase-url
-# VITE_SUPABASE_ANON_KEY=your-anon-key
-# VITE_RNASEQ_API_URL=your-rnaseq-service-url (optional)
+```
+
+Configure your `.env.local`:
+
+```env
+VITE_SUPABASE_URL=your-supabase-project-url
+VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+VITE_RNASEQ_API_URL=your-rnaseq-service-url  # Optional
 ```
 
 ### Development
 
 ```bash
-# Start dev server with HMR
+# Start development server with HMR
 npm run dev
 
 # Run tests
@@ -101,211 +219,199 @@ npm run build
 npm run preview
 ```
 
-## Project Structure
-
-```
-src/
-├── components/ui/        # shadcn/ui primitives (Button, Dialog, Card, etc.)
-├── config/
-│   ├── constants.ts                # Application-wide constants & feature flags
-│   └── adminSettings.ts            # Admin panel configuration
-├── features/
-│   ├── NetworkEditor/    # Main network analysis workspace
-│   │   ├── layout.tsx                  # Tab navigation & sidebar management
-│   │   ├── NetworkEditorPage.tsx       # Standalone editor & analysis hub
-│   │   ├── ProjectVisualizationPage.tsx # Project-scoped network workflows
-│   │   ├── NetworkGraph.tsx            # Cytoscape editor with weight/rule modes
-│   │   ├── AttractorGraph.tsx          # Interactive attractor visualization
-│   │   ├── AttractorLandscape.tsx      # 3D attractor landscape with Plotly
-│   │   ├── ProbabilisticLandscape.tsx  # Probability/energy landscape plots
-│   │   ├── FateClassification.tsx      # Cell fate classification dialog
-│   │   ├── TherapeuticsPanel.tsx       # Intervention tools (therapies, targets)
-│   │   ├── KnockInDialog.tsx           # Gene knock-in wizard
-│   │   ├── KnockOutDialog.tsx          # Gene knock-out wizard
-│   │   ├── MergeNetworkDialog.tsx      # Network merging with conflict resolution
-│   │   ├── CaseStudyDialog.tsx         # Load pre-built network examples
-│   │   ├── NetworkPersonalizationDialog.tsx  # GDC data personalization
-│   │   ├── PatientDrugScoresDialog.tsx       # Patient-specific drug scoring
-│   │   ├── RulesPage.tsx               # Boolean rule editor
-│   │   └── tabs/
-│   │       ├── ProjectTab.tsx          # Project browser
-│   │       ├── SeqAnalysisTab.tsx      # RNA-Seq upload & results
-│   │       ├── ExomeSeqTab.tsx         # Exome sequencing analysis
-│   │       └── SeqAnalysisTabs.tsx     # Sequencing tabs wrapper
-│   ├── admin/            # Admin panel & user management
-│   ├── auth/             # Login, signup, password reset
-│   ├── home/             # Project listing & creation
-│   ├── profile/          # User profile management
-│   └── services/         # External services integration
-├── hooks/
-│   ├── useDeterministicAnalysis.ts  # Rule-based analysis hook
-│   ├── useWeightedAnalysis.ts       # Weighted analysis hook
-│   ├── useProbabilisticAnalysis.ts  # Probabilistic analysis hook
-│   ├── useProjectNetworks.ts        # Project network management
-│   ├── useNetworkData.ts            # Single network data fetching
-│   └── useCaseStudies.ts            # Case study samples fetching
-├── lib/
-│   ├── analysis/                     # Analysis engines
-│   │   ├── index.ts                  # Barrel exports
-│   │   ├── weightedDeterministicAnalysis.ts
-│   │   ├── probabilisticAnalysis.ts
-│   │   ├── matrixUtils.ts
-│   │   ├── types.ts
-│   │   └── README.md                 # Analysis module documentation
-│   ├── deterministicAnalysis.ts      # Rule-based engine
-│   ├── applyTherapies.ts             # Therapy modification utilities
-│   ├── networkIO.ts                  # Import/export helpers (CSV, TXT, SIF, SBML-qual)
-│   ├── rnaseqApi.ts                  # RNA-Seq microservice client
-│   ├── openRouter.ts                 # LLM rule inference
-│   ├── download.ts                   # File download utilities
-│   ├── stateEncoding.ts              # State encoding utilities
-│   ├── sessionLock.ts                # Session management
-│   └── format.ts                     # Date/time formatting utilities
-├── layouts/
-│   └── AppLayout.tsx                 # Main app shell with routing
-├── types/
-│   ├── network.ts                    # Network, CellFate, TherapeuticIntervention types
-│   ├── cytoscape-edgehandle.d.ts     # Cytoscape edgehandles types
-│   ├── plotly.d.ts                   # Plotly types
-│   └── global.d.ts                   # Global type declarations
-└── config/
-    └── constants.ts                  # Analysis caps, API config, feature flags
-```
-
-## Keyboard Shortcuts
+### ⌨️ Keyboard Shortcuts
 
 | Shortcut | Action |
-|----------|--------|
-| `Ctrl+Enter` | Run Weighted Analysis |
-| `Ctrl+Shift+Enter` | Open Probabilistic Analysis dialog |
+|:--------:|:-------|
+| `Ctrl + Enter` | Run Weighted Analysis |
+| `Ctrl + Shift + Enter` | Open Probabilistic Analysis |
 
-## Analysis Engines
+---
 
-Three analysis modes are available:
+## 📊 Analysis Engines
 
-### Rule-Based Analysis
-- Boolean expressions with AND, OR, NOT, XOR operators
-- Synchronous state updates
-- Shunting-yard expression parser
-- 20-node cap for full state space exploration (configurable via `ANALYSIS_CONFIG`)
+TISON V2 provides three distinct analysis modes for different modeling scenarios:
 
-### Weighted Analysis
-- Matrix-based with weighted adjacency representation
-- Configurable tie-breaking (`zero-as-zero`, `zero-as-one`, `hold`)
-- Per-node bias support
-- Threshold multiplier for activation sensitivity
+### 1️⃣ Rule-Based Analysis
 
-### Probabilistic Analysis
-- Markovian dynamics with configurable parameters
-- Noise parameter (µ) for stochastic transitions (default: 0.25)
-- Self-degradation parameter (c) for decay modeling (default: 0.1)
-- Stationary distribution computation with configurable iterations and tolerance
-- Up to 200 nodes supported
+```
+A = B && !C
+D = (A || E) && F
+```
 
-### Analysis Configuration
-Defined in `src/config/constants.ts`:
-- `DEFAULT_STATE_CAP`: 2^20 (~1.05M states)
-- `MAX_NODES_DETERMINISTIC`: 20 nodes
-- `MAX_NODES_PROBABILISTIC`: 200 nodes
+- Boolean expressions with **AND, OR, NOT, XOR** operators
+- Synchronous state updates using shunting-yard parser
+- Full state space exploration up to **20 nodes**
 
-For API details, see [src/lib/analysis/README.md](src/lib/analysis/README.md)
+### 2️⃣ Weighted Analysis
 
-## Data Model
+- Matrix-based weighted adjacency representation
+- **Tie-breaking strategies**: `zero-as-zero`, `zero-as-one`, `hold`
+- Per-node bias support for activation thresholds
+- Configurable threshold multipliers
 
-Networks are stored in Supabase with the following structure:
+### 3️⃣ Probabilistic Analysis
+
+- **Markovian dynamics** with stochastic transitions
+- Noise parameter (µ): controls transition randomness (default: 0.25)
+- Self-degradation (c): models natural decay (default: 0.1)
+- Stationary distribution computation
+- Supports networks up to **200 nodes**
+
+### ⚙️ Configuration
+
+Analysis parameters are defined in `src/config/constants.ts`:
+
+| Parameter | Value | Description |
+|:----------|:-----:|:------------|
+| `DEFAULT_STATE_CAP` | 2²⁰ | Maximum states to explore (~1.05M) |
+| `MAX_NODES_DETERMINISTIC` | 20 | Node limit for deterministic analysis |
+| `MAX_NODES_PROBABILISTIC` | 200 | Node limit for probabilistic analysis |
+
+📚 For detailed API documentation, see [Analysis Module README](src/lib/analysis/README.md)
+
+---
+
+## 📦 Data Model
+
+### Network Structure
+
+Networks are persisted in Supabase with the following JSONB schema:
 
 ```typescript
-// networks table → network_data JSONB column
-{
-  nodes: Array<{ id: string; label?: string; properties?: { bias?: number; position?: { x: number; y: number } } }>,
-  edges: Array<{ source: string; target: string; weight?: number; interaction?: string }>,
-  rules?: Array<{ name: string; enabled?: boolean; action?: string }>,
-  metadata?: {
-    type?: 'Weight Based' | 'Rule Based',
-    tieBehavior?: 'zero-as-zero' | 'zero-as-one' | 'hold',
-    thresholdMultiplier?: number,
-    cellFates?: Record<string, CellFate>,
-    importFormat?: 'CSV' | 'TXT' | 'SIF' | 'SBML-qual',
-    importedAt?: string,
-  }
-}
-
-// CellFate interface
-interface CellFate {
-  name: string;           // Required: Fate label (e.g., "Stem Cell")
-  color: string;          // Required: Hex color code
-  markers?: string[];     // Optional: Gene/node markers
-  confidence?: number;    // Optional: Classification confidence (0-1)
-  description?: string;   // Optional: Additional notes
-}
-
-// TherapeuticIntervention interface
-interface TherapeuticIntervention {
-  id: string;
-  type: 'knock-in' | 'knock-out';
-  nodeName: string;
-  nodeRule: string | null;
-  fixedValue: 0 | 1 | null;
-  outwardRegulations: Array<{
-    targetNode: string;
-    operator: '&&' | '||';
-    addition: string;
-    originalRule?: string;
+interface NetworkData {
+  nodes: Array<{
+    id: string;
+    label?: string;
+    properties?: {
+      bias?: number;
+      position?: { x: number; y: number };
+    };
   }>;
-  timestamp: number;
+  edges: Array<{
+    source: string;
+    target: string;
+    weight?: number;
+    interaction?: string;
+  }>;
+  rules?: Array<{
+    name: string;
+    enabled?: boolean;
+    action?: string;
+  }>;
+  metadata?: {
+    type?: 'Weight Based' | 'Rule Based';
+    tieBehavior?: 'zero-as-zero' | 'zero-as-one' | 'hold';
+    thresholdMultiplier?: number;
+    cellFates?: Record<string, CellFate>;
+    importFormat?: 'CSV' | 'TXT' | 'SIF' | 'SBML-qual';
+  };
 }
 ```
 
-### Supported Import/Export Formats
+### Supported Formats
 
-| Format | Extension | Description |
-|--------|-----------|-------------|
-| CSV (Weight-based) | `.csv` | Custom format with nodes, edges, positions, and network type marker |
-| TXT (Rule-based) | `.txt` | Boolean expression rules (`NodeA = NodeB && !NodeC`) |
-| SIF (Cytoscape) | `.sif` | Simple Interaction Format with activates/inhibits |
-| SBML-qual | `.sbml`, `.xml` | Systems Biology Markup Language for qualitative models |
+| Format | Extension | Use Case |
+|:-------|:---------:|:---------|
+| **CSV** | `.csv` | Weight-based networks with positions |
+| **TXT** | `.txt` | Boolean rule expressions |
+| **SIF** | `.sif` | Cytoscape Simple Interaction Format |
+| **SBML-qual** | `.sbml` | Systems Biology Markup Language |
 
-## Contributing
+### Database Schema
 
-1. Follow the conventions in `.github/copilot-instructions.md`
-2. Use the `@` path alias for imports (e.g., `@/hooks/...`, `@/lib/...`)
-3. Keep Cytoscape edge IDs deterministic (`edge:${source}:${target}`)
-4. Run `npm run build` and `npm run test` before committing
-5. Preserve `{ nodes, edges, rules?, metadata? }` structure for network data
-6. Use lucide-react for icons; avoid custom SVGs
-7. Use `src/lib/format.ts` utilities for date formatting
+<details>
+<summary><b>📋 View Table Schemas</b></summary>
 
-## Database Schema
-
-### Tables
-
-**projects**
+#### `projects`
 | Column | Type | Description |
-|--------|------|-------------|
-| id | uuid | Primary key |
-| name | text | Project name |
-| assignees | uuid[] | Assigned user IDs |
-| created_at | timestamptz | Creation timestamp |
-| created_by | uuid | Creator user ID |
-| creator_email | text | Creator email |
-| networks | uuid[] | Ordered list of network IDs |
+|:-------|:-----|:------------|
+| `id` | uuid | Primary key |
+| `name` | text | Project name |
+| `assignees` | uuid[] | Assigned user IDs |
+| `created_at` | timestamptz | Creation timestamp |
+| `created_by` | uuid | Creator user ID |
+| `networks` | uuid[] | Ordered network IDs |
 
-**networks**
+#### `networks`
 | Column | Type | Description |
-|--------|------|-------------|
-| id | uuid | Primary key |
-| name | text | Network name |
-| network_data | jsonb | Network structure (nodes, edges, rules, metadata) |
-| created_at | timestamptz | Creation timestamp |
+|:-------|:-----|:------------|
+| `id` | uuid | Primary key |
+| `name` | text | Network name |
+| `network_data` | jsonb | Network structure |
+| `created_at` | timestamptz | Creation timestamp |
 
-**samples** (Case Studies)
+#### `samples`
 | Column | Type | Description |
-|--------|------|-------------|
-| id | bigint | Primary key |
-| created_at | timestamptz | Creation timestamp |
-| name | text | Sample name |
-| network | jsonb | NetworkData structure |
+|:-------|:-----|:------------|
+| `id` | bigint | Primary key |
+| `name` | text | Sample name |
+| `network` | jsonb | Network data |
 
-## License
+</details>
 
-[Your License Here]
+---
+
+## 📖 Documentation
+
+- 📘 **[Analysis Module](src/lib/analysis/README.md)** — Detailed API for analysis engines
+- 📙 **[Copilot Instructions](.github/copilot-instructions.md)** — Development conventions and architecture
+- 📗 **[Cell Fate Feature](CELL_FATE_FEATURE.md)** — Cell fate classification system
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please follow these guidelines:
+
+1. 📖 Review the conventions in [`.github/copilot-instructions.md`](.github/copilot-instructions.md)
+2. 🔀 Use the `@` path alias for imports (`@/hooks/...`, `@/lib/...`)
+3. 🔗 Keep Cytoscape edge IDs deterministic (`edge:${source}:${target}`)
+4. ✅ Run `npm run build` and `npm run test` before committing
+5. 📦 Preserve `{ nodes, edges, rules?, metadata? }` structure
+6. 🎨 Use `lucide-react` for icons
+7. 📅 Use `src/lib/format.ts` for date formatting
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 🙏 Acknowledgments
+
+- **[Cytoscape.js](https://js.cytoscape.org/)** — Graph visualization library
+- **[Plotly.js](https://plotly.com/javascript/)** — Interactive 3D visualization
+- **[shadcn/ui](https://ui.shadcn.com/)** — Beautiful UI components
+- **[Supabase](https://supabase.com/)** — Backend as a service
+- **Research Advisors** — For guidance and support throughout this thesis
+
+---
+
+## 📚 Citation
+
+If you use TISON V2 in your research, please cite:
+
+```bibtex
+@mastersthesis{tison2026,
+  author  = {Your Name},
+  title   = {TISON V2: A Therapeutic Intervention Simulator for Oncological Networks},
+  school  = {Your University},
+  year    = {2026},
+  type    = {Master's Thesis}
+}
+```
+
+---
+
+<div align="center">
+
+**Built with ❤️ for cancer research**
+
+*Master's Thesis Project — 2026*
+
+[⬆ Back to Top](#-tison-v2)
+
+</div>
