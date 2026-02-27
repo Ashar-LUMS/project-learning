@@ -309,7 +309,22 @@ export function performDeterministicAnalysis(
   const truncated = maxStates < totalStateSpace;
 
   if (truncated) {
-    warnings.push(`State space truncated: exploring ${maxStates.toLocaleString()} of ${totalStateSpace.toLocaleString()} possible states.`);
+    warnings.push(`State space truncated: randomly sampling ${maxStates.toLocaleString()} of ${totalStateSpace.toLocaleString()} possible states.`);
+  }
+
+  // Generate state indices to explore - random sampling when truncated
+  let stateIndices: number[];
+  if (truncated) {
+    // Random sampling of unique state indices
+    const sampledSet = new Set<number>();
+    while (sampledSet.size < maxStates) {
+      const randomIdx = Math.floor(Math.random() * totalStateSpace);
+      sampledSet.add(randomIdx);
+    }
+    stateIndices = Array.from(sampledSet);
+  } else {
+    // Exhaustive exploration
+    stateIndices = Array.from({ length: maxStates }, (_, i) => i);
   }
 
   // Build rule map
@@ -363,7 +378,7 @@ export function performDeterministicAnalysis(
 
   let exploredCount = 0;
 
-  for (let stateNum = 0; stateNum < maxStates; stateNum++) {
+  for (const stateNum of stateIndices) {
     const binary = stateNum.toString(2).padStart(nodeOrder.length, '0');
     
     if (stateToAttractorId.has(binary)) continue;

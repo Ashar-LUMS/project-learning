@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Loader2, Eye, EyeOff } from "lucide-react";
+import { Loader2, Eye, EyeOff, Wand2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../supabaseClient.ts';
@@ -14,9 +14,44 @@ import { supabase } from '../../supabaseClient.ts';
 const signupSchema = z.object({
   name: z.string().min(3, { message: "Name must be at least 3 characters." }),
   email: z.email({ message: "Please enter a valid email address." }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters." }),
+  password: z.string().min(8, { message: "Password must be at least 8 characters." })
+    .regex(/[A-Z]/, { message: "Password must contain at least one uppercase letter." })
+    .regex(/[a-z]/, { message: "Password must contain at least one lowercase letter." })
+    .regex(/[0-9]/, { message: "Password must contain at least one number." })
+    .regex(/[^A-Za-z0-9]/, { message: "Password must contain at least one special character." }),
+  confirmPassword: z.string(),
   roles: z.array(z.string()).min(1, { message: "Select at least one role." })
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords do not match.",
+  path: ["confirmPassword"],
 });
+
+/**
+ * Generate a strong random password.
+ */
+function generateStrongPassword(): string {
+  const uppercase = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const lowercase = 'abcdefghjkmnpqrstuvwxyz';
+  const numbers = '23456789';
+  const special = '!@#$%^&*()_+-=';
+  
+  const allChars = uppercase + lowercase + numbers + special;
+  
+  // Ensure at least one of each required type
+  let password = '';
+  password += uppercase[Math.floor(Math.random() * uppercase.length)];
+  password += lowercase[Math.floor(Math.random() * lowercase.length)];
+  password += numbers[Math.floor(Math.random() * numbers.length)];
+  password += special[Math.floor(Math.random() * special.length)];
+  
+  // Fill remaining characters randomly (12 total length)
+  for (let i = 4; i < 12; i++) {
+    password += allChars[Math.floor(Math.random() * allChars.length)];
+  }
+  
+  // Shuffle the password
+  return password.split('').sort(() => Math.random() - 0.5).join('');
+}
 
 interface SignupProps {
   heading?: string;
@@ -46,6 +81,7 @@ const Signup = ({
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [roles, setRoles] = useState<string[]>([]);
   const [policy, setPolicy] = useState({
     inviteOnly: false,
@@ -53,7 +89,7 @@ const Signup = ({
     defaultRoles: ['User'] as string[],
     autoLockNewUsers: false,
   });
-  const [errors, setErrors] = useState({ name: '', email: '', password: '', roles: '', general: '' });
+  const [errors, setErrors] = useState({ name: '', email: '', password: '', confirmPassword: '', roles: '', general: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -87,7 +123,7 @@ const Signup = ({
   e.preventDefault();
   if (isSubmitting) return;
   setIsSubmitting(true);
-  setErrors({ name: '' , email: '' , password: '' , roles: '' , general: '' });
+  setErrors({ name: '' , email: '' , password: '' , confirmPassword: '', roles: '' , general: '' });
 
   if (cardRef.current) {
     cardRef.current.style.transform = 'scale(0.98)';
@@ -98,7 +134,7 @@ const Signup = ({
     }, 150);
   }
 
-  const result = signupSchema.safeParse({ name, email, password, roles });
+  const result = signupSchema.safeParse({ name, email, password, confirmPassword, roles });
 
   if (!result.success) {
     console.error("Form validation failed:", result.error);
@@ -107,6 +143,7 @@ const Signup = ({
       name: fieldErrors.name?.[0] || '',
       email: fieldErrors.email?.[0] || '',
       password: fieldErrors.password?.[0] || '',
+      confirmPassword: fieldErrors.confirmPassword?.[0] || '',
       roles: fieldErrors.roles?.[0] || '',
       general: '', 
     });
@@ -311,9 +348,26 @@ const Signup = ({
                   </div>
 
                   <div className="space-y-2 sm:space-y-3">
-                    <Label htmlFor="password" className="text-xs sm:text-sm font-medium text-gray-700">
-                      Password
-                    </Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="password" className="text-xs sm:text-sm font-medium text-gray-700">
+                        Password
+                      </Label>
+                      <button
+                        type="button"
+                        className="text-xs text-[#2f5597] hover:text-blue-700 flex items-center gap-1 transition-all duration-200 hover:scale-105"
+                        onClick={() => {
+                          const strongPwd = generateStrongPassword();
+                          setPassword(strongPwd);
+                          setConfirmPassword(strongPwd);
+                          setShowPassword(true);
+                        }}
+                        disabled={isSubmitting}
+                        title="Generate a strong password"
+                      >
+                        <Wand2 size={12} />
+                        <span>Suggest Strong</span>
+                      </button>
+                    </div>
                     <div className="relative">
                       <Input
                         id="password"
@@ -338,6 +392,38 @@ const Signup = ({
                     {errors.password && (
                       <p className="text-red-600 text-xs animate-fade-in flex items-center gap-1">
                         <span>•</span>{errors.password}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 sm:space-y-3">
+                    <Label htmlFor="confirmPassword" className="text-xs sm:text-sm font-medium text-gray-700">
+                      Confirm Password
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="confirmPassword"
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="••••••••"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        disabled={isSubmitting}
+                        aria-invalid={!!errors.confirmPassword}
+                        className="h-10 sm:h-12 text-sm sm:text-base pr-10 sm:pr-12 transition-all duration-200 border-2 focus:border-[#2f5597] focus:ring-2 focus:ring-blue-100 rounded-lg sm:rounded-xl px-3 sm:px-4"
+                        formNoValidate
+                      />
+                      <button
+                        type="button"
+                        className="absolute inset-y-0 right-0 px-3 sm:px-4 text-gray-400 hover:text-[#2f5597] transition-all duration-200 hover:scale-110"
+                        onClick={() => setShowPassword((v) => !v)}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? <EyeOff size={16} className="w-4 h-4 sm:w-5 sm:h-5" /> : <Eye size={16} className="w-4 h-4 sm:w-5 sm:h-5" />}
+                      </button>
+                    </div>
+                    {errors.confirmPassword && (
+                      <p className="text-red-600 text-xs animate-fade-in flex items-center gap-1">
+                        <span>•</span>{errors.confirmPassword}
                       </p>
                     )}
                   </div>

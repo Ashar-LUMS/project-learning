@@ -3,7 +3,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { 
   mergeNetworks, 
@@ -13,7 +12,7 @@ import {
   type RuleConflictStrategy 
 } from '@/lib/networkIO';
 import type { NetworkData } from '@/types/network';
-import { GitMerge, ArrowRight, AlertCircle, CheckCircle2, Info } from 'lucide-react';
+import { GitMerge, AlertCircle, CheckCircle2, Info, Layers, ArrowRightLeft, Circle, Network } from 'lucide-react';
 
 export interface NetworkOption {
   id: string;
@@ -178,101 +177,164 @@ export function MergeNetworkDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <GitMerge className="w-5 h-5" />
+      <DialogContent className="max-w-[90vw] min-h-[80vh] max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="pb-2">
+          <DialogTitle className="flex items-center gap-2 text-xl">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <GitMerge className="w-5 h-5 text-primary" />
+            </div>
             Merge Networks
           </DialogTitle>
-          <DialogDescription>
-            {step === 'select' && 'Select two networks to merge together.'}
-            {step === 'options' && 'Configure how conflicts should be resolved.'}
-            {step === 'confirm' && 'Review and confirm the merge operation.'}
+          <DialogDescription className="text-sm">
+            Combine two networks into a new unified network
           </DialogDescription>
         </DialogHeader>
 
+        {/* Step Indicator */}
+        <div className="flex items-center justify-center gap-2 py-4 border-b mb-4">
+          <div className={cn(
+            "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all",
+            step === 'select' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+          )}>
+            <span className="w-6 h-6 rounded-full bg-background/20 flex items-center justify-center text-xs">1</span>
+            Select Networks
+          </div>
+          <div className="w-8 h-0.5 bg-muted" />
+          <div className={cn(
+            "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all",
+            step === 'options' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+          )}>
+            <span className="w-6 h-6 rounded-full bg-background/20 flex items-center justify-center text-xs">2</span>
+            Configure
+          </div>
+          <div className="w-8 h-0.5 bg-muted" />
+          <div className={cn(
+            "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all",
+            step === 'confirm' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+          )}>
+            <span className="w-6 h-6 rounded-full bg-background/20 flex items-center justify-center text-xs">3</span>
+            Review & Merge
+          </div>
+        </div>
+
         {/* Step 1: Network Selection */}
         {step === 'select' && (
-          <div className="space-y-4">
-            {/* Base Network Selection */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium flex items-center gap-2">
-                Base Network
-                <Badge variant="secondary" className="text-[10px]">Primary</Badge>
-              </Label>
-              <div className="grid gap-2 max-h-40 overflow-y-auto pr-2">
-                {networks.map((network) => (
-                  <button
-                    key={network.id}
-                    type="button"
-                    onClick={() => setBaseNetworkId(network.id)}
-                    disabled={network === overlayNetwork}
-                    className={cn(
-                      "p-3 rounded-lg border text-left transition-all",
-                      baseNetworkId === network.id
-                        ? "border-primary bg-primary/5 ring-2 ring-primary/20"
-                        : network === overlayNetwork
-                          ? "border-muted bg-muted/30 opacity-50 cursor-not-allowed"
-                          : "border-muted hover:border-muted-foreground/50 hover:bg-muted/50"
-                    )}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{network.name}</span>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>{network.data?.nodes?.length ?? 0} nodes</span>
-                        <span>·</span>
-                        <span>{network.data?.edges?.length ?? 0} edges</span>
+          <div className="flex-1">
+            {/* Horizontal Layout for Base and Overlay Networks */}
+            <div className="grid grid-cols-2 gap-6 h-full items-stretch">
+              {/* Base Network Selection */}
+              <div className="flex flex-col bg-muted/30 rounded-xl p-4">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 rounded-lg bg-blue-500/10">
+                    <Layers className="w-5 h-5 text-blue-500" />
+                  </div>
+                  <div>
+                    <Label className="text-base font-semibold">Base Network</Label>
+                    <p className="text-xs text-muted-foreground">Primary network to build upon</p>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2 flex-1 overflow-y-auto pr-2">
+                  {networks.map((network) => (
+                    <button
+                      key={network.id}
+                      type="button"
+                      onClick={() => setBaseNetworkId(network.id)}
+                      disabled={network === overlayNetwork}
+                      className={cn(
+                        "p-3 rounded-lg border-2 text-left transition-all hover:shadow-md w-full",
+                        baseNetworkId === network.id
+                          ? "border-blue-500 bg-blue-50 shadow-md ring-4 ring-blue-500/10"
+                          : network === overlayNetwork
+                            ? "border-muted bg-muted/50 opacity-50 cursor-not-allowed"
+                            : "border-transparent bg-background hover:border-blue-200 hover:bg-blue-50/50"
+                      )}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={cn(
+                          "w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5",
+                          baseNetworkId === network.id ? "border-blue-500 bg-blue-500" : "border-muted-foreground/30"
+                        )}>
+                          {baseNetworkId === network.id && (
+                            <Circle className="w-2 h-2 text-white fill-white" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-medium block truncate">{network.name}</span>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                            <span className="flex items-center gap-1">
+                              <Network className="w-3 h-3" />
+                              {network.data?.nodes?.length ?? 0} nodes
+                            </span>
+                            <span>{network.data?.edges?.length ?? 0} edges</span>
+                            {(network.data?.rules?.length ?? 0) > 0 && (
+                              <Badge variant="secondary" className="text-[10px] h-4">Rules</Badge>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            {/* Arrow indicator */}
-            <div className="flex justify-center">
-              <div className="p-2 rounded-full bg-muted">
-                <ArrowRight className="w-4 h-4 text-muted-foreground rotate-90" />
-              </div>
-            </div>
-
-            {/* Overlay Network Selection */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium flex items-center gap-2">
-                Network to Merge
-                <Badge variant="outline" className="text-[10px]">Overlay</Badge>
-              </Label>
-              <div className="grid gap-2 max-h-40 overflow-y-auto pr-2">
-                {networks.map((network) => (
-                  <button
-                    key={network.id}
-                    type="button"
-                    onClick={() => setOverlayNetworkId(network.id)}
-                    disabled={network === baseNetwork}
-                    className={cn(
-                      "p-3 rounded-lg border text-left transition-all",
-                      overlayNetworkId === network.id
-                        ? "border-primary bg-primary/5 ring-2 ring-primary/20"
-                        : network === baseNetwork
-                          ? "border-muted bg-muted/30 opacity-50 cursor-not-allowed"
-                          : "border-muted hover:border-muted-foreground/50 hover:bg-muted/50"
-                    )}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{network.name}</span>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>{network.data?.nodes?.length ?? 0} nodes</span>
-                        <span>·</span>
-                        <span>{network.data?.edges?.length ?? 0} edges</span>
+              {/* Overlay Network Selection */}
+              <div className="flex flex-col bg-muted/30 rounded-xl p-4">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 rounded-lg bg-green-500/10">
+                    <Layers className="w-5 h-5 text-green-500" />
+                  </div>
+                  <div>
+                    <Label className="text-base font-semibold">Overlay Network</Label>
+                    <p className="text-xs text-muted-foreground">Network to merge into base</p>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2 flex-1 overflow-y-auto pr-2">
+                  {networks.map((network) => (
+                    <button
+                      key={network.id}
+                      type="button"
+                      onClick={() => setOverlayNetworkId(network.id)}
+                      disabled={network === baseNetwork}
+                      className={cn(
+                        "p-3 rounded-lg border-2 text-left transition-all hover:shadow-md w-full",
+                        overlayNetworkId === network.id
+                          ? "border-green-500 bg-green-50 shadow-md ring-4 ring-green-500/10"
+                          : network === baseNetwork
+                            ? "border-muted bg-muted/50 opacity-50 cursor-not-allowed"
+                            : "border-transparent bg-background hover:border-green-200 hover:bg-green-50/50"
+                      )}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={cn(
+                          "w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5",
+                          overlayNetworkId === network.id ? "border-green-500 bg-green-500" : "border-muted-foreground/30"
+                        )}>
+                          {overlayNetworkId === network.id && (
+                            <Circle className="w-2 h-2 text-white fill-white" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-medium block truncate">{network.name}</span>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                            <span className="flex items-center gap-1">
+                              <Network className="w-3 h-3" />
+                              {network.data?.nodes?.length ?? 0} nodes
+                            </span>
+                            <span>{network.data?.edges?.length ?? 0} edges</span>
+                            {(network.data?.rules?.length ?? 0) > 0 && (
+                              <Badge variant="secondary" className="text-[10px] h-4">Rules</Badge>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
             {baseNetworkId === overlayNetworkId && baseNetworkId && (
-              <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 p-3 rounded-lg">
+              <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 p-3 rounded-lg mt-4">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
                 Please select two different networks to merge.
               </div>
@@ -282,143 +344,196 @@ export function MergeNetworkDialog({
 
         {/* Step 2: Merge Options */}
         {step === 'options' && (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {/* Merge Preview */}
             {mergePreview && (
-              <div className="bg-muted/30 rounded-lg p-3 space-y-2">
-                <div className="flex items-center gap-2 text-sm font-medium">
+              <div className="bg-gradient-to-r from-blue-50 to-green-50 border border-blue-100 rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
                   <Info className="w-4 h-4 text-blue-500" />
                   Merge Preview
                 </div>
-                <div className="grid grid-cols-3 gap-4 text-xs">
-                  <div>
-                    <div className="text-muted-foreground">Base</div>
-                    <div>{mergePreview.baseStats.nodes} nodes, {mergePreview.baseStats.edges} edges</div>
+                <div className="grid grid-cols-3 gap-6">
+                  <div className="bg-white/60 rounded-lg p-3">
+                    <div className="text-xs text-muted-foreground uppercase tracking-wider">Base Network</div>
+                    <div className="text-lg font-semibold text-blue-600">{mergePreview.baseStats.nodes} nodes</div>
+                    <div className="text-sm text-muted-foreground">{mergePreview.baseStats.edges} edges</div>
                   </div>
-                  <div>
-                    <div className="text-muted-foreground">Overlay</div>
-                    <div>{mergePreview.overlayStats.nodes} nodes, {mergePreview.overlayStats.edges} edges</div>
+                  <div className="bg-white/60 rounded-lg p-3">
+                    <div className="text-xs text-muted-foreground uppercase tracking-wider">Overlay Network</div>
+                    <div className="text-lg font-semibold text-green-600">{mergePreview.overlayStats.nodes} nodes</div>
+                    <div className="text-sm text-muted-foreground">{mergePreview.overlayStats.edges} edges</div>
                   </div>
-                  <div>
-                    <div className="text-muted-foreground">Conflicts</div>
+                  <div className="bg-white/60 rounded-lg p-3">
+                    <div className="text-xs text-muted-foreground uppercase tracking-wider">Conflicts Found</div>
                     <div className={cn(
+                      "text-lg font-semibold",
                       mergePreview.conflicts.nodes > 0 || mergePreview.conflicts.edges > 0
                         ? "text-amber-600"
                         : "text-green-600"
                     )}>
-                      {mergePreview.conflicts.nodes} nodes, {mergePreview.conflicts.edges} edges
+                      {mergePreview.conflicts.nodes} nodes
                     </div>
+                    <div className="text-sm text-muted-foreground">{mergePreview.conflicts.edges} edges</div>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Node Conflict Strategy */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Node Conflicts</Label>
-              <div className="grid gap-2">
-                {NODE_CONFLICT_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setNodeConflictStrategy(option.value)}
-                    className={cn(
-                      "p-2 rounded-lg border text-left transition-all text-sm",
-                      nodeConflictStrategy === option.value
-                        ? "border-primary bg-primary/5"
-                        : "border-muted hover:border-muted-foreground/50"
-                    )}
-                  >
-                    <div className="font-medium">{option.label}</div>
-                    <div className="text-xs text-muted-foreground">{option.description}</div>
-                  </button>
-                ))}
+            {/* Conflict Resolution Options */}
+            <div className="grid grid-cols-2 gap-6">
+              {/* Node Conflict Strategy */}
+              <div className="space-y-3 bg-muted/30 rounded-xl p-4">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-blue-500/10">
+                    <Circle className="w-4 h-4 text-blue-500" />
+                  </div>
+                  <Label className="text-sm font-semibold">Node Conflicts</Label>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {NODE_CONFLICT_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setNodeConflictStrategy(option.value)}
+                      className={cn(
+                        "p-3 rounded-lg border-2 text-left transition-all",
+                        nodeConflictStrategy === option.value
+                          ? "border-primary bg-primary/5 shadow-sm"
+                          : "border-transparent bg-background hover:bg-muted/50"
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={cn(
+                          "w-4 h-4 rounded-full border-2 flex items-center justify-center",
+                          nodeConflictStrategy === option.value ? "border-primary bg-primary" : "border-muted-foreground/30"
+                        )}>
+                          {nodeConflictStrategy === option.value && (
+                            <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                          )}
+                        </div>
+                        <div className="font-medium text-sm">{option.label}</div>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1 ml-6">{option.description}</div>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            <Separator />
-
-            {/* Edge Conflict Strategy */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Edge Conflicts</Label>
-              <div className="grid gap-2">
-                {EDGE_CONFLICT_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setEdgeConflictStrategy(option.value)}
-                    className={cn(
-                      "p-2 rounded-lg border text-left transition-all text-sm",
-                      edgeConflictStrategy === option.value
-                        ? "border-primary bg-primary/5"
-                        : "border-muted hover:border-muted-foreground/50"
-                    )}
-                  >
-                    <div className="font-medium">{option.label}</div>
-                    <div className="text-xs text-muted-foreground">{option.description}</div>
-                  </button>
-                ))}
+              {/* Edge Conflict Strategy */}
+              <div className="space-y-3 bg-muted/30 rounded-xl p-4">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-green-500/10">
+                    <ArrowRightLeft className="w-4 h-4 text-green-500" />
+                  </div>
+                  <Label className="text-sm font-semibold">Edge Conflicts</Label>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {EDGE_CONFLICT_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setEdgeConflictStrategy(option.value)}
+                      className={cn(
+                        "p-3 rounded-lg border-2 text-left transition-all",
+                        edgeConflictStrategy === option.value
+                          ? "border-primary bg-primary/5 shadow-sm"
+                          : "border-transparent bg-background hover:bg-muted/50"
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={cn(
+                          "w-4 h-4 rounded-full border-2 flex items-center justify-center",
+                          edgeConflictStrategy === option.value ? "border-primary bg-primary" : "border-muted-foreground/30"
+                        )}>
+                          {edgeConflictStrategy === option.value && (
+                            <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                          )}
+                        </div>
+                        <div className="font-medium text-sm">{option.label}</div>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1 ml-6">{option.description}</div>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
             {/* Rule Conflict Strategy - only show if either network has rules */}
             {(baseHasRules || overlayHasRules) && (
-              <>
-                <Separator />
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Rule Conflicts</Label>
-                  <div className="grid gap-2">
-                    {RULE_CONFLICT_OPTIONS.map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => setRuleConflictStrategy(option.value)}
-                        className={cn(
-                          "p-2 rounded-lg border text-left transition-all text-sm",
-                          ruleConflictStrategy === option.value
-                            ? "border-primary bg-primary/5"
-                            : "border-muted hover:border-muted-foreground/50"
-                        )}
-                      >
-                        <div className="font-medium">{option.label}</div>
-                        <div className="text-xs text-muted-foreground">{option.description}</div>
-                      </button>
-                    ))}
+              <div className="space-y-3 bg-muted/30 rounded-xl p-4">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-purple-500/10">
+                    <Layers className="w-4 h-4 text-purple-500" />
                   </div>
+                  <Label className="text-sm font-semibold">Rule Conflicts</Label>
                 </div>
-              </>
+                <div className="grid grid-cols-3 gap-2">
+                  {RULE_CONFLICT_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setRuleConflictStrategy(option.value)}
+                      className={cn(
+                        "p-3 rounded-lg border-2 text-left transition-all",
+                        ruleConflictStrategy === option.value
+                          ? "border-primary bg-primary/5 shadow-sm"
+                          : "border-transparent bg-background hover:bg-muted/50"
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={cn(
+                          "w-4 h-4 rounded-full border-2 flex items-center justify-center",
+                          ruleConflictStrategy === option.value ? "border-primary bg-primary" : "border-muted-foreground/30"
+                        )}>
+                          {ruleConflictStrategy === option.value && (
+                            <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                          )}
+                        </div>
+                        <div className="font-medium text-sm">{option.label}</div>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1 ml-6">{option.description}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         )}
 
         {/* Step 3: Confirmation */}
         {step === 'confirm' && (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {/* Final Preview */}
             {mergePreview && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-3">
-                <div className="flex items-center gap-2 text-sm font-medium text-green-800">
-                  <CheckCircle2 className="w-4 h-4" />
-                  Merge Summary
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-5 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-full bg-green-500/10">
+                    <CheckCircle2 className="w-6 h-6 text-green-600" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-green-800">Ready to Merge</div>
+                    <div className="text-sm text-green-600">Your networks will be combined into a new network</div>
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <div className="text-green-700 font-medium">Estimated Result</div>
-                    <div className="text-green-600">
-                      {mergePreview.estimatedResult.nodes} nodes, {mergePreview.estimatedResult.edges} edges
-                      {mergePreview.estimatedResult.rules > 0 && `, ${mergePreview.estimatedResult.rules} rules`}
-                    </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="bg-white/80 rounded-lg p-4 text-center">
+                    <div className="text-3xl font-bold text-green-600">{mergePreview.estimatedResult.nodes}</div>
+                    <div className="text-sm text-muted-foreground">Total Nodes</div>
                   </div>
-                  <div>
-                    <div className="text-green-700 font-medium">Conflicts Resolved</div>
-                    <div className="text-green-600">
-                      {mergePreview.conflicts.nodes} nodes, {mergePreview.conflicts.edges} edges
-                    </div>
+                  <div className="bg-white/80 rounded-lg p-4 text-center">
+                    <div className="text-3xl font-bold text-green-600">{mergePreview.estimatedResult.edges}</div>
+                    <div className="text-sm text-muted-foreground">Total Edges</div>
                   </div>
+                  {mergePreview.estimatedResult.rules > 0 && (
+                    <div className="bg-white/80 rounded-lg p-4 text-center">
+                      <div className="text-3xl font-bold text-green-600">{mergePreview.estimatedResult.rules}</div>
+                      <div className="text-sm text-muted-foreground">Total Rules</div>
+                    </div>
+                  )}
                 </div>
                 {/* Large network warning */}
                 {(mergePreview.estimatedResult.nodes > 100 || mergePreview.estimatedResult.edges > 500) && (
-                  <div className="flex items-start gap-2 mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
+                  <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
                     <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                     <span>
                       Large network: This merge may take longer to save. If you encounter a timeout error,
@@ -430,31 +545,47 @@ export function MergeNetworkDialog({
             )}
 
             {/* Network Name */}
-            <div className="space-y-2">
-              <Label htmlFor="merged-name">Merged Network Name</Label>
+            <div className="bg-muted/30 rounded-xl p-4 space-y-3">
+              <Label htmlFor="merged-name" className="text-sm font-semibold">Merged Network Name</Label>
               <input
                 id="merged-name"
                 type="text"
                 value={mergedNetworkName}
                 onChange={(e) => setMergedNetworkName(e.target.value)}
                 placeholder="Enter network name..."
-                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                className="w-full px-4 py-3 border-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               />
             </div>
 
-            {/* Merge Details */}
-            <div className="text-xs text-muted-foreground space-y-1">
-              <div><strong>Base:</strong> {baseNetwork?.name}</div>
-              <div><strong>Overlay:</strong> {overlayNetwork?.name}</div>
-              <div><strong>Node Strategy:</strong> {NODE_CONFLICT_OPTIONS.find(o => o.value === nodeConflictStrategy)?.label}</div>
-              <div><strong>Edge Strategy:</strong> {EDGE_CONFLICT_OPTIONS.find(o => o.value === edgeConflictStrategy)?.label}</div>
-              {(baseHasRules || overlayHasRules) && (
-                <div><strong>Rule Strategy:</strong> {RULE_CONFLICT_OPTIONS.find(o => o.value === ruleConflictStrategy)?.label}</div>
-              )}
+            {/* Merge Details Summary */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-muted/30 rounded-xl p-4 space-y-2">
+                <div className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Source Networks</div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                    <span className="font-medium">Base:</span> {baseNetwork?.name}
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    <span className="font-medium">Overlay:</span> {overlayNetwork?.name}
+                  </div>
+                </div>
+              </div>
+              <div className="bg-muted/30 rounded-xl p-4 space-y-2">
+                <div className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Conflict Resolution</div>
+                <div className="space-y-1 text-sm">
+                  <div><span className="font-medium">Nodes:</span> {NODE_CONFLICT_OPTIONS.find(o => o.value === nodeConflictStrategy)?.label}</div>
+                  <div><span className="font-medium">Edges:</span> {EDGE_CONFLICT_OPTIONS.find(o => o.value === edgeConflictStrategy)?.label}</div>
+                  {(baseHasRules || overlayHasRules) && (
+                    <div><span className="font-medium">Rules:</span> {RULE_CONFLICT_OPTIONS.find(o => o.value === ruleConflictStrategy)?.label}</div>
+                  )}
+                </div>
+              </div>
             </div>
 
             {mergeError && (
-              <div className="flex items-start gap-3 text-sm bg-destructive/10 border border-destructive/30 p-4 rounded-lg">
+              <div className="flex items-start gap-3 text-sm bg-destructive/10 border border-destructive/30 p-4 rounded-xl">
                 <AlertCircle className="w-5 h-5 flex-shrink-0 text-destructive mt-0.5" />
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-destructive">Merge Failed</p>
@@ -475,34 +606,44 @@ export function MergeNetworkDialog({
           </div>
         )}
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2 pt-4 border-t">
           {step === 'select' && (
             <>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
+              <Button variant="outline" onClick={() => onOpenChange(false)} className="px-6">
                 Cancel
               </Button>
-              <Button onClick={() => setStep('options')} disabled={!canProceedToOptions}>
+              <Button onClick={() => setStep('options')} disabled={!canProceedToOptions} className="px-6">
                 Continue
               </Button>
             </>
           )}
           {step === 'options' && (
             <>
-              <Button variant="outline" onClick={() => setStep('select')}>
+              <Button variant="outline" onClick={() => setStep('select')} className="px-6">
                 Back
               </Button>
-              <Button onClick={() => setStep('confirm')}>
+              <Button onClick={() => setStep('confirm')} className="px-6">
                 Continue
               </Button>
             </>
           )}
           {step === 'confirm' && (
             <>
-              <Button variant="outline" onClick={() => setStep('options')} disabled={isMerging}>
+              <Button variant="outline" onClick={() => setStep('options')} disabled={isMerging} className="px-6">
                 Back
               </Button>
-              <Button onClick={handleMerge} disabled={!canMerge || isMerging}>
-                {isMerging ? 'Merging...' : 'Merge Networks'}
+              <Button onClick={handleMerge} disabled={!canMerge || isMerging} className="px-6 bg-green-600 hover:bg-green-700">
+                {isMerging ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                    Merging...
+                  </>
+                ) : (
+                  <>
+                    <GitMerge className="w-4 h-4 mr-2" />
+                    Merge Networks
+                  </>
+                )}
               </Button>
             </>
           )}

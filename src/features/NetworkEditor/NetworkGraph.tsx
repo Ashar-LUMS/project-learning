@@ -8,9 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
-import { MousePointer2, CirclePlus, Circle, Link, X, Trash2, Download, Network, Maximize, User, ArrowRight, OctagonMinus } from 'lucide-react';
+import { MousePointer2, CirclePlus, Circle, Link, X, Trash2, Network, Maximize, User, ArrowRight, OctagonMinus } from 'lucide-react';
 import type { NetworkData } from '@/types/network';
-import { exportAndDownloadNetwork } from '@/lib/networkIO';
 import { NetworkPersonalizationDialog } from './NetworkPersonalizationDialog';
 
 // Module-level flag to prevent duplicate edgehandles extension registration (survives HMR)
@@ -1817,61 +1816,6 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => {
-              // Get existing rules from the effective network data
-              const existingRules = (effectiveNetworkData as any)?.rules || 
-                                    (effectiveNetworkData as any)?.data?.rules || 
-                                    (effectiveNetworkData as any)?.network_data?.rules || [];
-              const rulesArray = Array.isArray(existingRules) ? existingRules : [];
-              
-              // Build current network data from local state
-              const networkData: NetworkData = {
-                nodes: localNodes.map(n => ({
-                  id: n.id,
-                  label: n.label,
-                  type: n.type,
-                  weight: n.weight,
-                  properties: {
-                    ...n.properties,
-                    position: cyRef.current?.getElementById(n.id)?.position() || n.properties?.position
-                  }
-                })),
-                edges: localEdges.map(e => ({
-                  source: e.source,
-                  target: e.target,
-                  weight: e.weight,
-                  interaction: e.interaction
-                })),
-                rules: isRuleBased ? rulesArray : undefined,
-                metadata: {
-                  type: isRuleBased ? 'Rule Based' : 'Weight Based',
-                  exportedAt: new Date().toISOString()
-                }
-              };
-              
-              // Get network name from fetched network or use default
-              const networkName = (network as any)?.name || 
-                                  (effectiveNetworkData as any)?.name || 
-                                  'network';
-              exportAndDownloadNetwork(networkData, networkName);
-              
-              showToast({ 
-                title: 'Network Exported', 
-                description: `Saved as ${isRuleBased ? 'rules TXT' : 'weighted CSV'} file`,
-                variant: 'default'
-              });
-            }}
-            className="h-9 w-9 rounded-md hover:bg-accent text-muted-foreground"
-            title="Export Network"
-          >
-            <Download size={20} />
-          </Button>
-
-          <div className="w-6 border-t border-border my-1" />
-
-          <Button
-            size="sm"
-            variant="ghost"
             onClick={() => setIsNetworkPersonalizationOpen(true)}
             className="h-9 w-9 rounded-md hover:bg-accent text-muted-foreground"
             title="Network Personalization"
@@ -2005,13 +1949,6 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
                         </div>
                       </>
                     )}
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">ID</label>
-                      <div className="text-xs text-muted-foreground font-mono bg-muted px-3 py-2 rounded-lg border border-border">
-                        {selectedNode.id}
-                      </div>
-                    </div>
 
                     <div className="flex gap-2 pt-3">
                       <Button

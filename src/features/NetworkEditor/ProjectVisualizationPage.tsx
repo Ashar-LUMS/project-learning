@@ -105,7 +105,7 @@ function ProjectVisualizationPage() {
 
   // Export Network dialog state
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
-  const [selectedExportFormat, setSelectedExportFormat] = useState<ExportFormat>('csv');
+  const [selectedExportFormats, setSelectedExportFormats] = useState<ExportFormat[]>(['csv']);
 
   // Merge Network dialog state
   const [isMergeDialogOpen, setIsMergeDialogOpen] = useState(false);
@@ -449,17 +449,6 @@ function ProjectVisualizationPage() {
     }
 
     const networkData = (selectedNetwork as any).data || selectedNetwork;
-    const nodeCount = Array.isArray(networkData?.nodes) ? networkData.nodes.length : 0;
-
-    if (nodeCount > 16) {
-      const msg = 'Analysis Feature currently in development for larger netowkrs (>16 nodes)';
-      setRuleBasedNodeLimitWarning(msg);
-      showToast({
-        title: 'Warning',
-        description: msg,
-      });
-      return;
-    }
 
     const rules = networkData?.rules || [];
 
@@ -1435,7 +1424,7 @@ function ProjectVisualizationPage() {
       <div
         key={network.id}
         className={cn(
-          "w-full rounded-lg border p-2 text-left transition-colors group relative", 
+          "w-full rounded border p-1 text-left transition-colors group relative", 
           isActive
             ? "border-primary bg-primary/10 text-primary"
             : "border-transparent bg-card hover:border-muted hover:bg-muted"
@@ -1446,14 +1435,14 @@ function ProjectVisualizationPage() {
           onClick={() => handleSelectNetwork(network.id)}
           className="w-full text-left"
         >
-          <div className="flex items-start justify-between gap-2 pr-6">
-            <span className="text-xs font-medium text-foreground break-words flex-1 min-w-0">{network.name}</span>
+          <div className="flex items-start justify-between gap-1 pr-4">
+            <span className="text-[11px] font-medium text-foreground break-words flex-1 min-w-0">{network.name}</span>
             {isActive && (
-              <span className="text-xs uppercase tracking-wide text-primary flex-shrink-0 whitespace-nowrap">Active</span>
+              <span className="text-[10px] uppercase tracking-wide text-primary flex-shrink-0 whitespace-nowrap">Active</span>
             )}
           </div>
           {createdLabel && (
-            <div className="mt-0.5 text-xs text-muted-foreground">Created {createdLabel}</div>
+            <div className="mt-0.5 text-[10px] text-muted-foreground">Created {createdLabel}</div>
           )}
         </button>
         <button
@@ -1462,10 +1451,10 @@ function ProjectVisualizationPage() {
             e.stopPropagation();
             setNetworkToDelete(network);
           }}
-          className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-all"
+          className="absolute top-1 right-1 p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-all"
           title="Delete network"
         >
-          <Trash2 size={14} />
+          <Trash2 size={12} />
         </button>
       </div>
     );
@@ -1504,7 +1493,7 @@ function ProjectVisualizationPage() {
               return;
             }
             // Open export format dialog
-            setSelectedExportFormat(selectedIsRuleBased ? 'txt' : 'csv');
+            setSelectedExportFormats([selectedIsRuleBased ? 'txt' : 'csv']);
             setIsExportDialogOpen(true);
           }}
           className="w-full rounded-lg border border-muted bg-card p-2 text-left text-xs font-medium transition-colors hover:bg-muted disabled:opacity-60"
@@ -1526,7 +1515,7 @@ function ProjectVisualizationPage() {
           className="w-full rounded-lg border border-muted bg-card p-2 text-left text-xs font-medium transition-colors hover:bg-muted disabled:opacity-60"
           disabled={isLoading}
         >
-          Upload Case Study
+          Load Sample Case Studies
         </button>
       </div>
 
@@ -1566,8 +1555,6 @@ function ProjectVisualizationPage() {
             )}
           </div>
 
-          <Separator className="my-3" />
-
           {/* Weight-Based Networks Section */}
           <div className="space-y-2">
             <div className="flex items-center gap-2">
@@ -1599,7 +1586,6 @@ function ProjectVisualizationPage() {
       {/* View Mode Selector */}
       {selectedNetworkId && (
         <>
-          <Separator className="my-4" />
           <div className="space-y-2">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">View Mode</h3>
             <div className="grid grid-cols-2 gap-2">
@@ -2093,14 +2079,7 @@ function ProjectVisualizationPage() {
                 {selectedNetworkId && networkSubTab === 'editor' && (
                   <>
                     <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => networkGraphRef.current?.fitToView()}
-                    >
-                      Fit to View
-                    </Button>
-                    <Button
-                      variant="outline"
+                      variant="destructive"
                       size="sm"
                       onClick={() => networkGraphRef.current?.updateCurrent()}
                     >
@@ -3062,43 +3041,54 @@ function ProjectVisualizationPage() {
           <DialogHeader>
             <DialogTitle>Export Network</DialogTitle>
             <DialogDescription>
-              Choose a format for exporting "{selectedNetwork?.name || 'network'}"
+              Choose format(s) for exporting "{selectedNetwork?.name || 'network'}"
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="space-y-3">
-              {SUPPORTED_EXPORT_FORMATS.map((format) => (
-                <button
-                  key={format.id}
-                  type="button"
-                  onClick={() => setSelectedExportFormat(format.id)}
-                  className={cn(
-                    "w-full p-3 rounded-lg border-2 text-left transition-all",
-                    selectedExportFormat === format.id
-                      ? "border-primary bg-primary/5 ring-2 ring-primary/20"
-                      : "border-muted hover:border-muted-foreground/50 hover:bg-muted/50"
-                  )}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "w-4 h-4 rounded-full border-2 flex items-center justify-center",
-                        selectedExportFormat === format.id ? "border-primary" : "border-muted-foreground/50"
-                      )}>
-                        {selectedExportFormat === format.id && (
-                          <div className="w-2 h-2 rounded-full bg-primary" />
-                        )}
+              {SUPPORTED_EXPORT_FORMATS.map((format) => {
+                const isSelected = selectedExportFormats.includes(format.id);
+                return (
+                  <button
+                    key={format.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedExportFormats(prev => 
+                        isSelected 
+                          ? prev.filter(f => f !== format.id)
+                          : [...prev, format.id]
+                      );
+                    }}
+                    className={cn(
+                      "w-full p-3 rounded-lg border-2 text-left transition-all",
+                      isSelected
+                        ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                        : "border-muted hover:border-muted-foreground/50 hover:bg-muted/50"
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-4 h-4 rounded border-2 flex items-center justify-center",
+                          isSelected ? "border-primary bg-primary" : "border-muted-foreground/50"
+                        )}>
+                          {isSelected && (
+                            <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">
+                              <path d="M2.5 6L5 8.5L9.5 3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          )}
+                        </div>
+                        <div>
+                          <div className="font-medium text-sm">{format.label}</div>
+                          <div className="text-xs text-muted-foreground">{format.description}</div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="font-medium text-sm">{format.label}</div>
-                        <div className="text-xs text-muted-foreground">{format.description}</div>
-                      </div>
+                      <Badge variant="secondary" className="text-xs">{format.extension}</Badge>
                     </div>
-                    <Badge variant="secondary" className="text-xs">{format.extension}</Badge>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -3106,37 +3096,43 @@ function ProjectVisualizationPage() {
             <Button variant="outline" onClick={() => setIsExportDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={() => {
-              // Prefer live data from the graph (includes current positions), fall back to saved data
-              const liveData = networkGraphRef.current?.getLiveNetworkData();
-              const exportData = liveData || selectedNetwork?.data;
-              
-              // Debug: log what we're exporting
-              console.log('[Export] liveData:', liveData);
-              console.log('[Export] selectedNetwork?.data:', selectedNetwork?.data);
-              console.log('[Export] exportData:', exportData);
-              console.log('[Export] nodes:', exportData?.nodes?.length, 'edges:', exportData?.edges?.length);
-              
-              if (exportData && (exportData.nodes?.length > 0 || exportData.edges?.length > 0)) {
-                exportAndDownloadNetworkAs(
-                  exportData as NetworkData, 
-                  selectedNetwork?.name || 'network',
-                  selectedExportFormat
-                );
-                setIsExportDialogOpen(false);
-                showToast({
-                  title: 'Network Exported',
-                  description: `Exported as ${SUPPORTED_EXPORT_FORMATS.find(f => f.id === selectedExportFormat)?.label || selectedExportFormat}`,
-                });
-              } else {
-                showToast({
-                  title: 'Export Failed',
-                  description: 'No network data available to export. Make sure you are on the Editor tab.',
-                  variant: 'destructive',
-                });
-              }
-            }}>
-              Export
+            <Button 
+              onClick={() => {
+                // Prefer live data from the graph (includes current positions), fall back to saved data
+                const liveData = networkGraphRef.current?.getLiveNetworkData();
+                const exportData = liveData || selectedNetwork?.data;
+                
+                // Debug: log what we're exporting
+                console.log('[Export] liveData:', liveData);
+                console.log('[Export] selectedNetwork?.data:', selectedNetwork?.data);
+                console.log('[Export] exportData:', exportData);
+                console.log('[Export] nodes:', exportData?.nodes?.length, 'edges:', exportData?.edges?.length);
+                
+                if (exportData && (exportData.nodes?.length > 0 || exportData.edges?.length > 0)) {
+                  // Export to all selected formats
+                  selectedExportFormats.forEach(format => {
+                    exportAndDownloadNetworkAs(
+                      exportData as NetworkData, 
+                      selectedNetwork?.name || 'network',
+                      format
+                    );
+                  });
+                  setIsExportDialogOpen(false);
+                  showToast({
+                    title: 'Network Exported',
+                    description: `Exported as ${selectedExportFormats.map(f => SUPPORTED_EXPORT_FORMATS.find(fmt => fmt.id === f)?.extension || f).join(', ')}`,
+                  });
+                } else {
+                  showToast({
+                    title: 'Export Failed',
+                    description: 'No network data available to export. Make sure you are on the Editor tab.',
+                    variant: 'destructive',
+                  });
+                }
+              }}
+              disabled={selectedExportFormats.length === 0}
+            >
+              Export {selectedExportFormats.length > 1 ? `(${selectedExportFormats.length})` : ''}
             </Button>
           </DialogFooter>
         </DialogContent>
