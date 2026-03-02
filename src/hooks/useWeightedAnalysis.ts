@@ -33,14 +33,15 @@ export function useWeightedAnalysis(): UseWeightedAnalysisReturn {
       setError(null);
 
       try {
-        // Run in a setTimeout to yield to the event loop
-        const analysisResult = await new Promise<DeterministicAnalysisResult>((resolve) => {
+        // Run in a setTimeout to yield to the event loop.
+        // IMPORTANT: reject on error (throwing here would not reject the Promise).
+        const analysisResult = await new Promise<DeterministicAnalysisResult>((resolve, reject) => {
           setTimeout(() => {
             try {
               const res = performWeightedAnalysis(nodes, edges, options);
               resolve(res);
             } catch (err) {
-              throw err;
+              reject(err);
             }
           }, 0);
         });

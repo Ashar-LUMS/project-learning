@@ -300,20 +300,41 @@ export function performDeterministicAnalysis(
   const nodeLabels = Object.fromEntries(nodeOrder.map(id => [id, id]));
 
   // Check node count
-  if (nodeOrder.length > 20) {
-    warnings.push(`Network has ${nodeOrder.length} nodes. Analysis may be slow for networks with > 20 nodes.`);
-  }
+  // Node count warnings removed to avoid noisy UI messaging for large networks.
 
   const totalStateSpace = 2 ** nodeOrder.length;
   const maxStates = Math.min(stateCap, totalStateSpace);
   const truncated = maxStates < totalStateSpace;
 
-  if (truncated) {
-    warnings.push(`State space truncated: exploring first ${maxStates.toLocaleString()} of ${totalStateSpace.toLocaleString()} possible states.`);
-  }
+  // Truncation/sampling warnings removed to avoid noisy UI messaging.
 
-  // Generate state indices to explore (sequential enumeration up to cap)
-  const stateIndices: number[] = Array.from({ length: maxStates }, (_, i) => i);
+  const makeRandomBinaryState = (bitCount: number): string => {
+    const chars = new Array<string>(bitCount);
+    for (let i = 0; i < bitCount; i++) {
+      chars[i] = Math.random() < 0.5 ? '0' : '1';
+    }
+    return chars.join('');
+  };
+
+  const sampleInitialStates = (bitCount: number, count: number): string[] => {
+    const unique = new Set<string>();
+    const maxAttempts = Math.max(10_000, count * 10);
+    let attempts = 0;
+    while (unique.size < count && attempts < maxAttempts) {
+      unique.add(makeRandomBinaryState(bitCount));
+      attempts += 1;
+    }
+    if (unique.size < count) {
+      for (let i = 0; unique.size < count; i += 1) {
+        unique.add(i.toString(2).padStart(bitCount, '0'));
+      }
+    }
+    return Array.from(unique);
+  };
+
+  const initialStates: string[] = truncated
+    ? sampleInitialStates(nodeOrder.length, maxStates)
+    : Array.from({ length: maxStates }, (_, i) => i.toString(2).padStart(nodeOrder.length, '0'));
 
   // Build rule map
   const ruleMap = new Map<string, RuleParsed>();
@@ -366,14 +387,13 @@ export function performDeterministicAnalysis(
 
   let exploredCount = 0;
 
-  for (const stateNum of stateIndices) {
-    const binary = stateNum.toString(2).padStart(nodeOrder.length, '0');
+  for (const binary of initialStates) {
     
     if (stateToAttractorId.has(binary)) continue;
 
     // Follow trajectory
     const path: string[] = [binary];
-    const visited = new Set<string>([binary]);
+    const indexByState = new Map<string, number>([[binary, 0]]);
     let current = decodeState(binary);
 
     for (let step = 0; step < stepCap; step++) {
@@ -390,9 +410,9 @@ export function performDeterministicAnalysis(
         break;
       }
 
-      if (visited.has(nextBinary)) {
+      const cycleStartIndex = indexByState.get(nextBinary);
+      if (cycleStartIndex !== undefined) {
         // Found new attractor (cycle or fixed point)
-        const cycleStartIndex = path.indexOf(nextBinary);
         const attractorStates = path.slice(cycleStartIndex);
         
         const attractor = {
@@ -414,12 +434,14 @@ export function performDeterministicAnalysis(
       }
 
       path.push(nextBinary);
-      visited.add(nextBinary);
+      indexByState.set(nextBinary, path.length - 1);
       current = next;
     }
 
     exploredCount++;
   }
+
+  const basinShareDenominator = truncated ? Math.max(1, stateToAttractorId.size) : totalStateSpace;
 
   // Format results
   const attractors = attractorData.map(att => ({
@@ -428,14 +450,14 @@ export function performDeterministicAnalysis(
     period: att.states.length,
     states: att.states,
     basinSize: att.basin.size,
-    basinShare: att.basin.size / totalStateSpace,
+    basinShare: att.basin.size / basinShareDenominator,
   }));
 
   return {
     nodeOrder,
     nodeLabels,
     attractors,
-    exploredStateCount: exploredCount,
+    exploredStateCount: stateToAttractorId.size,
     totalStateSpace,
     truncated,
     warnings,

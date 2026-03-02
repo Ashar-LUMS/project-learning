@@ -58,6 +58,7 @@ function NetworkEditorPage() {
   const {
     result: weightedResult,
     isRunning: isWeightedAnalyzing,
+    error: weightedError,
     run: runWeightedAnalysis,
   } = useWeightedAnalysis();
   const {
@@ -73,6 +74,26 @@ function NetworkEditorPage() {
     error: deterministicError,
     downloadResults: _downloadDeterministicResults,
   } = useDeterministicAnalysis();
+
+  useEffect(() => {
+    if (weightedError) {
+      showToast({
+        title: 'Weighted Analysis Failed',
+        description: weightedError,
+        variant: 'destructive',
+      });
+    }
+  }, [weightedError, showToast]);
+
+  useEffect(() => {
+    if (probabilisticError) {
+      showToast({
+        title: 'Probabilistic Analysis Failed',
+        description: probabilisticError,
+        variant: 'destructive',
+      });
+    }
+  }, [probabilisticError, showToast]);
 
   // Log deterministic state for debugging
   useEffect(() => {

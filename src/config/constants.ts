@@ -11,8 +11,11 @@ export const API_CONFIG = {
 
 // Analysis Configuration
 export const ANALYSIS_CONFIG = {
-  DEFAULT_STATE_CAP: 2 ** 20, // ~1.05M states (increased from 2^17)
-  DEFAULT_STEP_CAP: 2 ** 20,
+  // Keep deterministic analyses bounded to prevent UI lockups on large networks.
+  // These caps define the *default* number of initial states sampled and the
+  // maximum steps per trajectory.
+  DEFAULT_STATE_CAP: 100_000,
+  DEFAULT_STEP_CAP: 10_000,
   MAX_NODES_DETERMINISTIC: 20,
   MAX_NODES_PROBABILISTIC: 200,
   PROBABILISTIC_DEFAULT_NOISE: 0.25,

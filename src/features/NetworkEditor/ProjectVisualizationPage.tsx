@@ -182,6 +182,7 @@ function ProjectVisualizationPage() {
   const {
     result: weightedResult,
     isRunning: isWeightedAnalyzing,
+    error: weightedError,
     run: runWeightedAnalysis,
     reset: resetWeightedAnalysis,
   } = useWeightedAnalysis();
@@ -2290,6 +2291,8 @@ function ProjectVisualizationPage() {
 
               {/* Errors */}
               {ruleBasedError && <div className="text-xs text-red-600 rounded bg-red-50 px-3 py-2">{ruleBasedError}</div>}
+              {weightedError && <div className="text-xs text-red-600 rounded bg-red-50 px-3 py-2">{weightedError}</div>}
+              {probabilisticError && <div className="text-xs text-red-600 rounded bg-red-50 px-3 py-2">{probabilisticError}</div>}
 
               {/* No Results State */}
               {!hasAnyResult && !isRuleBasedRunning && !isWeightedAnalyzing && !isProbabilisticAnalyzing && selectedNetworkId && (
