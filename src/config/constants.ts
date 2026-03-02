@@ -58,8 +58,16 @@ export function computeAdaptiveCaps(
   const MIN_SAMPLES = 500;
   const MIN_STEPS = 200;
 
+  // Networks with ≤ this many nodes are always fully enumerated (no sampling).
+  const FULL_ENUM_NODE_LIMIT = 16;
+
   const costPerStep = Math.max(nodeCount, edgeOrComplexityCount, 1);
   const totalStateSpace = nodeCount <= 30 ? 2 ** nodeCount : Number.POSITIVE_INFINITY;
+
+  // Always enumerate fully when the network is small enough (≤ 16 nodes → 65 536 states).
+  if (nodeCount <= FULL_ENUM_NODE_LIMIT && Number.isFinite(totalStateSpace)) {
+    return { stateCap: totalStateSpace, stepCap: requestedStepCap };
+  }
 
   // If full enumeration fits in budget, enumerate everything.
   if (

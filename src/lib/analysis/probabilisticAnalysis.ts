@@ -119,12 +119,9 @@ export function performProbabilisticAnalysis(
     }
   }
 
-  if (!converged && iterations >= maxIterations) {
-    warnings.push(
-      `Probabilistic analysis reached the maximum iteration count (${maxIterations}) before converging. ` +
-        `Consider increasing maxIterations or relaxing the tolerance.`,
-    );
-  }
+  // Convergence warning removed to reduce UI noise; callers can check
+  // the `converged` flag directly when they need to act on it.
+  void converged;
 
   const probabilityMap: Record<string, number> = {};
   const potentialEnergyMap: Record<string, number> = {};

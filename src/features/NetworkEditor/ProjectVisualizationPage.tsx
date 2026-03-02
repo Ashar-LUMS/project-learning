@@ -1779,14 +1779,14 @@ function ProjectVisualizationPage() {
               if (val) selectNetwork(val);
             }}
           >
-            <SelectTrigger className="h-8 text-xs">
+            <SelectTrigger className="h-8 text-xs overflow-hidden">
               <SelectValue placeholder="Select..." />
             </SelectTrigger>
             <SelectContent>
               {networks.map(n => (
                 <SelectItem key={n.id} value={n.id}>
-                  <span className="flex items-center gap-1.5">
-                    <Badge variant="outline" className="text-[10px] px-1 py-0">
+                  <span className="flex items-center gap-1.5 max-w-[180px]">
+                    <Badge variant="outline" className="text-[10px] px-1 py-0 shrink-0">
                       {n.data?.nodes?.length || 0}
                     </Badge>
                     <span className="truncate">{n.name || n.id}</span>
@@ -2256,7 +2256,7 @@ function ProjectVisualizationPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   {selectedNetwork?.name && (
-                    <span className="text-sm font-medium">{selectedNetwork.name}</span>
+                    <span className="text-sm font-medium truncate max-w-[240px]" title={selectedNetwork.name}>{selectedNetwork.name}</span>
                   )}
                   {selectedNetwork?.data && (
                     <div className="flex gap-1.5">

@@ -741,8 +741,8 @@ function NetworkEditorPage() {
         );
       case 'network-inference':
         return (
-          <div className="p-6">
-            <div className="flex flex-col lg:flex-row gap-6">
+          <div className="min-h-0 flex-1 overflow-auto p-6">
+            <div className="flex flex-col lg:flex-row gap-6 pb-8">
               <Card className="flex-1">
                 <CardContent className="p-6 space-y-4">
                   <div className="space-y-1">
