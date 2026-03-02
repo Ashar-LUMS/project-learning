@@ -912,7 +912,7 @@ const NetworkGraph = forwardRef<NetworkGraphHandle, Props>(({
 
   // Cytoscape initialization (initialize once; retry when inputs change)
   useEffect(() => {
-    if (!containerRef.current) {
+    if (!containerRef.current || !containerRef.current.isConnected) {
       return;
     }
 
