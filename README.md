@@ -27,7 +27,6 @@
 
 - [About](#-about)
 - [Features](#-features)
-- [Screenshots](#-screenshots)
 - [Tech Stack](#-tech-stack)
 - [Getting Started](#-getting-started)
 - [Analysis Engines](#-analysis-engines)
@@ -50,7 +49,7 @@
 - 🧪 **Integrate multi-omics data** including RNA-Seq and exome sequencing
 - 🎯 **Compute patient-specific drug scores** for personalized medicine applications
 
-> *"Understanding the dynamics of gene regulatory networks is crucial for predicting cellular behavior and designing effective therapeutic strategies in cancer treatment."*
+Understanding the dynamics of gene regulatory networks is crucial for predicting cellular behavior and designing effective therapeutic strategies in cancer treatment.
 
 ---
 
@@ -116,6 +115,17 @@
 
 </td>
 </tr>
+<tr>
+<td colspan="2">
+
+### 🧠 AI Integration (AutoNetCan)
+- **Direct Integration**: Seamless connection with [AutoNetCan (autonetcan.lums.edu.pk)](https://autonetcan.lums.edu.pk/)
+- **Automated Network Generation**: Rapidly construct context-specific gene regulatory networks using AI
+- **Rule Inference**: AI-powered extraction and inference of Boolean rules from extensive literature sources
+- **Enhanced Modeling Workflow**: Streamlined process for building, validating, and analyzing complex oncological networks
+
+</td>
+</tr>
 </table>
 
 ### 🎛️ Navigation Tabs
@@ -133,24 +143,7 @@
 
 ---
 
-## 📸 Screenshots
-
-<div align="center">
-
-> *Screenshots coming soon — the platform features a modern, responsive interface built with shadcn/ui components*
-
-<!--
-Add your screenshots here:
-![Network Editor](docs/screenshots/network-editor.png)
-![Analysis Results](docs/screenshots/analysis-results.png)
-![3D Landscape](docs/screenshots/3d-landscape.png)
--->
-
-</div>
-
----
-
-## 🛠️ Tech Stack
+## ️ Tech Stack
 
 <div align="center">
 
@@ -219,13 +212,6 @@ npm run build
 npm run preview
 ```
 
-### ⌨️ Keyboard Shortcuts
-
-| Shortcut | Action |
-|:--------:|:-------|
-| `Ctrl + Enter` | Run Weighted Analysis |
-| `Ctrl + Shift + Enter` | Open Probabilistic Analysis |
-
 ---
 
 ## 📊 Analysis Engines
@@ -241,7 +227,7 @@ D = (A || E) && F
 
 - Boolean expressions with **AND, OR, NOT, XOR** operators
 - Synchronous state updates using shunting-yard parser
-- Full state space exploration up to **20 nodes**
+- Full state space exploration for attractor identification
 
 ### 2️⃣ Weighted Analysis
 
@@ -256,17 +242,7 @@ D = (A || E) && F
 - Noise parameter (µ): controls transition randomness (default: 0.25)
 - Self-degradation (c): models natural decay (default: 0.1)
 - Stationary distribution computation
-- Supports networks up to **200 nodes**
-
-### ⚙️ Configuration
-
-Analysis parameters are defined in `src/config/constants.ts`:
-
-| Parameter | Value | Description |
-|:----------|:-----:|:------------|
-| `DEFAULT_STATE_CAP` | 2²⁰ | Maximum states to explore (~1.05M) |
-| `MAX_NODES_DETERMINISTIC` | 20 | Node limit for deterministic analysis |
-| `MAX_NODES_PROBABILISTIC` | 200 | Node limit for probabilistic analysis |
+- Scalable analysis of complex oncological networks
 
 📚 For detailed API documentation, see [Analysis Module README](src/lib/analysis/README.md)
 
