@@ -362,31 +362,13 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 - **[Plotly.js](https://plotly.com/javascript/)** — Interactive 3D visualization
 - **[shadcn/ui](https://ui.shadcn.com/)** — Beautiful UI components
 - **[Supabase](https://supabase.com/)** — Backend as a service
-- **Research Advisors** — For guidance and support throughout this thesis
-
----
-
-## 📚 Citation
-
-If you use TISON V2 in your research, please cite:
-
-```bibtex
-@mastersthesis{tison2026,
-  author  = {Your Name},
-  title   = {TISON V2: A Therapeutic Intervention Simulator for Oncological Networks},
-  school  = {Your University},
-  year    = {2026},
-  type    = {Master's Thesis}
-}
-```
+- **Research Supervisor** — Dr. Safee Ullah Chaudhary
 
 ---
 
 <div align="center">
 
 **Built with ❤️ for cancer research**
-
-*Master's Thesis Project — 2026*
 
 [⬆ Back to Top](#-tison-v2)
 

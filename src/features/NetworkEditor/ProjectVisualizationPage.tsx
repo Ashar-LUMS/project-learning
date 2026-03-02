@@ -35,7 +35,7 @@ import { applyTherapiesToNetwork } from '@/lib/applyTherapies';
 import SeqAnalysisTab from './tabs/SeqAnalysisTab';
 import ExomeSeqTab from './tabs/ExomeSeqTab';
 import { PatientDrugScoresDialog } from './PatientDrugScoresDialog';
-import { Network, FileText, BarChart3, Trash2 } from 'lucide-react';
+import { Network, FileText, BarChart3, Trash2, Plus, Upload, Download, GitMerge, BookOpen, Eye, Pencil, Waypoints, Play, Pill, FlaskConical, Dna } from 'lucide-react';
 
 type ProjectRecord = {
   id: string;
@@ -1420,6 +1420,8 @@ function ProjectVisualizationPage() {
   const renderNetworkItem = useCallback((network: ProjectNetworkRecord) => {
     const createdLabel = formatTimestamp(network.created_at);
     const isActive = network.id === selectedNetworkId;
+    const networkType = getNetworkType(network);
+    const isRuleBased = networkType === 'rule-based';
     return (
       <div
         key={network.id}
@@ -1436,13 +1438,26 @@ function ProjectVisualizationPage() {
           className="w-full text-left"
         >
           <div className="flex items-start justify-between gap-1 pr-4">
-            <span className="text-[11px] font-medium text-foreground break-words flex-1 min-w-0">{network.name}</span>
+            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+              <span
+                className={cn(
+                  "inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-extrabold flex-shrink-0 ring-1",
+                  isRuleBased
+                    ? "bg-blue-500/20 text-blue-600 dark:text-blue-400 ring-blue-500/30"
+                    : "bg-amber-500/20 text-amber-600 dark:text-amber-400 ring-amber-500/30"
+                )}
+                title={isRuleBased ? 'Rule-Based' : 'Weight-Based'}
+              >
+                {isRuleBased ? 'R' : 'W'}
+              </span>
+              <span className="text-[11px] font-medium text-foreground break-words flex-1 min-w-0">{network.name}</span>
+            </div>
             {isActive && (
               <span className="text-[10px] uppercase tracking-wide text-primary flex-shrink-0 whitespace-nowrap">Active</span>
             )}
           </div>
           {createdLabel && (
-            <div className="mt-0.5 text-[10px] text-muted-foreground">Created {createdLabel}</div>
+            <div className="mt-0.5 text-[10px] text-muted-foreground pl-[22px]">Created {createdLabel}</div>
           )}
         </button>
         <button
@@ -1458,27 +1473,46 @@ function ProjectVisualizationPage() {
         </button>
       </div>
     );
-  }, [selectedNetworkId, handleSelectNetwork]);
+  }, [selectedNetworkId, handleSelectNetwork, getNetworkType]);
 
   // removed local timestamp formatter in favor of shared utility
 
   const networkSidebarContent = (
     <div className="space-y-4 flex-1">
-      <div className="space-y-2">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-lg bg-green-500/10">
+          <Network className="w-5 h-5 text-green-600" />
+        </div>
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight text-foreground">Network Editor</h2>
+          <p className="text-xs text-muted-foreground">
+            {networks.length} network{networks.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+      </div>
+
+      <Separator className="bg-border/50" />
+
+      {/* Actions */}
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">Actions</p>
         <button
           type="button"
           onClick={handleOpenNewNetworkDialog}
-          className="w-full rounded-lg border border-dashed border-primary/50 bg-primary/5 p-2 text-left text-xs font-medium text-primary transition-colors hover:bg-primary/10 disabled:opacity-60"
+          className="w-full flex items-center gap-2.5 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-3 py-2 text-xs font-medium text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
           disabled={isLoading}
         >
-          + New Network
+          <Plus className="w-3.5 h-3.5" />
+          New Network
         </button>
         <button
           type="button"
           onClick={handleImportNetwork}
-          className="w-full rounded-lg border border-muted bg-card p-2 text-left text-xs font-medium transition-colors hover:bg-muted disabled:opacity-60"
+          className="w-full flex items-center gap-2.5 rounded-lg border border-muted bg-card px-3 py-2 text-xs font-medium transition-colors hover:bg-muted disabled:opacity-50"
           disabled={isLoading}
         >
+          <Upload className="w-3.5 h-3.5" />
           Import Network
         </button>
         <button
@@ -1492,61 +1526,68 @@ function ProjectVisualizationPage() {
               showToast({ title: 'No Data', description: 'Selected network has no data', variant: 'destructive' });
               return;
             }
-            // Open export format dialog
             setSelectedExportFormats([selectedIsRuleBased ? 'txt' : 'csv']);
             setIsExportDialogOpen(true);
           }}
-          className="w-full rounded-lg border border-muted bg-card p-2 text-left text-xs font-medium transition-colors hover:bg-muted disabled:opacity-60"
+          className="w-full flex items-center gap-2.5 rounded-lg border border-muted bg-card px-3 py-2 text-xs font-medium transition-colors hover:bg-muted disabled:opacity-50"
           disabled={isLoading || !selectedNetwork}
         >
+          <Download className="w-3.5 h-3.5" />
           Export Network
         </button>
         <button
           type="button"
           onClick={handleMergeNetwork}
-          className="w-full rounded-lg border border-muted bg-card p-2 text-left text-xs font-medium transition-colors hover:bg-muted disabled:opacity-60"
+          className="w-full flex items-center gap-2.5 rounded-lg border border-muted bg-card px-3 py-2 text-xs font-medium transition-colors hover:bg-muted disabled:opacity-50"
           disabled={isLoading || networks.length < 2}
         >
+          <GitMerge className="w-3.5 h-3.5" />
           Merge Networks
         </button>
         <button
           type="button"
           onClick={() => setIsCaseStudyDialogOpen(true)}
-          className="w-full rounded-lg border border-muted bg-card p-2 text-left text-xs font-medium transition-colors hover:bg-muted disabled:opacity-60"
+          className="w-full flex items-center gap-2.5 rounded-lg border border-muted bg-card px-3 py-2 text-xs font-medium transition-colors hover:bg-muted disabled:opacity-50"
           disabled={isLoading}
         >
-          Load Sample Case Studies
+          <BookOpen className="w-3.5 h-3.5" />
+          Load Case Studies
         </button>
       </div>
 
       {isLoading ? (
-        <div className="rounded-lg border border-dashed border-muted-foreground/30 p-2 text-xs text-muted-foreground">
+        <div className="rounded-lg border border-dashed border-muted-foreground/30 p-3 text-xs text-muted-foreground text-center">
           Loading networks...
         </div>
       ) : sidebarRecentNetworks.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-muted-foreground/30 p-2 text-xs text-muted-foreground">
-          No networks linked to this project yet.
+        <div className="rounded-lg border border-dashed border-muted-foreground/30 p-4 text-center space-y-1.5">
+          <Network className="w-6 h-6 mx-auto text-muted-foreground/40" />
+          <p className="text-xs text-muted-foreground">No networks linked yet</p>
         </div>
       ) : (
         <>
+          <Separator className="bg-border/50" />
+          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">Networks</p>
+
           {/* Rule-Based Networks Section */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <h3 className="text-xs font-semibold text-muted-foreground">Rule-Based Networks</h3>
-              <Badge variant="secondary" className="text-xs px-1.5 py-0.5">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2 px-1">
+              <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-blue-500/15 text-[9px] font-extrabold text-blue-600 dark:text-blue-400">R</span>
+              <h3 className="text-xs font-semibold text-muted-foreground flex-1">Rule-Based</h3>
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
                 {ruleBasedNetworks.length}
               </Badge>
             </div>
             {ruleBasedNetworks.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-muted-foreground/20 p-2 text-xs text-muted-foreground/70 italic">
-                No rule-based networks
+              <div className="rounded border border-dashed border-muted-foreground/20 p-2 text-[11px] text-muted-foreground/60 italic text-center">
+                None
               </div>
             ) : (
               <div 
-                className="space-y-2" 
-                style={ruleBasedNetworks.length > 3 ? {
-                  maxHeight: '240px',
-                  overflowY: 'scroll',
+                className="space-y-1" 
+                style={ruleBasedNetworks.length > 2 ? {
+                  maxHeight: '120px',
+                  overflowY: 'auto',
                   scrollbarWidth: 'thin'
                 } : undefined}
               >
@@ -1556,23 +1597,24 @@ function ProjectVisualizationPage() {
           </div>
 
           {/* Weight-Based Networks Section */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <h3 className="text-xs font-semibold text-muted-foreground">Weight-Based Networks</h3>
-              <Badge variant="secondary" className="text-xs px-1.5 py-0.5">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2 px-1">
+              <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-amber-500/15 text-[9px] font-extrabold text-amber-600 dark:text-amber-400">W</span>
+              <h3 className="text-xs font-semibold text-muted-foreground flex-1">Weight-Based</h3>
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
                 {weightBasedNetworks.length}
               </Badge>
             </div>
             {weightBasedNetworks.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-muted-foreground/20 p-2 text-xs text-muted-foreground/70 italic">
-                No weight-based networks
+              <div className="rounded border border-dashed border-muted-foreground/20 p-2 text-[11px] text-muted-foreground/60 italic text-center">
+                None
               </div>
             ) : (
               <div 
-                className="space-y-2" 
-                style={weightBasedNetworks.length > 3 ? {
-                  maxHeight: '240px',
-                  overflowY: 'scroll',
+                className="space-y-1" 
+                style={weightBasedNetworks.length > 2 ? {
+                  maxHeight: '120px',
+                  overflowY: 'auto',
                   scrollbarWidth: 'thin'
                 } : undefined}
               >
@@ -1586,20 +1628,21 @@ function ProjectVisualizationPage() {
       {/* View Mode Selector */}
       {selectedNetworkId && (
         <>
-          <div className="space-y-2">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">View Mode</h3>
-            <div className="grid grid-cols-2 gap-2">
+          <Separator className="bg-border/50" />
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">View Mode</p>
+            <div className="grid grid-cols-2 gap-1.5">
               <button
                 type="button"
                 onClick={() => setNetworkSubTab('editor')}
                 className={cn(
-                  "flex items-center gap-2 rounded-lg border p-2.5 text-left transition-all",
+                  "flex items-center gap-2 rounded-lg border px-3 py-2 text-left transition-all",
                   networkSubTab === 'editor'
                     ? "border-primary bg-primary/10 text-primary ring-1 ring-primary/20"
                     : "border-muted bg-card hover:border-muted-foreground/50 hover:bg-muted/50"
                 )}
               >
-                <Network className="h-4 w-4 flex-shrink-0" />
+                <Eye className="h-3.5 w-3.5 flex-shrink-0" />
                 <span className="text-xs font-medium">Topology</span>
               </button>
               <button
@@ -1607,7 +1650,7 @@ function ProjectVisualizationPage() {
                 onClick={() => selectedIsRuleBased && setNetworkSubTab('rules')}
                 disabled={!selectedIsRuleBased}
                 className={cn(
-                  "flex items-center gap-2 rounded-lg border p-2.5 text-left transition-all",
+                  "flex items-center gap-2 rounded-lg border px-3 py-2 text-left transition-all",
                   networkSubTab === 'rules'
                     ? "border-primary bg-primary/10 text-primary ring-1 ring-primary/20"
                     : "border-muted bg-card",
@@ -1617,7 +1660,7 @@ function ProjectVisualizationPage() {
                 )}
                 title={!selectedIsRuleBased ? "Only available for rule-based networks" : undefined}
               >
-                <FileText className="h-4 w-4 flex-shrink-0" />
+                <Pencil className="h-3.5 w-3.5 flex-shrink-0" />
                 <span className="text-xs font-medium">Rules</span>
               </button>
             </div>
@@ -1634,46 +1677,50 @@ function ProjectVisualizationPage() {
 
   // Seq Analysis sidebar content with network selector
   const seqAnalysisSidebarContent = (
-    <div className="space-y-6">
-      <div className="space-y-3">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-sky-500/10">
-            <BarChart3 className="w-5 h-5 text-sky-600" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold tracking-tight text-foreground">
-              Seq Analysis
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              RNA-seq data processing
-            </p>
-          </div>
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-lg bg-sky-500/10">
+          <Dna className="w-5 h-5 text-sky-600" />
+        </div>
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight text-foreground">Seq Analysis</h2>
+          <p className="text-xs text-muted-foreground">Sequencing data processing</p>
         </div>
       </div>
 
-      <Separator />
+      <Separator className="bg-border/50" />
 
       {/* Network Context Selector */}
       {networks.length > 0 && (
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Select a Network</label>
-          <select
-            value={selectedNetworkId ?? ''}
-            onChange={(e) => {
-              const val = e.target.value || null;
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">Network</p>
+          <Select
+            value={selectedNetworkId ?? ""}
+            onValueChange={(val) => {
               if (val) selectNetwork(val);
             }}
-            className="w-full border p-2 rounded text-sm"
           >
-            <option value="">-- Select a network --</option>
-            {networks.map(n => (
-              <option key={n.id} value={n.id}>{n.name || n.id}</option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full h-8 text-xs">
+              <SelectValue placeholder="Select a network..." />
+            </SelectTrigger>
+            <SelectContent>
+              {networks.map(n => (
+                <SelectItem key={n.id} value={n.id}>
+                  <span className="flex items-center gap-1.5">
+                    <Badge variant="outline" className="text-[10px] px-1 py-0">
+                      {n.data?.nodes?.length || 0}
+                    </Badge>
+                    <span className="truncate">{n.name || n.id}</span>
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {selectedNetworkId ? (
-            <p className="text-xs text-muted-foreground">Filtering by: {selectedNetwork?.name || selectedNetworkId}</p>
+            <p className="text-[11px] text-muted-foreground px-1">Filtering by: {selectedNetwork?.name || selectedNetworkId}</p>
           ) : (
-            <p className="text-xs text-amber-600">No network selected — analysis will show all genes</p>
+            <p className="text-[11px] text-amber-600 px-1">No network selected — all genes shown</p>
           )}
         </div>
       )}
@@ -1681,9 +1728,9 @@ function ProjectVisualizationPage() {
       <Separator className="bg-border/50" />
 
       {/* Requirements */}
-      <div className="space-y-2">
-        <h3 className="text-sm font-medium">Required Files</h3>
-        <div className="space-y-1.5 text-xs">
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">Required Files</p>
+        <div className="space-y-1.5 text-xs px-1">
           <div className="flex items-start gap-2">
             <span className="font-medium text-sky-600 shrink-0">R1:</span>
             <span className="text-muted-foreground">Forward reads (.fastq.gz)</span>
@@ -1707,18 +1754,31 @@ function ProjectVisualizationPage() {
 
   // Inference sidebar content with network selector
   const inferenceSidebarContent = (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-lg bg-purple-500/10">
+          <Waypoints className="w-5 h-5 text-purple-600" />
+        </div>
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight text-foreground">Network Analysis</h2>
+          <p className="text-xs text-muted-foreground">Inference &amp; simulation</p>
+        </div>
+      </div>
+
+      <Separator className="bg-border/50" />
+
       {/* Network Selector */}
       {networks.length > 0 && (
-        <div>
-          <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">Network</label>
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">Network</p>
           <Select
             value={selectedNetworkId ?? ""}
             onValueChange={(val) => {
               if (val) selectNetwork(val);
             }}
           >
-            <SelectTrigger className="h-7 text-xs">
+            <SelectTrigger className="h-8 text-xs">
               <SelectValue placeholder="Select..." />
             </SelectTrigger>
             <SelectContent>
@@ -1737,68 +1797,77 @@ function ProjectVisualizationPage() {
         </div>
       )}
 
+      <Separator className="bg-border/50" />
+
       {/* Deterministic Analysis */}
-      <div>
-        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Deterministic</p>
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">Deterministic</p>
         <div className="flex gap-1.5">
           <Button
-            className="h-7 text-xs px-2.5"
+            className="h-8 text-xs px-3 gap-1.5"
             onClick={handleRunRuleBasedDA}
             disabled={Boolean(isRuleBasedRunning) || !selectedIsRuleBased}
             variant={selectedIsRuleBased ? "default" : "outline"}
             title={!selectedIsRuleBased ? 'Rule-based networks only' : 'Run rule-based analysis'}
             size="sm"
           >
+            <FileText className="w-3 h-3" />
             Rule-based
           </Button>
           <Button
-            className="h-7 text-xs px-2.5"
+            className="h-8 text-xs px-3 gap-1.5"
             onClick={handleRunWeighted}
             disabled={isWeightedAnalyzing || selectedIsRuleBased}
             variant={!selectedIsRuleBased ? "default" : "outline"}
             title={selectedIsRuleBased ? 'Weight-based networks only' : 'Run weighted analysis'}
             size="sm"
           >
+            <BarChart3 className="w-3 h-3" />
             Weighted
           </Button>
         </div>
       </div>
 
       {/* Probabilistic Analysis */}
-      <div>
-        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Probabilistic</p>
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">Probabilistic</p>
         <Button
-          className="h-7 text-xs px-2.5"
+          className="h-8 text-xs px-3 gap-1.5"
           onClick={handleOpenProbabilisticDialog}
           disabled={Boolean(isProbabilisticAnalyzing)}
           variant="secondary"
           size="sm"
         >
+          <Play className="w-3 h-3" />
           Run Analysis
         </Button>
       </div>
 
       {/* ODE */}
-      <div>
-        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">ODE</p>
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">ODE</p>
         <Button
-          className="h-7 text-xs px-2.5"
+          className="h-8 text-xs px-3 gap-1.5"
           variant="outline"
           disabled
           size="sm"
         >
+          <FlaskConical className="w-3 h-3" />
           Coming Soon
         </Button>
       </div>
 
+      <Separator className="bg-border/50" />
+
       {/* Download Results */}
-      <div className="pt-2 border-t">
+      <div>
         <Button
           variant="outline"
-          className="h-7 text-xs px-2.5"
+          className="h-8 text-xs px-3 gap-1.5 w-full"
           onClick={handleDownloadResults}
           disabled={!Boolean(ruleBasedResult || weightedResult || probabilisticResult)}
         >
+          <Download className="w-3 h-3" />
           Download Results
         </Button>
       </div>
@@ -1809,46 +1878,52 @@ function ProjectVisualizationPage() {
   const therapeuticsSidebarContent = useMemo(() => {
     if (!selectedNetworkId || !selectedNetwork?.data) {
       return (
-        <div className="space-y-6">
-          <div className="space-y-3">
-            <h2 className="text-2xl font-bold tracking-tight text-foreground">
-              Therapeutics
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Select a network in the Network tab first to configure interventions.
-            </p>
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-red-500/10">
+              <Pill className="w-5 h-5 text-red-600" />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold tracking-tight text-foreground">Therapeutics</h2>
+              <p className="text-xs text-muted-foreground">Configure interventions</p>
+            </div>
+          </div>
+
+          <Separator className="bg-border/50" />
+
+          <div className="rounded-lg border border-dashed border-muted-foreground/30 p-4 text-center space-y-1.5">
+            <Pill className="w-6 h-6 mx-auto text-muted-foreground/40" />
+            <p className="text-xs text-muted-foreground">Select a network first</p>
           </div>
 
           {/* Show available networks even when none is selected */}
           {networks && networks.length > 0 && (
-            <div className="space-y-3">
-              <Separator />
-              <div>
-                <h3 className="text-sm font-semibold mb-2">Select Network</h3>
-                <Select
-                  value=""
-                  onValueChange={(networkId) => {
-                    selectNetwork(networkId);
-                    setActiveTab('therapeutics');
-                  }}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Choose a network..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {networks.map((net) => (
-                      <SelectItem key={net.id} value={net.id}>
-                        <span className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs">
-                            {net.data?.nodes?.length || 0}
-                          </Badge>
-                          {net.name}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">Network</p>
+              <Select
+                value=""
+                onValueChange={(networkId) => {
+                  selectNetwork(networkId);
+                  setActiveTab('therapeutics');
+                }}
+              >
+                <SelectTrigger className="w-full h-8 text-xs">
+                  <SelectValue placeholder="Choose a network..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {networks.map((net) => (
+                    <SelectItem key={net.id} value={net.id}>
+                      <span className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-[10px] px-1 py-0">
+                          {net.data?.nodes?.length || 0}
+                        </Badge>
+                        {net.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           )}
         </div>
@@ -1884,34 +1959,40 @@ function ProjectVisualizationPage() {
     const hasAnalysisResult = !!(therapeuticsWeightedResult || therapeuticsProbabilisticResult || therapeuticsRuleBasedResult);
 
     return (
-      <div className="space-y-6">
-        <div className="space-y-3">
-          <h2 className="text-2xl font-bold tracking-tight text-foreground">
-            Therapeutics
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Configure interventions for {selectedNetwork.name || 'this network'}
-          </p>
+      <div className="space-y-4">
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-red-500/10">
+            <Pill className="w-5 h-5 text-red-600" />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold tracking-tight text-foreground">Therapeutics</h2>
+            <p className="text-xs text-muted-foreground truncate max-w-[180px]">
+              {selectedNetwork.name || 'Network'}
+            </p>
+          </div>
         </div>
 
-        {/* Show available networks when one is selected */}
+        <Separator className="bg-border/50" />
+
+        {/* Network Selector */}
         {networks && networks.length > 1 && (
-          <div className="space-y-2">
-            <h3 className="text-xs font-semibold text-muted-foreground">Select Network</h3>
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">Network</p>
             <Select
               value={selectedNetworkId || ""}
               onValueChange={(networkId) => {
                 selectNetwork(networkId);
               }}
             >
-              <SelectTrigger className="w-full h-9">
+              <SelectTrigger className="w-full h-8 text-xs">
                 <SelectValue placeholder="Choose a network..." />
               </SelectTrigger>
               <SelectContent>
                 {networks.map((net) => (
                   <SelectItem key={net.id} value={net.id}>
                     <span className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">
+                      <Badge variant="outline" className="text-[10px] px-1 py-0">
                         {net.data?.nodes?.length || 0}
                       </Badge>
                       <span className="truncate">{net.name}</span>
@@ -1922,8 +2003,6 @@ function ProjectVisualizationPage() {
             </Select>
           </div>
         )}
-
-        <Separator />
 
         <TherapeuticsPanel
           networkId={selectedNetworkId}
@@ -1938,26 +2017,26 @@ function ProjectVisualizationPage() {
           }}
         />
 
-        <Separator />
+        <Separator className="bg-border/50" />
 
         {/* Analysis Section */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Run Analysis</h3>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Run Analysis</p>
             {hasAnalysisResult && (
-              <Badge variant="secondary" className="text-xs">Results Ready</Badge>
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">Ready</Badge>
             )}
           </div>
-          <p className="text-xs text-muted-foreground">
-            Analyze the network with {interventionCount} intervention{interventionCount !== 1 ? 's' : ''} applied
+          <p className="text-[11px] text-muted-foreground px-1">
+            {interventionCount} intervention{interventionCount !== 1 ? 's' : ''} applied
           </p>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {/* Rule-Based Analysis */}
             <Button
               onClick={handleTherapeuticsRuleBased}
               variant="outline"
-              className="w-full justify-start h-9 text-xs"
+              className="w-full justify-start h-8 text-xs gap-1.5"
               disabled={isTherapeuticsRuleBasedRunning || !hasRules}
               title={!hasRules ? 'No rules defined for this network' : undefined}
             >
@@ -1967,7 +2046,10 @@ function ProjectVisualizationPage() {
                   Running...
                 </span>
               ) : (
-                'Rule-Based DA'
+                <>
+                  <FileText className="w-3 h-3" />
+                  Rule-Based DA
+                </>
               )}
             </Button>
 
@@ -1975,7 +2057,7 @@ function ProjectVisualizationPage() {
             <Button
               onClick={handleTherapeuticsWeighted}
               variant="outline"
-              className="w-full justify-start h-9 text-xs"
+              className="w-full justify-start h-8 text-xs gap-1.5"
               disabled={isTherapeuticsWeightedRunning || ((selectedNetwork?.data?.metadata?.type === 'Rule Based') || (Array.isArray(selectedNetwork?.data?.rules) && selectedNetwork?.data?.rules.length > 0))}
               title={((selectedNetwork?.data?.metadata?.type === 'Rule Based') || (Array.isArray(selectedNetwork?.data?.rules) && selectedNetwork?.data?.rules.length > 0)) ? 'Weighted analysis disabled for rule-based networks' : undefined}
             >
@@ -1985,7 +2067,10 @@ function ProjectVisualizationPage() {
                   Running...
                 </span>
               ) : (
-                'Weighted DA'
+                <>
+                  <BarChart3 className="w-3 h-3" />
+                  Weighted DA
+                </>
               )}
             </Button>
 
@@ -1993,7 +2078,7 @@ function ProjectVisualizationPage() {
             <Button
               onClick={handleOpenTherapeuticsProbabilisticDialog}
               variant="outline"
-              className="w-full justify-start h-9 text-xs"
+              className="w-full justify-start h-8 text-xs gap-1.5"
               disabled={isTherapeuticsProbabilisticRunning}
             >
               {isTherapeuticsProbabilisticRunning ? (
@@ -2002,7 +2087,10 @@ function ProjectVisualizationPage() {
                   Running...
                 </span>
               ) : (
-                'Probabilistic Analysis'
+                <>
+                  <Play className="w-3 h-3" />
+                  Probabilistic Analysis
+                </>
               )}
             </Button>
           </div>

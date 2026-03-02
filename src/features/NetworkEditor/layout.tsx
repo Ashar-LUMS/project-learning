@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { formatDate } from '@/lib/format';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -451,28 +451,26 @@ function NetworkSidebar() {
   const [showLabels, setShowLabels] = useState(true);
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-3">
-        <h2 className="text-2xl font-bold tracking-tight text-foreground">
-          Network Tools
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Manage and analyze your network structures
-        </p>
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-lg bg-green-500/10">
+          <Network className="w-5 h-5 text-green-600" />
+        </div>
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight text-foreground">Network Editor</h2>
+          <p className="text-xs text-muted-foreground">Build &amp; manage networks</p>
+        </div>
       </div>
 
-      <Separator />
-
-      {/* Quick Actions removed — use toolbar buttons on the canvas */}
+      <Separator className="bg-border/50" />
 
       {/* Display Settings */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium">Display Settings</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">Display</p>
+        <div className="space-y-3 px-1">
           <div className="flex items-center justify-between">
-            <Label htmlFor="auto-layout" className="text-sm">Auto Layout</Label>
+            <Label htmlFor="auto-layout" className="text-xs">Auto Layout</Label>
             <Switch
               id="auto-layout"
               checked={autoLayout}
@@ -480,18 +478,15 @@ function NetworkSidebar() {
             />
           </div>
           <div className="flex items-center justify-between">
-            <Label htmlFor="show-labels" className="text-sm">Show Labels</Label>
+            <Label htmlFor="show-labels" className="text-xs">Show Labels</Label>
             <Switch
               id="show-labels"
               checked={showLabels}
               onCheckedChange={setShowLabels}
             />
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Network Statistics - placeholder until live data is wired */}
-      {/* Stats will be populated from NetworkGraph's live data */}
+        </div>
+      </div>
     </div>
   );
 }
@@ -499,23 +494,37 @@ function NetworkSidebar() {
 // Enhanced Network Analysis Sidebar
 function NetworkAnalysisSidebar({ actions }: { actions?: NetworkEditorLayoutProps['inferenceActions'] }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-lg bg-purple-500/10">
+          <Waypoints className="w-5 h-5 text-purple-600" />
+        </div>
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight text-foreground">Network Analysis</h2>
+          <p className="text-xs text-muted-foreground">Inference &amp; simulation</p>
+        </div>
+      </div>
+
+      <Separator className="bg-border/50" />
+
       {/* Deterministic Analysis */}
-      <div>
-        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Deterministic</p>
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">Deterministic</p>
         <div className="flex gap-1.5">
           <Button
-            className="h-7 text-xs px-2.5"
+            className="h-8 text-xs px-3 gap-1.5"
             onClick={() => actions?.run?.()}
             disabled={Boolean(actions?.isRunning) || !Boolean(actions?.isRuleBased)}
             variant={actions?.isRuleBased ? "default" : "outline"}
             title={!actions?.isRuleBased ? 'Rule-based networks only' : 'Run rule-based analysis'}
             size="sm"
           >
+            <FileText className="w-3 h-3" />
             Rule-based
           </Button>
           <Button
-            className="h-7 text-xs px-2.5"
+            className="h-8 text-xs px-3 gap-1.5"
             onClick={() => {
               if (actions?.isRuleBased) return;
               actions?.runWeighted?.();
@@ -525,30 +534,32 @@ function NetworkAnalysisSidebar({ actions }: { actions?: NetworkEditorLayoutProp
             title={actions?.isRuleBased ? 'Weight-based networks only' : 'Run weighted analysis'}
             size="sm"
           >
+            <BarChart3 className="w-3 h-3" />
             Weighted
           </Button>
         </div>
       </div>
 
       {/* Probabilistic Analysis */}
-      <div>
-        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Probabilistic</p>
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">Probabilistic</p>
         <Button
-          className="h-7 text-xs px-2.5"
+          className="h-8 text-xs px-3 gap-1.5"
           onClick={() => actions?.runProbabilistic?.()}
           disabled={Boolean(actions?.isProbabilisticRunning)}
           variant="secondary"
           size="sm"
         >
+          <Play className="w-3 h-3" />
           Run Analysis
         </Button>
       </div>
 
       {/* ODE */}
-      <div>
-        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">ODE</p>
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">ODE</p>
         <Button
-          className="h-7 text-xs px-2.5"
+          className="h-8 text-xs px-3 gap-1.5"
           variant="outline"
           disabled
           size="sm"
@@ -557,15 +568,17 @@ function NetworkAnalysisSidebar({ actions }: { actions?: NetworkEditorLayoutProp
         </Button>
       </div>
 
+      <Separator className="bg-border/50" />
+
       {/* Download Results */}
-      <div className="pt-2 border-t">
+      <div>
         <Button
           variant="outline"
-          className="h-7 text-xs px-2.5"
+          className="h-8 text-xs px-3 gap-1.5 w-full"
           onClick={() => actions?.download?.()}
           disabled={!actions?.hasResult}
         >
-          <Download className="w-3 h-3 mr-1.5" />
+          <Download className="w-3 h-3" />
           Download
         </Button>
       </div>
@@ -576,16 +589,24 @@ function NetworkAnalysisSidebar({ actions }: { actions?: NetworkEditorLayoutProp
 // Default Therapeutics Sidebar (when no custom sidebar is passed)
 function TherapeuticsSidebar() {
   return (
-    <div className="space-y-6">
-      <div className="space-y-3">
-        <h2 className="text-2xl font-bold tracking-tight text-foreground">
-          Therapeutics
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Select a network to configure interventions
-        </p>
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-lg bg-red-500/10">
+          <Pill className="w-5 h-5 text-red-600" />
+        </div>
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight text-foreground">Therapeutics</h2>
+          <p className="text-xs text-muted-foreground">Configure interventions</p>
+        </div>
       </div>
-      <Separator />
+
+      <Separator className="bg-border/50" />
+
+      <div className="rounded-lg border border-dashed border-muted-foreground/30 p-4 text-center space-y-1.5">
+        <Pill className="w-6 h-6 mx-auto text-muted-foreground/40" />
+        <p className="text-xs text-muted-foreground">Select a network first</p>
+      </div>
     </div>
   );
 }
@@ -593,33 +614,31 @@ function TherapeuticsSidebar() {
 // Enhanced Environment Sidebar
 function EnvironmentSidebar() {
   return (
-    <div className="space-y-6">
-      <div className="space-y-3">
-        <h2 className="text-2xl font-bold tracking-tight text-foreground">
-          Environment
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Configure environment conditions and presets
-        </p>
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-lg bg-amber-500/10">
+          <Container className="w-5 h-5 text-amber-600" />
+        </div>
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight text-foreground">Environment</h2>
+          <p className="text-xs text-muted-foreground">Conditions &amp; presets</p>
+        </div>
       </div>
 
-      <Separator />
+      <Separator className="bg-border/50" />
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium">Environment Controls</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Button className="w-full gap-2">
-            <Container className="w-4 h-4" />
-            Apply Preset
-          </Button>
-          <Button variant="outline" className="w-full gap-2">
-            <Upload className="w-4 h-4" />
-            Import Conditions
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">Controls</p>
+        <Button className="w-full h-8 text-xs gap-1.5">
+          <Container className="w-3.5 h-3.5" />
+          Apply Preset
+        </Button>
+        <Button variant="outline" className="w-full h-8 text-xs gap-1.5">
+          <Upload className="w-3.5 h-3.5" />
+          Import Conditions
+        </Button>
+      </div>
     </div>
   );
 }
@@ -627,53 +646,42 @@ function EnvironmentSidebar() {
 // Seq Data Analysis Sidebar
 function SeqAnalysisSidebar() {
   return (
-    <div className="space-y-6">
-      <div className="space-y-3">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-sky-500/10">
-            <BarChart3 className="w-5 h-5 text-sky-600" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold tracking-tight text-foreground">
-              Seq Analysis
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              Exome-seq data processing
-            </p>
-          </div>
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-lg bg-sky-500/10">
+          <Dna className="w-5 h-5 text-sky-600" />
+        </div>
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight text-foreground">Seq Analysis</h2>
+          <p className="text-xs text-muted-foreground">Sequencing data processing</p>
         </div>
       </div>
 
       <Separator className="bg-border/50" />
 
       {/* Requirements */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">Required Files</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <div className="space-y-1.5 text-xs">
-            <div className="flex items-start gap-2">
-              <span className="font-medium text-sky-600 shrink-0">R1:</span>
-              <span className="text-muted-foreground">Forward reads (.fastq.gz)</span>
-            </div>
-            <div className="flex items-start gap-2">
-              <span className="font-medium text-sky-600 shrink-0">R2:</span>
-              <span className="text-muted-foreground">Reverse reads (.fastq.gz)</span>
-            </div>
-            <div className="flex items-start gap-2">
-              <span className="font-medium text-sky-600 shrink-0">Ref:</span>
-              <span className="text-muted-foreground">Reference genome (.fa.gz)</span>
-            </div>
-            <div className="flex items-start gap-2">
-              <span className="font-medium text-sky-600 shrink-0">Ann:</span>
-              <span className="text-muted-foreground">Gene annotation (.gff3.gz)</span>
-            </div>
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">Required Files</p>
+        <div className="space-y-1.5 text-xs px-1">
+          <div className="flex items-start gap-2">
+            <span className="font-medium text-sky-600 shrink-0">R1:</span>
+            <span className="text-muted-foreground">Forward reads (.fastq.gz)</span>
           </div>
-        </CardContent>
-      </Card>
-
-      
+          <div className="flex items-start gap-2">
+            <span className="font-medium text-sky-600 shrink-0">R2:</span>
+            <span className="text-muted-foreground">Reverse reads (.fastq.gz)</span>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="font-medium text-sky-600 shrink-0">Ref:</span>
+            <span className="text-muted-foreground">Reference genome (.fa.gz)</span>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="font-medium text-sky-600 shrink-0">Ann:</span>
+            <span className="text-muted-foreground">Gene annotation (.gff3.gz)</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -681,51 +689,51 @@ function SeqAnalysisSidebar() {
 // New specialized sidebars
 function CellCircuitsSidebar() {
   return (
-    <div className="space-y-6">
-      <div className="space-y-3">
-        <h2 className="text-2xl font-bold tracking-tight text-foreground">
-          Cell Circuits
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Design and analyze genetic circuits
-        </p>
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-lg bg-indigo-500/10">
+          <Pill className="w-5 h-5 text-indigo-600" />
+        </div>
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight text-foreground">Cell Circuits</h2>
+          <p className="text-xs text-muted-foreground">Genetic circuit design</p>
+        </div>
       </div>
-      <Separator />
-      {/* Add circuit-specific controls */}
+      <Separator className="bg-border/50" />
     </div>
   );
 }
 
 function CellLinesSidebar() {
   return (
-    <div className="space-y-6">
-      <div className="space-y-3">
-        <h2 className="text-2xl font-bold tracking-tight text-foreground">
-          Cell Lines
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Manage and analyze cell line data
-        </p>
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-lg bg-emerald-500/10">
+          <Users className="w-5 h-5 text-emerald-600" />
+        </div>
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight text-foreground">Cell Lines</h2>
+          <p className="text-xs text-muted-foreground">Cell line data management</p>
+        </div>
       </div>
-      <Separator />
-      {/* Add cell line-specific controls */}
+      <Separator className="bg-border/50" />
     </div>
   );
 }
 
 function SimulationSidebar() {
   return (
-    <div className="space-y-6">
-      <div className="space-y-3">
-        <h2 className="text-2xl font-bold tracking-tight text-foreground">
-          Simulation
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Configure and run network simulations
-        </p>
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-lg bg-orange-500/10">
+          <Play className="w-5 h-5 text-orange-600" />
+        </div>
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight text-foreground">Simulation</h2>
+          <p className="text-xs text-muted-foreground">Network simulations</p>
+        </div>
       </div>
-      <Separator />
-      {/* Add simulation controls */}
+      <Separator className="bg-border/50" />
     </div>
   );
 }
@@ -733,41 +741,38 @@ function SimulationSidebar() {
 // AutoNetCan Integration Sidebar
 function AutoNetCanSidebar() {
   return (
-    <div className="space-y-6">
-      <div className="space-y-3">
-        <h2 className="text-2xl font-bold tracking-tight text-foreground">
-          AutoNetCan
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Automated Network Construction for Cancer Systems Biology
-        </p>
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-lg bg-teal-500/10">
+          <Cpu className="w-5 h-5 text-teal-600" />
+        </div>
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight text-foreground">AutoNetCan</h2>
+          <p className="text-xs text-muted-foreground">Automated network construction</p>
+        </div>
       </div>
 
-      <Separator />
+      <Separator className="bg-border/50" />
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium">Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Button
-            variant="outline"
-            className="w-full gap-2"
-            onClick={() => window.open('https://autonetcan.lums.edu.pk/createNetwork', '_blank')}
-          >
-            <Upload className="w-4 h-4" />
-            Open in New Tab
-          </Button>
-          <Button
-            variant="outline"
-            className="w-full gap-2"
-            onClick={() => window.open('https://autonetcan.lums.edu.pk/manual/AutoNetCan%20User%20Manual%20-%20v4.pdf', '_blank')}
-          >
-            <Download className="w-4 h-4" />
-            Download User Manual
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">Quick Actions</p>
+        <Button
+          variant="outline"
+          className="w-full h-8 text-xs gap-1.5"
+          onClick={() => window.open('https://autonetcan.lums.edu.pk/createNetwork', '_blank')}
+        >
+          <Upload className="w-3.5 h-3.5" />
+          Open in New Tab
+        </Button>
+        <Button
+          variant="outline"
+          className="w-full h-8 text-xs gap-1.5"
+          onClick={() => window.open('https://autonetcan.lums.edu.pk/manual/AutoNetCan%20User%20Manual%20-%20v4.pdf', '_blank')}
+        >
+          <Download className="w-3.5 h-3.5" />
+          Download User Manual
+        </Button>
+      </div>
     </div>
   );
 }
@@ -775,33 +780,30 @@ function AutoNetCanSidebar() {
 // Enhanced Analysis Sidebar
 function AnalysisSidebar() {
   return (
-    <div className="space-y-6">
-      <div className="space-y-3">
-        <h2 className="text-2xl font-bold tracking-tight text-foreground">
-          Analysis
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Advanced network analysis and metrics
-        </p>
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-lg bg-sky-500/10">
+          <BarChart3 className="w-5 h-5 text-sky-600" />
+        </div>
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight text-foreground">Analysis</h2>
+          <p className="text-xs text-muted-foreground">Network metrics &amp; insights</p>
+        </div>
       </div>
 
-      <Separator />
+      <Separator className="bg-border/50" />
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium">Analysis Tools</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Button className="w-full gap-2">
-            <Play className="w-4 h-4" />
-            Run Analysis
-          </Button>
-          <Button variant="outline" className="w-full gap-2">
-            <BarChart3 className="w-4 h-4" />
-            View Metrics
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">Tools</p>
+        <Button className="w-full h-8 text-xs gap-1.5">
+          <Play className="w-3.5 h-3.5" />
+          Run Analysis
+        </Button>
+        <Button variant="outline" className="w-full h-8 text-xs gap-1.5">
+          <BarChart3 className="w-3.5 h-3.5" />
+          View Metrics
+        </Button>
+      </div>
     </div>
   );
 }
@@ -809,33 +811,30 @@ function AnalysisSidebar() {
 // Enhanced Results Sidebar
 function ResultsSidebar() {
   return (
-    <div className="space-y-6">
-      <div className="space-y-3">
-        <h2 className="text-2xl font-bold tracking-tight text-foreground">
-          Results
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Export and visualize analysis results
-        </p>
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-lg bg-violet-500/10">
+          <FileText className="w-5 h-5 text-violet-600" />
+        </div>
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight text-foreground">Results</h2>
+          <p className="text-xs text-muted-foreground">Export &amp; visualize</p>
+        </div>
       </div>
 
-      <Separator />
+      <Separator className="bg-border/50" />
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium">Export Options</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Button className="w-full gap-2">
-            <Download className="w-4 h-4" />
-            Export Data
-          </Button>
-          <Button variant="outline" className="w-full gap-2">
-            <FileText className="w-4 h-4" />
-            Generate Report
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">Export</p>
+        <Button className="w-full h-8 text-xs gap-1.5">
+          <Download className="w-3.5 h-3.5" />
+          Export Data
+        </Button>
+        <Button variant="outline" className="w-full h-8 text-xs gap-1.5">
+          <FileText className="w-3.5 h-3.5" />
+          Generate Report
+        </Button>
+      </div>
     </div>
   );
 }
