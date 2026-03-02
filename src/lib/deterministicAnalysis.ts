@@ -309,23 +309,11 @@ export function performDeterministicAnalysis(
   const truncated = maxStates < totalStateSpace;
 
   if (truncated) {
-    warnings.push(`State space truncated: randomly sampling ${maxStates.toLocaleString()} of ${totalStateSpace.toLocaleString()} possible states.`);
+    warnings.push(`State space truncated: exploring first ${maxStates.toLocaleString()} of ${totalStateSpace.toLocaleString()} possible states.`);
   }
 
-  // Generate state indices to explore - random sampling when truncated
-  let stateIndices: number[];
-  if (truncated) {
-    // Random sampling of unique state indices
-    const sampledSet = new Set<number>();
-    while (sampledSet.size < maxStates) {
-      const randomIdx = Math.floor(Math.random() * totalStateSpace);
-      sampledSet.add(randomIdx);
-    }
-    stateIndices = Array.from(sampledSet);
-  } else {
-    // Exhaustive exploration
-    stateIndices = Array.from({ length: maxStates }, (_, i) => i);
-  }
+  // Generate state indices to explore (sequential enumeration up to cap)
+  const stateIndices: number[] = Array.from({ length: maxStates }, (_, i) => i);
 
   // Build rule map
   const ruleMap = new Map<string, RuleParsed>();

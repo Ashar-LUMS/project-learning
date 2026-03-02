@@ -150,20 +150,8 @@ export function performWeightedAnalysis(
   const stateToAttractorId = new Map<string, number>();
   const basinSizes = new Map<number, number>();
 
-  // Generate state indices to explore - random sampling when truncated
-  let stateIndices: number[];
-  if (truncated) {
-    // Random sampling of unique state indices
-    const sampledSet = new Set<number>();
-    while (sampledSet.size < maxStates) {
-      const randomIdx = Math.floor(Math.random() * totalStateSpace);
-      sampledSet.add(randomIdx);
-    }
-    stateIndices = Array.from(sampledSet);
-  } else {
-    // Exhaustive exploration
-    stateIndices = Array.from({ length: maxStates }, (_, i) => i);
-  }
+  // Generate state indices to explore (sequential enumeration up to cap)
+  const stateIndices: number[] = Array.from({ length: maxStates }, (_, i) => i);
 
   // Explore states
   for (const stateNum of stateIndices) {
@@ -246,7 +234,7 @@ export function performWeightedAnalysis(
     exploredStateCount: stateToAttractorId.size, // All states assigned to an attractor
     totalStateSpace,
     truncated,
-    warnings: truncated ? [`Analysis truncated: randomly sampled ${maxStates} of ${totalStateSpace} states`] : [],
+    warnings: truncated ? [`Analysis truncated: explored first ${maxStates} of ${totalStateSpace} states`] : [],
     unresolvedStates: 0, // In weighted, all states resolve
   };
 
