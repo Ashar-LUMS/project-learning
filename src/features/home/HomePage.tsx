@@ -9,7 +9,7 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Badge } from "../../components/ui/badge";
 import { Skeleton } from "../../components/ui/skeleton";
-import { Search, Plus, Folder, Edit, Trash2, Users, AlertCircle, FileText, Calendar, UserCheck, Loader2, Filter, X, Eye, Network } from "lucide-react";
+import { Search, Plus, Folder, Edit, Trash2, Users, AlertCircle, Calendar, UserCheck, Loader2, Filter, X, Eye, Network } from "lucide-react";
 
 type Project = {
   id: string;
@@ -485,124 +485,198 @@ const HomePage: React.FC = () => {
   }, [users, editTeamSearch, editSelectedAssigneeIds]);
 
   return (
-    <main className="flex-1 overflow-y-auto">
-      <div className="container mx-auto px-4 py-8">
-      {/* Header Section */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-2 h-8 bg-gradient-to-b from-primary to-primary/70 rounded-full"></div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-            Project Dashboard
-          </h1>
-        </div>
-        <p className="text-muted-foreground text-lg">Manage and organize your projects with your team</p>
-
-      </div>
-
-      {/* Banner */}
-      {banner && (
-        <div
-          className={`mb-8 rounded-2xl border p-4 flex items-start justify-between backdrop-blur-sm animate-fade-in ${banner.type === 'success'
-            ? 'bg-green-50/80 border-green-200 text-green-800 dark:bg-green-950/80 dark:border-green-800 dark:text-green-200'
-            : 'bg-red-50/80 border-red-200 text-red-800 dark:bg-red-950/80 dark:border-red-800 dark:text-red-200'
-            }`}
-        >
-          <div className="flex items-center gap-3">
-            <div className={`rounded-full p-2 ${banner.type === 'success' ? 'bg-green-100 dark:bg-green-900' : 'bg-red-100 dark:bg-red-900'
-              }`}>
-              {banner.type === 'success' ? <UserCheck size={16} /> : <AlertCircle size={16} />}
+    <main className="flex-1 overflow-y-auto bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-100/50 min-h-screen">
+      {/* Background Pattern */}
+      <div 
+        className="absolute inset-0 pointer-events-none opacity-30"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%232f5597' fill-opacity='0.02'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+        }}
+      />
+      
+      <div className="relative z-10">
+        <div className="container mx-auto px-4 py-4">
+          {/* Hero Header Section */}
+          <section className="mb-6">
+            <div className="bg-white/80 backdrop-blur-sm rounded-3xl border border-white/50 shadow-xl p-6 lg:p-8">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-3 h-10 bg-gradient-to-b from-[#2f5597] to-blue-600 rounded-full shadow-lg"></div>
+                    <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-[#2f5597] via-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                      Project Dashboard
+                    </h1>
+                  </div>
+                  <p className="text-gray-600 text-base lg:text-lg leading-relaxed mb-4">
+                    Manage and organize your research projects with collaborative network analysis tools
+                  </p>
+                  
+                  {/* Quick Stats */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-3 border border-blue-100">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-gradient-to-br from-[#2f5597] to-blue-600 rounded-lg flex items-center justify-center shadow-lg">
+                          <Folder className="w-4 h-4 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-xl font-bold text-gray-900">{displayedProjects.length}</p>
+                          <p className="text-xs text-gray-600">Projects</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-3 border border-emerald-100">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center shadow-lg">
+                          <Network className="w-4 h-4 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-xl font-bold text-gray-900">{displayedProjects.reduce((acc, p) => acc + (p.networks?.length || 0), 0)}</p>
+                          <p className="text-xs text-gray-600">Networks</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="bg-gradient-to-br from-purple-50 to-violet-50 rounded-xl p-3 border border-purple-100">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-violet-600 rounded-lg flex items-center justify-center shadow-lg">
+                          <Users className="w-4 h-4 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-xl font-bold text-gray-900">{new Set(displayedProjects.flatMap(p => p.assignees || [])).size}</p>
+                          <p className="text-xs text-gray-600">Collaborators</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="lg:flex-shrink-0">
+                  <Button
+                    onClick={() => { if (!(policyAttrs.onlyAdminsCreate && !isAdmin)) setIsCreateOpen(true); }}
+                    className="w-full lg:w-auto px-6 py-3 rounded-xl font-semibold text-white transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl text-base"
+                    disabled={policyAttrs.onlyAdminsCreate && !isAdmin}
+                    style={{
+                      background: 'linear-gradient(135deg, #2f5597 0%, #3b6bc9 50%, #4f46e5 100%)',
+                    }}
+                  >
+                    <Plus size={20} className="mr-2" />
+                    {policyAttrs.onlyAdminsCreate && !isAdmin ? 'Admins Only' : 'Create New Project'}
+                  </Button>
+                </div>
+              </div>
             </div>
-            <p className="text-sm font-medium">{banner.message}</p>
-          </div>
-          <button
-            className="text-sm opacity-70 hover:opacity-100 transition-opacity"
-            onClick={() => setBanner(null)}
-          >
-            <X size={16} />
-          </button>
-        </div>
-      )}
+          </section>
 
-      {/* Controls Section */}
-      <section className="mb-8">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="flex rounded-xl border border-border bg-background overflow-hidden shadow-sm">
+          {/* Banner */}
+          {banner && (
+            <div
+              className={`mb-4 rounded-2xl border p-4 flex items-start justify-between backdrop-blur-sm animate-fade-in shadow-lg ${banner.type === 'success'
+                ? 'bg-gradient-to-r from-emerald-50/90 to-teal-50/90 border-emerald-200 text-emerald-800'
+                : 'bg-gradient-to-r from-red-50/90 to-rose-50/90 border-red-200 text-red-800'
+                }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`rounded-xl p-2 shadow-lg ${banner.type === 'success' 
+                  ? 'bg-gradient-to-br from-emerald-400 to-teal-500 text-white' 
+                  : 'bg-gradient-to-br from-red-400 to-rose-500 text-white'
+                  }`}>
+                  {banner.type === 'success' ? <UserCheck size={16} /> : <AlertCircle size={16} />}
+                </div>
+                <p className="text-sm font-semibold">{banner.message}</p>
+              </div>
               <button
-                className={`px-4 py-2 text-sm font-medium transition-all ${projectTab === 'all' ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:text-foreground'}`}
-                onClick={() => setProjectTab('all')}
+                className="text-sm opacity-70 hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-white/50"
+                onClick={() => setBanner(null)}
               >
-                <Filter className="inline mr-2" size={14} />
-                All
-              </button>
-              <button
-                className={`px-4 py-2 text-sm font-medium transition-all border-l border-border ${projectTab === 'mine' ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:text-foreground'}`}
-                onClick={() => setProjectTab('mine')}
-              >
-                My Projects
-              </button>
-              <button
-                className={`px-4 py-2 text-sm font-medium transition-all border-l border-border ${projectTab === 'other' ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:text-foreground'}`}
-                onClick={() => setProjectTab('other')}
-              >
-                Shared With Me
+                <X size={16} />
               </button>
             </div>
-          </div>
-          <div className="flex-1 relative max-w-sm">
-            <Input
-              type="text"
-              placeholder="Search projects..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9"
-            />
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          </div>
+          )}
 
-
-          <Button
-            onClick={() => { if (!(policyAttrs.onlyAdminsCreate && !isAdmin)) setIsCreateOpen(true); }}
-            className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-primary-foreground transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl bg-primary"
-            disabled={policyAttrs.onlyAdminsCreate && !isAdmin}
-          >
-            <Plus size={20} />
-            {policyAttrs.onlyAdminsCreate && !isAdmin ? 'Admins Only' : 'New Project'}
-          </Button>
-        </div>
-      </section>
+          {/* Controls Section */}
+          <section className="mb-6">
+            <div className="bg-white/70 backdrop-blur-sm rounded-2xl border border-white/50 shadow-lg p-4">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex rounded-xl border border-gray-200 bg-white shadow-md overflow-hidden">
+                    <button
+                      className={`px-4 py-2 text-sm font-semibold transition-all duration-300 ${
+                        projectTab === 'all' 
+                          ? 'bg-gradient-to-r from-[#2f5597] to-blue-600 text-white shadow-lg' 
+                          : 'text-gray-600 hover:text-[#2f5597] hover:bg-gray-50'
+                      }`}
+                      onClick={() => setProjectTab('all')}
+                    >
+                      <Filter className="inline mr-1.5" size={14} />
+                      All Projects
+                    </button>
+                    <button
+                      className={`px-4 py-2 text-sm font-semibold transition-all duration-300 border-l border-gray-200 ${
+                        projectTab === 'mine' 
+                          ? 'bg-gradient-to-r from-[#2f5597] to-blue-600 text-white shadow-lg' 
+                          : 'text-gray-600 hover:text-[#2f5597] hover:bg-gray-50'
+                      }`}
+                      onClick={() => setProjectTab('mine')}
+                    >
+                      My Projects
+                    </button>
+                    <button
+                      className={`px-4 py-2 text-sm font-semibold transition-all duration-300 border-l border-gray-200 ${
+                        projectTab === 'other' 
+                          ? 'bg-gradient-to-r from-[#2f5597] to-blue-600 text-white shadow-lg' 
+                          : 'text-gray-600 hover:text-[#2f5597] hover:bg-gray-50'
+                      }`}
+                      onClick={() => setProjectTab('other')}
+                    >
+                      Shared With Me
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="flex-1 relative max-w-md">
+                  <Input
+                    type="text"
+                    placeholder="Search projects..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="h-10 pl-10 pr-3 rounded-xl border-2 border-gray-200 bg-white/80 backdrop-blur-sm focus:border-[#2f5597] focus:ring-2 focus:ring-blue-100 shadow-md text-sm"
+                  />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                </div>
+              </div>
+            </div>
+          </section>
 
       {/* Projects Grid */}
       <section>
         {isProjectsLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {[1, 2, 3, 4, 5, 6].map(i => (
-              <Card key={i} className="rounded-2xl border-0 bg-card/80 backdrop-blur-sm overflow-hidden shadow-lg">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-4 mb-4">
-                    <Skeleton className="h-12 w-12 rounded-xl bg-gradient-to-br from-gray-200 to-gray-300" />
-                    <Skeleton className="h-6 flex-1 bg-gradient-to-r from-gray-200 to-gray-300" />
+              <Card key={i} className="rounded-2xl border-0 bg-white/70 backdrop-blur-sm overflow-hidden shadow-xl">
+                <CardContent className="p-5">
+                  <div className="flex items-center gap-3 mb-4">
+                    <Skeleton className="h-10 w-10 rounded-xl bg-gradient-to-br from-gray-200 to-gray-300" />
+                    <Skeleton className="h-5 flex-1 bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg" />
                   </div>
                   <div className="space-y-3">
-                    <Skeleton className="h-4 w-full bg-gradient-to-r from-gray-200 to-gray-300" />
-                    <Skeleton className="h-4 w-5/6 bg-gradient-to-r from-gray-200 to-gray-300" />
+                    <Skeleton className="h-3 w-full bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg" />
+                    <Skeleton className="h-3 w-5/6 bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg" />
+                    <Skeleton className="h-8 w-full bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg" />
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
         ) : projectsError ? (
-          <Card className="rounded-2xl border-0 bg-gradient-to-br from-red-50 to-red-100/50 backdrop-blur-sm shadow-lg">
+          <Card className="rounded-2xl border-0 bg-gradient-to-br from-red-50/80 to-rose-50/80 backdrop-blur-sm shadow-xl border border-red-200/50">
             <CardContent className="p-8 text-center">
-              <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <AlertCircle size={32} className="text-red-600" />
+              <div className="w-16 h-16 bg-gradient-to-br from-red-400 to-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                <AlertCircle size={28} className="text-white" />
               </div>
-              <h3 className="text-xl font-semibold text-red-900 mb-2">Unable to load projects</h3>
-              <p className="text-red-700 mb-6">{projectsError}</p>
+              <h3 className="text-xl font-bold text-red-900 mb-2">Unable to load projects</h3>
+              <p className="text-red-700 mb-6 text-base">{projectsError}</p>
               <Button
-                variant="outline"
                 onClick={() => refetchProjects()}
-                className="border-red-300 text-red-700 hover:bg-red-50 rounded-xl"
+                className="px-6 py-2 rounded-xl font-semibold bg-gradient-to-r from-red-500 to-rose-600 text-white hover:from-red-600 hover:to-rose-700 shadow-lg hover:shadow-xl transition-all duration-300"
               >
                 Try Again
               </Button>
@@ -613,38 +687,38 @@ const HomePage: React.FC = () => {
             {displayedProjects.map(project => (
               <Card
                 key={project.id}
-                className="group rounded-2xl border border-border/60 bg-card/80 backdrop-blur-sm overflow-hidden transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 hover:border-primary/30 shadow-lg"
+                className="group rounded-2xl border border-white/50 bg-white/80 backdrop-blur-sm overflow-hidden transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 hover:border-[#2f5597]/30 shadow-xl hover:bg-white/90"
               >
                 <CardContent className="p-6">
                   {/* Header */}
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/30 to-primary flex items-center justify-center text-primary-foreground shadow-lg">
-                        <Folder size={24} />
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#2f5597] to-blue-600 flex items-center justify-center text-white shadow-lg group-hover:shadow-xl transition-shadow duration-300">
+                        <Folder size={20} />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h3 className="text-lg font-semibold text-foreground truncate">
+                        <h3 className="text-lg font-bold text-gray-900 truncate">
                           {project.name || 'Untitled Project'}
                         </h3>
                         {project.created_at && (
-                          <div className="flex items-center text-muted-foreground text-sm mt-1">
-                            <Calendar size={14} className="mr-1.5" />
+                          <div className="flex items-center text-gray-600 text-xs mt-1">
+                            <Calendar size={12} className="mr-1.5" />
                             {formatDate(project.created_at)}
                           </div>
                         )}
                       </div>
                     </div>
-                    {/* Actions: allow edit/delete if admin or creator */}
+                    {/* Actions */}
                     {(isAdmin || project.created_by === currentUserId || (project.creator_email && project.creator_email === currentUserEmail)) && (
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                         <button
-                          className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
+                          className="p-2 text-gray-500 hover:text-[#2f5597] hover:bg-blue-50 rounded-lg transition-all duration-200"
                           onClick={() => openEditDialog(project)}
                         >
                           <Edit size={16} />
                         </button>
                         <button
-                          className="p-2 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950 rounded-lg transition-all"
+                          className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
                           onClick={() => setDeleteCandidate(project)}
                         >
                           <Trash2 size={16} />
@@ -654,30 +728,32 @@ const HomePage: React.FC = () => {
                   </div>
                   {/* Creator Info */}
                   {(project.created_by || project.creator_email) && (
-                    <div className="mb-4 text-sm text-muted-foreground">
-                      Created by: {(() => {
-                        const creator = project.created_by ? userIdToUser[project.created_by] : users.find(u => u.email === project.creator_email);
-                        const label = creator?.name || creator?.email || (project.creator_email ? emailToName[project.creator_email] : '') || project.creator_email || 'Unknown';
-                        return (
-                          <span className="font-medium text-foreground" title={creator?.email || project.creator_email || undefined}>
-                            {label}
-                          </span>
-                        );
-                      })()}
+                    <div className="mb-4 p-3 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 rounded-xl border border-blue-100">
+                      <div className="text-xs text-gray-600">
+                        Created by: {(() => {
+                          const creator = project.created_by ? userIdToUser[project.created_by] : users.find(u => u.email === project.creator_email);
+                          const label = creator?.name || creator?.email || (project.creator_email ? emailToName[project.creator_email] : '') || project.creator_email || 'Unknown';
+                          return (
+                            <span className="font-semibold text-[#2f5597]" title={creator?.email || project.creator_email || undefined}>
+                              {label}
+                            </span>
+                          );
+                        })()}
+                      </div>
                     </div>
                   )}
-                  {/* Network Count Badge */}
+                  {/* Network Count and Stats */}
                   <div className="mb-4 flex items-center gap-2">
                     <Badge
                       variant="secondary"
-                      className="bg-emerald-50 text-emerald-700 border-emerald-200 rounded-lg"
+                      className="bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-700 border-emerald-200 rounded-lg px-3 py-1 font-semibold text-xs"
                     >
-                      <Network size={12} className="mr-1" />
+                      <Network size={12} className="mr-1.5" />
                       {project.networks?.length ?? 0} network{(project.networks?.length ?? 0) !== 1 ? 's' : ''}
                     </Badge>
                   </div>
                   {/* Assignees */}
-                  <div className="mb-6">
+                  <div className="mb-4">
                     <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent my-4" />
                     {project.assignees && project.assignees.length > 0 ? (
                       <div className="flex items-center justify-between">
@@ -695,7 +771,11 @@ const HomePage: React.FC = () => {
                             return (
                               <div
                                 key={id}
-                                className={`w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-xs font-semibold shadow-lg transition-transform group-hover/avatars:translate-y-[-2px] ${isUnknown ? 'bg-gradient-to-br from-gray-400 to-gray-600 text-white' : 'bg-muted text-muted-foreground'}`}
+                                className={`w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold shadow-lg transition-transform group-hover/avatars:translate-y-[-2px] ${
+                                  isUnknown 
+                                    ? 'bg-gradient-to-br from-gray-400 to-gray-600 text-white' 
+                                    : 'bg-gradient-to-br from-purple-400 to-violet-600 text-white'
+                                }`}
                                 title={label}
                               >
                                 {initials}
@@ -703,30 +783,34 @@ const HomePage: React.FC = () => {
                             );
                           })}
                           {project.assignees.length > 4 && (
-                            <div className="w-8 h-8 rounded-full bg-muted border-2 border-background flex items-center justify-center text-xs font-semibold text-muted-foreground shadow-lg">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-300 to-gray-500 border-2 border-white flex items-center justify-center text-xs font-bold text-white shadow-lg">
                               +{project.assignees.length - 4}
                             </div>
                           )}
                         </button>
                         <Badge
                           variant="secondary"
-                          className="bg-primary/10 text-primary border-primary/20 rounded-lg"
+                          className="bg-gradient-to-r from-[#2f5597]/10 to-blue-600/10 text-[#2f5597] border-[#2f5597]/20 rounded-lg px-3 py-1 font-semibold text-xs"
                         >
-                          <UserCheck size={12} className="mr-1" />
-                          {project.assignees.length}
+                          <UserCheck size={12} className="mr-1.5" />
+                          {project.assignees.length} member{project.assignees.length !== 1 ? 's' : ''}
                         </Badge>
                       </div>
                     ) : (
-                      <div className="text-sm text-muted-foreground flex items-center justify-center py-2">
+                      <div className="text-gray-500 flex items-center justify-center py-4 bg-gray-50/50 rounded-xl">
                         <Users size={16} className="mr-2" />
-                        No assignees yet
+                        No collaborators yet
                       </div>
                     )}
                   </div>
+
                   {/* Action Button */}
                   <Button
                     onClick={() => navigate(`/app/projects/${project.id}`)}
-                    className="w-full rounded-xl py-3 font-semibold transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl bg-primary text-primary-foreground"
+                    className="w-full rounded-xl py-3 text-base font-bold transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
+                    style={{
+                      background: 'linear-gradient(135deg, #2f5597 0%, #3b6bc9 50%, #4f46e5 100%)',
+                    }}
                   >
                     <Eye size={18} className="mr-2" />
                     Open Project
@@ -736,23 +820,30 @@ const HomePage: React.FC = () => {
             ))}
           </div>
         ) : (
-          <Card className="rounded-2xl border-0 bg-gradient-to-br from-muted to-primary/5 backdrop-blur-sm text-center shadow-lg">
-            <CardContent className="p-12">
-              <div className="w-20 h-20 bg-gradient-to-br from-primary/20 to-primary/40 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <FileText size={32} className="text-primary" />
+          <Card className="rounded-2xl border-0 bg-gradient-to-br from-gray-50/80 to-slate-100/80 backdrop-blur-sm shadow-xl border border-gray-200/50">
+            <CardContent className="p-8 text-center">
+              <div className="w-16 h-16 bg-gradient-to-br from-gray-300 to-gray-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
+                <Folder size={28} className="text-white" />
               </div>
-              <h3 className="text-2xl font-semibold text-foreground mb-3">No projects found</h3>
-              <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-                Create your first project to start collaborating with your team and organizing your work.
+              <h3 className="text-2xl font-bold text-gray-800 mb-3">No projects found</h3>
+              <p className="text-gray-600 text-base mb-6">
+                {projectTab === 'mine' ? "You haven't created any projects yet." :
+                 projectTab === 'other' ? "No projects have been shared with you." :
+                 searchTerm ? `No projects match "${searchTerm}".` : "Get started by creating your first project."}
               </p>
-              <Button
-                onClick={() => { if (!(policyAttrs.onlyAdminsCreate && !isAdmin)) setIsCreateOpen(true); }}
-                className="px-8 py-3 rounded-xl font-semibold text-primary-foreground transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl bg-primary"
-                disabled={policyAttrs.onlyAdminsCreate && !isAdmin}
-              >
-                <Plus size={20} className="mr-2" />
-                {policyAttrs.onlyAdminsCreate && !isAdmin ? 'Admins Only' : 'Create Your First Project'}
-              </Button>
+              {projectTab !== 'other' && (
+                <Button
+                  onClick={() => { if (!(policyAttrs.onlyAdminsCreate && !isAdmin)) setIsCreateOpen(true); }}
+                  disabled={policyAttrs.onlyAdminsCreate && !isAdmin}
+                  className="px-6 py-3 rounded-xl text-base font-bold shadow-lg hover:shadow-xl transition-all duration-300"
+                  style={{
+                    background: 'linear-gradient(135deg, #2f5597 0%, #3b6bc9 50%, #4f46e5 100%)',
+                  }}
+                >
+                  <Plus size={18} className="mr-2" />
+                  {policyAttrs.onlyAdminsCreate && !isAdmin ? 'Admins Only' : 'Create Your First Project'}
+                </Button>
+              )}
             </CardContent>
           </Card>
         )}
@@ -1151,6 +1242,7 @@ const HomePage: React.FC = () => {
         </DialogContent>
       </Dialog>
 
+        </div>
       </div>
     </main>
   );
