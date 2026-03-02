@@ -12,7 +12,7 @@
  */
 
 import type { DeterministicAnalysisResult, StateSnapshot } from './analysis/types';
-import { ANALYSIS_CONFIG } from '@/config/constants';
+import { ANALYSIS_CONFIG, computeAdaptiveCaps } from '@/config/constants';
 
 interface RuleParsed {
   target: string;
@@ -246,8 +246,11 @@ export function performDeterministicAnalysis(
     stepCap?: number;
   } = {}
 ): DeterministicAnalysisResult {
-  const stateCap = options.stateCap ?? ANALYSIS_CONFIG.DEFAULT_STATE_CAP;
-  const stepCap = options.stepCap ?? ANALYSIS_CONFIG.DEFAULT_STEP_CAP;
+  const requestedStateCap = options.stateCap ?? ANALYSIS_CONFIG.DEFAULT_STATE_CAP;
+  const requestedStepCap = options.stepCap ?? ANALYSIS_CONFIG.DEFAULT_STEP_CAP;
+  // Actual caps are computed after we know the node count (see below).
+  let stateCap = requestedStateCap;
+  let stepCap = requestedStepCap;
 
   const warnings: string[] = [];
   
@@ -299,8 +302,11 @@ export function performDeterministicAnalysis(
   const nodeOrder = Array.from(nodeIds).sort();
   const nodeLabels = Object.fromEntries(nodeOrder.map(id => [id, id]));
 
-  // Check node count
-  // Node count warnings removed to avoid noisy UI messaging for large networks.
+  // Adaptively scale caps so total work stays browser-safe.
+  const totalTokenCount = parsedRules.reduce((sum, r) => sum + r.tokens.length, 0);
+  const adapted = computeAdaptiveCaps(nodeOrder.length, totalTokenCount, requestedStateCap, requestedStepCap);
+  stateCap = adapted.stateCap;
+  stepCap = adapted.stepCap;
 
   const totalStateSpace = 2 ** nodeOrder.length;
   const maxStates = Math.min(stateCap, totalStateSpace);

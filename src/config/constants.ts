@@ -40,6 +40,50 @@ export const FEATURES = {
   ENABLE_RULE_INFERENCE: true,
 } as const;
 
+/**
+ * Compute adaptive state/step caps that keep total work within a browser-safe budget.
+ *
+ * For small networks the full state space is enumerated.
+ * For large networks both caps are scaled down so that
+ *   stateCap × stepCap × costPerStep  ≤  COMPUTATION_BUDGET.
+ */
+export function computeAdaptiveCaps(
+  nodeCount: number,
+  edgeOrComplexityCount: number,
+  requestedStateCap: number = ANALYSIS_CONFIG.DEFAULT_STATE_CAP,
+  requestedStepCap: number = ANALYSIS_CONFIG.DEFAULT_STEP_CAP,
+): { stateCap: number; stepCap: number } {
+  // ~200 M operations → typically finishes in 1-3 s on modern hardware.
+  const BUDGET = 200_000_000;
+  const MIN_SAMPLES = 500;
+  const MIN_STEPS = 200;
+
+  const costPerStep = Math.max(nodeCount, edgeOrComplexityCount, 1);
+  const totalStateSpace = nodeCount <= 30 ? 2 ** nodeCount : Number.POSITIVE_INFINITY;
+
+  // If full enumeration fits in budget, enumerate everything.
+  if (
+    Number.isFinite(totalStateSpace) &&
+    totalStateSpace <= requestedStateCap &&
+    totalStateSpace * requestedStepCap * costPerStep <= BUDGET
+  ) {
+    return { stateCap: totalStateSpace, stepCap: requestedStepCap };
+  }
+
+  // Otherwise distribute the budget evenly across samples and steps.
+  const sqrtBudget = Math.sqrt(BUDGET / costPerStep);
+  const effectiveStateCap = Math.min(
+    requestedStateCap,
+    Math.max(MIN_SAMPLES, Math.floor(sqrtBudget)),
+  );
+  const effectiveStepCap = Math.min(
+    requestedStepCap,
+    Math.max(MIN_STEPS, Math.floor(sqrtBudget)),
+  );
+
+  return { stateCap: effectiveStateCap, stepCap: effectiveStepCap };
+}
+
 // Error Messages
 export const ERROR_MESSAGES = {
   NO_NETWORK_SELECTED: 'No network selected. Please select a network first.',

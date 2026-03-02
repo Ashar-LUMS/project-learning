@@ -18,7 +18,7 @@ import type {
   WeightedAnalysisOptions,
 } from './types';
 import { computeThreshold } from './matrixUtils';
-import { ANALYSIS_CONFIG } from '@/config/constants';
+import { ANALYSIS_CONFIG, computeAdaptiveCaps } from '@/config/constants';
 
 interface InternalAttractor {
   id: number;
@@ -118,8 +118,8 @@ export function performWeightedAnalysis(
   options: WeightedAnalysisOptions = {}
 ): DeterministicAnalysisResult {
   const {
-    stateCap = ANALYSIS_CONFIG.DEFAULT_STATE_CAP,
-    stepCap = ANALYSIS_CONFIG.DEFAULT_STEP_CAP,
+    stateCap: requestedStateCap = ANALYSIS_CONFIG.DEFAULT_STATE_CAP,
+    stepCap: requestedStepCap = ANALYSIS_CONFIG.DEFAULT_STEP_CAP,
     tieBehavior = 'hold',
     biases = {},
     thresholdMultiplier = 0,
@@ -145,6 +145,10 @@ export function performWeightedAnalysis(
     incoming[tgtIdx].push({ srcIdx, weight: w });
     inAbsSum[tgtIdx] += Math.abs(w);
   }
+
+  // Adaptively scale caps so total work stays browser-safe.
+  const edgeCount = edges.filter(e => (e.weight ?? 1) !== 0).length;
+  const { stateCap, stepCap } = computeAdaptiveCaps(n, edgeCount, requestedStateCap, requestedStepCap);
 
   const biasByIndex = nodeOrder.map((id) => (Number.isFinite(biases[id]) ? (biases[id] as number) : 0));
   const thresholds = inAbsSum.map((sum) => computeThreshold(Math.max(sum, 1), thresholdMultiplier));
